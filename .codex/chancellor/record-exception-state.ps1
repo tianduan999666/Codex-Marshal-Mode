@@ -19,6 +19,7 @@ $taskDirectoryPath = Join-Path (Join-Path $scriptRootPath 'tasks') $TaskId
 $timestampText = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 $closeoutGuideRelativePath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
 $recoveryGuideRelativePath = 'docs/40-执行/05-跨轮恢复说明.md'
+$governanceGuideRelativePath = 'docs/30-方案/08-V4-治理审计候选规范.md'
 
 if ($TaskId -notmatch '^v4-trial-\d{3}-.+$') {
     throw 'TaskId 必须匹配 v4-trial-<三位序号>-<语义名> 格式。'
@@ -53,6 +54,7 @@ $decisionLogAppendText = @"
 - 回退范围：$RollbackScope
 - 恢复提示：$ResumeHint
 - 影响：任务状态切换为 $NextStatus，下一步为 $NextAction
+- 治理提示：异常收口与提交前，应确认异常原因、恢复提示与公开边界已完成治理审计复核
 "@
 Add-Content -Path $decisionLogFilePath -Value $decisionLogAppendText -Encoding UTF8
 $resultAppendText = @"
@@ -64,8 +66,16 @@ $resultAppendText = @"
 - 恢复提示：$ResumeHint
 - 当前状态：$NextStatus
 - 下一步：$NextAction
+- 治理复核：$governanceGuideRelativePath
 - 恢复参考：$recoveryGuideRelativePath
 - 收口参考：$closeoutGuideRelativePath
+
+## 治理复核（$ExceptionType）
+
+- 当前异常原因来源是否已说明：待补说明
+- 当前恢复提示是否可追溯：待补说明
+- 当前是否发现口径漂移：待复核
+- 提交前是否已完成治理审计复核：待确认
 "@
 Add-Content -Path $resultFilePath -Value $resultAppendText -Encoding UTF8
 
