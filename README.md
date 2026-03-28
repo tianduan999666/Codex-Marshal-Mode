@@ -47,5 +47,6 @@ F:\260328大都督模式
 - Trial 验收报告：`docs/40-执行/07-V4-Trial-验收报告.md`
 - Trial 缺陷清单：`docs/40-执行/08-V4-Trial-缺陷清单.md`
 - Trial 改进建议：`docs/40-执行/09-V4-Trial-改进建议.md`
+- 本地安全提交流程：`docs/40-执行/10-本地安全提交流程.md`
 - 反屎山总纲：`docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`
 - 卫生与命名规范：`docs/reference/02-仓库卫生与命名规范.md`
