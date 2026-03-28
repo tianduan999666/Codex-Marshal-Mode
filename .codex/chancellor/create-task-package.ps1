@@ -15,6 +15,9 @@ $scriptRootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $tasksRootPath = Join-Path $scriptRootPath 'tasks'
 $taskDirectoryPath = Join-Path $tasksRootPath $TaskId
 $timestampText = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+$taskSpecRelativePath = 'docs/40-执行/01-任务包规范.md'
+$taskTemplateRelativePath = 'docs/40-执行/02-任务包模板.md'
+$closeoutGuideRelativePath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
 
 if ($TaskId -notmatch '^v4-trial-\d{3}-.+$') {
     throw 'TaskId 必须匹配 v4-trial-<三位序号>-<语义名> 格式。'
@@ -42,14 +45,15 @@ must_gate: []
 default_auto:
   - 低风险起包动作可直接执行
 source_refs:
-  - docs/40-执行/01-任务包规范.md
-  - docs/40-执行/02-任务包模板.md
+  - $taskSpecRelativePath
+  - $taskTemplateRelativePath
+  - $closeoutGuideRelativePath
 "@
 $stateYamlText = @"
 task_id: $TaskId
 status: drafting
 risk_level: $RiskLevel
-next_action: 补充任务细节并开始推进
+next_action: 按收口检查表补充任务细节并开始推进
 blocked_by: []
 updated_at: '$timestampText'
 phase_hint: $PhaseHint
@@ -81,10 +85,17 @@ $resultMarkdownText = @"
 ## 验证证据
 
 - 目录：.codex/chancellor/tasks/$TaskId/
+- 收口参考：$closeoutGuideRelativePath
 
 ## 遗留事项
 
 - 尚未补齐任务特定细节
+
+## 下一步建议
+
+- 回看 `contract.yaml`，补齐任务边界与验收。
+- 回看 `state.yaml`，改成真实下一步。
+- 按 $closeoutGuideRelativePath 完成本轮收口。
 "@
 
 Set-Content -Path (Join-Path $taskDirectoryPath 'contract.yaml') -Value $contractYamlText -Encoding UTF8
@@ -98,3 +109,4 @@ if ($SetActiveTask) {
 }
 
 Write-Output "任务包已创建：$taskDirectoryPath"
+Write-Output "收口参考：$closeoutGuideRelativePath"
