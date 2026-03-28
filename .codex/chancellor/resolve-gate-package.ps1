@@ -17,6 +17,7 @@ $scriptRootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $taskDirectoryPath = Join-Path (Join-Path $scriptRootPath 'tasks') $TaskId
 $timestampText = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 $gateGuideRelativePath = 'docs/40-执行/15-拍板包准备与收口规范.md'
+$governanceGuideRelativePath = 'docs/30-方案/08-V4-治理审计候选规范.md'
 $closeoutGuideRelativePath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
 
 if ($TaskId -notmatch '^v4-trial-\d{3}-.+$') {
@@ -122,8 +123,9 @@ $decisionLogAppendText = @"
 - 决策：回写拍板结果 $GateId
 - 结果：$DecisionStatus
 - 结论：$DecisionSummary
-- 证据：依据 $gateGuideRelativePath 完成拍板结果回写
+- 证据：依据 $gateGuideRelativePath 与 $governanceGuideRelativePath 完成拍板结果回写
 - 影响：任务状态切换为 $NextStatus，下一步为 $NextAction
+- 治理提示：提交前应确认回写后的关键口径、后续动作与公开边界已完成治理审计复核
 "@
 Add-Content -Path $decisionLogFilePath -Value $decisionLogAppendText -Encoding UTF8
 
@@ -136,7 +138,15 @@ $resultAppendText = @"
 - 选定项：$ChosenOption
 - 下一状态：$NextStatus
 - 下一步：$NextAction
+- 治理复核：$governanceGuideRelativePath
 - 收口参考：$closeoutGuideRelativePath
+
+## 治理复核（$GateId）
+
+- 回写后的关键口径来源是否已说明：待补说明
+- 回写后的后续动作是否可追溯：待补说明
+- 当前是否发现口径漂移：待复核
+- 提交前是否已完成治理审计复核：待确认
 "@
 Add-Content -Path $resultFilePath -Value $resultAppendText -Encoding UTF8
 
