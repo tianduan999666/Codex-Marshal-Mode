@@ -1,0 +1,24 @@
+# Local state
+.serena/
+.vscode/
+
+# Python cache
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Runtime state
+.codex/chancellor/active-task.txt
+.codex/chancellor/tasks/*
+!.codex/chancellor/tasks/README.md
+
+# Logs and temp outputs
+logs/**
+!logs/README.md
+temp/generated/**
+!temp/generated/README.md
