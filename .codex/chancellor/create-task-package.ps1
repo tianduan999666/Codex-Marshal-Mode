@@ -6,6 +6,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Goal,
     [string]$PhaseHint = 'optional_phase',
+    [string]$PlanningHint = 'optional',
+    [string]$PlanStep = '按真实情况填写当前最小推进步',
+    [string]$VerifySignal = '按真实情况填写当前验证信号',
     [ValidateSet('low', 'medium', 'high', 'critical')]
     [string]$RiskLevel = 'low',
     [bool]$SetActiveTask = $true
@@ -17,6 +20,7 @@ $taskDirectoryPath = Join-Path $tasksRootPath $TaskId
 $timestampText = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 $taskSpecRelativePath = 'docs/40-执行/01-任务包规范.md'
 $taskTemplateRelativePath = 'docs/40-执行/02-任务包模板.md'
+$planningGuideRelativePath = 'docs/30-方案/07-V4-规划策略候选规范.md'
 $closeoutGuideRelativePath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
 
 if ($TaskId -notmatch '^v4-trial-\d{3}-.+$') {
@@ -47,16 +51,21 @@ default_auto:
 source_refs:
   - $taskSpecRelativePath
   - $taskTemplateRelativePath
+  - $planningGuideRelativePath
   - $closeoutGuideRelativePath
+planning_hint: >-
+  $PlanningHint
 "@
 $stateYamlText = @"
 task_id: $TaskId
 status: drafting
 risk_level: $RiskLevel
-next_action: 按收口检查表补充任务细节并开始推进
+next_action: $PlanStep
 blocked_by: []
 updated_at: '$timestampText'
 phase_hint: $PhaseHint
+plan_step: $PlanStep
+verify_signal: $VerifySignal
 "@
 
 $decisionLogMarkdownText = @"
@@ -66,8 +75,9 @@ $decisionLogMarkdownText = @"
 
 - 决策：创建任务包骨架
 - 原因：减少重复手工起包成本
-- 证据：依据当前仓任务包规范与模板
+- 证据：依据当前仓任务包规范、模板与规划策略候选规范
 - 影响：后续可在此基础上继续补全任务细节
+- 路线修正：若验证失败，按真实情况改写下一轮推进路径
 "@
 
 $gatesYamlText = @"
@@ -93,9 +103,16 @@ $resultMarkdownText = @"
 
 ## 下一步建议
 
-- 回看 `contract.yaml`，补齐任务边界与验收。
-- 回看 `state.yaml`，改成真实下一步。
+- 回看 `contract.yaml`，补齐任务边界、验收与主假设。
+- 回看 `state.yaml`，改成真实下一步、最小推进步与验证信号。
+- 按 $planningGuideRelativePath 决定是否需要改路。
 - 按 $closeoutGuideRelativePath 完成本轮收口。
+
+## 规划复核
+
+- 当前主假设是否成立：待补证据
+- 当前最小推进步是否完成：否
+- 下一轮是否需要改路：待当前验证结果决定
 "@
 
 Set-Content -Path (Join-Path $taskDirectoryPath 'contract.yaml') -Value $contractYamlText -Encoding UTF8
