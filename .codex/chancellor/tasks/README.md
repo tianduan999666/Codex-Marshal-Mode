@@ -12,3 +12,5 @@
   gates.yaml
   result.md
 ```
+
+模板说明见：`docs/40-执行/02-任务包模板.md`
