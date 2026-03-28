@@ -3,7 +3,7 @@
 最后更新：2026-03-28 23:38:11
 任务 ID：`v4-trial-001-mvp-boundary-freeze`
 状态：已冻结，作为当前轮唯一边界口径
-来源依据：`docs/40-执行/20260328-232458-v4-mvp-boundary-and-first-task-package.md`
+来源依据：`docs/90-归档/20260328-232458-v4-mvp-boundary-and-first-task-package.md`
 
 ## 一句话结论
 
