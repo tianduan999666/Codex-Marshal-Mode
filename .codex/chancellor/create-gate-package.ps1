@@ -25,6 +25,7 @@ $scriptRootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $taskDirectoryPath = Join-Path (Join-Path $scriptRootPath 'tasks') $TaskId
 $timestampText = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 $gateGuideRelativePath = 'docs/40-执行/15-拍板包准备与收口规范.md'
+$governanceGuideRelativePath = 'docs/30-方案/08-V4-治理审计候选规范.md'
 $closeoutGuideRelativePath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
 
 if ($TaskId -notmatch '^v4-trial-\d{3}-.+$') {
@@ -98,8 +99,9 @@ $decisionLogAppendText = @"
 
 - 决策：准备拍板包 $GateId
 - 原因：当前任务进入待拍板状态，需要形成标准拍板输入
-- 证据：依据 $gateGuideRelativePath 生成待拍板结构
+- 证据：依据 $gateGuideRelativePath 与 $governanceGuideRelativePath 生成待拍板结构
 - 影响：任务状态切换为 waiting_gate，待主公拍板后再继续
+- 治理提示：拍板汇报与提交前，应追加治理审计复核
 "@
 Add-Content -Path $decisionLogFilePath -Value $decisionLogAppendText -Encoding UTF8
 $resultAppendText = @"
@@ -110,7 +112,15 @@ $resultAppendText = @"
 - 推荐：$Recommendation
 - 阻塞原因：$BlockingReason
 - 拍板规范：$gateGuideRelativePath
+- 治理复核：$governanceGuideRelativePath
 - 收口参考：$closeoutGuideRelativePath
+
+## 治理提示（$GateId）
+
+- 当前关键口径来源是否已说明：待补说明
+- 当前拍板输出是否可追溯：待补说明
+- 当前是否发现口径漂移：待复核
+- 提交前是否已完成治理审计复核：待确认
 "@
 Add-Content -Path $resultFilePath -Value $resultAppendText -Encoding UTF8
 
