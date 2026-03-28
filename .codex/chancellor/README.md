@@ -7,3 +7,4 @@
 - `tasks/` 承载任务包
 - 运行态在这里，不进 `docs/`
 - 维护层起包脚手架见：`create-task-package.ps1`
+- 拍板包半自动模板见：`create-gate-package.ps1`
