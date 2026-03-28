@@ -8,3 +8,4 @@
 - 运行态在这里，不进 `docs/`
 - 维护层起包脚手架见：`create-task-package.ps1`
 - 拍板包半自动模板见：`create-gate-package.ps1`
+- 拍板结果回写模板见：`resolve-gate-package.ps1`
