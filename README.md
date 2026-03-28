@@ -54,5 +54,6 @@ F:\260328大都督模式
 - V4-Target 蓝图：`docs/30-方案/04-V4-Target-蓝图.md`
 - V4-Target 冻结清单：`docs/30-方案/05-V4-Target-冻结清单.md`
 - V4-Target 实施计划：`docs/40-执行/12-V4-Target-实施计划.md`
+- 维护层总入口：`docs/40-执行/13-维护层总入口.md`
 - 反屎山总纲：`docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`
 - 卫生与命名规范：`docs/reference/02-仓库卫生与命名规范.md`
