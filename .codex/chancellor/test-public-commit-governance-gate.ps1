@@ -985,6 +985,19 @@ finally {
 }
 
 try {
+    $driftedDocsReadmeLines = @($docsReadmeLines)
+    $driftedDocsReadmeLines[$docsReadmePlanningEntryIndex] = $docsReadmeGovernanceEntryLineText
+    $driftedDocsReadmeLines[$docsReadmeGovernanceEntryIndex] = $docsReadmePlanningEntryLineText
+    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-public-target-entry-order-drift-docs-readme'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
+}
+
+try {
     $driftedReadmeLines = @($readmeLines)
     $driftedReadmeLines[$planningEntryIndex] = $governanceEntryLineText
     $driftedReadmeLines[$governanceEntryIndex] = $planningEntryLineText
