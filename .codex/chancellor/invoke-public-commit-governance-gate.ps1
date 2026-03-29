@@ -1912,6 +1912,49 @@ function Get-CanonicalMaintenanceValueState {
     }
 }
 
+function Get-CanonicalConcurrentGateRuleDocumentSplitState {
+    $concurrentRuleDocPath = 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
+    $expectedConcurrentRuleDocumentSplitItems = @(
+        [pscustomobject]@{ Name = 'state.yaml'; Description = '只写主状态、主下一步' }
+        [pscustomobject]@{ Name = 'gates.yaml'; Description = '保留全部 gate 项及其状态' }
+        [pscustomobject]@{ Name = 'decision-log.md'; Description = '记录为什么本轮选择该主状态，而不是其他状态' }
+        [pscustomobject]@{ Name = 'result.md'; Description = '写清“主阻塞”“次要待处理项”“恢复顺序”' }
+    )
+
+    $concurrentRuleDocumentSplitSection = Get-FileSectionContent -FilePath $concurrentRuleDocPath -SectionStartMarker '## 第五原则：文档落盘分工固定槽位' -SectionEndMarker '## 推荐汇报顺序'
+    if ([string]::IsNullOrWhiteSpace($concurrentRuleDocumentSplitSection)) {
+        throw "多 gate 与多异常并存处理规则未解析到文档落盘分工固定槽位：$concurrentRuleDocPath"
+    }
+
+    $concurrentRuleDocumentSplitRows = @(
+        [regex]::Matches($concurrentRuleDocumentSplitSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($concurrentRuleDocumentSplitRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConcurrentRuleDocumentSplitItems | ForEach-Object { $_.Name }) -Label '多 gate 与多异常并存处理规则文档落盘分工固定槽位序列'
+    foreach ($expectedConcurrentRuleDocumentSplitItem in $expectedConcurrentRuleDocumentSplitItems) {
+        $matchedConcurrentRuleDocumentSplitRow = @(
+            $concurrentRuleDocumentSplitRows |
+                Where-Object { $_.Name -eq $expectedConcurrentRuleDocumentSplitItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConcurrentRuleDocumentSplitRow) {
+            throw "多 gate 与多异常并存处理规则缺少文档落盘分工固定槽位：$($expectedConcurrentRuleDocumentSplitItem.Name)"
+        }
+
+        if ($matchedConcurrentRuleDocumentSplitRow.Description -ne $expectedConcurrentRuleDocumentSplitItem.Description) {
+            throw "多 gate 与多异常并存处理规则文档落盘分工固定槽位漂移：$($expectedConcurrentRuleDocumentSplitItem.Name) 期望 $($expectedConcurrentRuleDocumentSplitItem.Description)，实际 $($matchedConcurrentRuleDocumentSplitRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConcurrentRuleDocumentSplitItems = @($expectedConcurrentRuleDocumentSplitItems)
+    }
+}
+
 function Get-CanonicalConcurrentStatusReportSummaryState {
     $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
     $expectedConcurrentReportSummaryItems = @(
@@ -2937,6 +2980,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceValueState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalConcurrentGateRuleDocumentSplitState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
