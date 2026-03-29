@@ -1912,6 +1912,48 @@ function Get-CanonicalMaintenanceValueState {
     }
 }
 
+function Get-CanonicalConcurrentGateRuleSinglePrimaryState {
+    $concurrentRuleDocPath = 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
+    $expectedConcurrentRuleSinglePrimaryItems = @(
+        [pscustomobject]@{ Name = 'state.yaml 单主状态'; Description = '`state.yaml` 永远只表达一个当前主状态' }
+        [pscustomobject]@{ Name = '次要事项留档'; Description = '其他未解决事项继续分别留在 `gates.yaml`、`result.md`、`decision-log.md`，而不是争抢 `state.yaml`' }
+        [pscustomobject]@{ Name = '主阻塞唯一'; Description = '若同时存在多个阻塞，必须选出“当前最先阻断推进”的主阻塞' }
+    )
+
+    $concurrentRuleSinglePrimarySection = Get-FileSectionContent -FilePath $concurrentRuleDocPath -SectionStartMarker '## 第一原则：单任务单主状态固定槽位' -SectionEndMarker '## 第二原则：按下一行动主体决定优先级'
+    if ([string]::IsNullOrWhiteSpace($concurrentRuleSinglePrimarySection)) {
+        throw "多 gate 与多异常并存处理规则未解析到单任务单主状态固定槽位：$concurrentRuleDocPath"
+    }
+
+    $concurrentRuleSinglePrimaryRows = @(
+        [regex]::Matches($concurrentRuleSinglePrimarySection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($concurrentRuleSinglePrimaryRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConcurrentRuleSinglePrimaryItems | ForEach-Object { $_.Name }) -Label '多 gate 与多异常并存处理规则单任务单主状态固定槽位序列'
+    foreach ($expectedConcurrentRuleSinglePrimaryItem in $expectedConcurrentRuleSinglePrimaryItems) {
+        $matchedConcurrentRuleSinglePrimaryRow = @(
+            $concurrentRuleSinglePrimaryRows |
+                Where-Object { $_.Name -eq $expectedConcurrentRuleSinglePrimaryItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConcurrentRuleSinglePrimaryRow) {
+            throw "多 gate 与多异常并存处理规则缺少单任务单主状态固定槽位：$($expectedConcurrentRuleSinglePrimaryItem.Name)"
+        }
+
+        if ($matchedConcurrentRuleSinglePrimaryRow.Description -ne $expectedConcurrentRuleSinglePrimaryItem.Description) {
+            throw "多 gate 与多异常并存处理规则单任务单主状态固定槽位漂移：$($expectedConcurrentRuleSinglePrimaryItem.Name) 期望 $($expectedConcurrentRuleSinglePrimaryItem.Description)，实际 $($matchedConcurrentRuleSinglePrimaryRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConcurrentRuleSinglePrimaryItems = @($expectedConcurrentRuleSinglePrimaryItems)
+    }
+}
+
 function Get-CanonicalConcurrentGateRuleCloseoutCheckState {
     $concurrentRuleDocPath = 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
     $expectedConcurrentRuleCloseoutCheckItems = @(
@@ -3067,6 +3109,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceValueState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalConcurrentGateRuleSinglePrimaryState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

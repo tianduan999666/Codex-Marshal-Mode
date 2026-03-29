@@ -751,6 +751,7 @@ $configReviewScriptEntryLineText = '- `收口入口`：`docs/40-执行/14-维护
 $configReviewSourceLineText = '- `冻结边界依据`：`docs/30-方案/05-V4-Target-冻结清单.md`'
 $concurrentRuleDocPath = Join-Path $repoRootPath 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
 $originalConcurrentRuleDocBytes = [System.IO.File]::ReadAllBytes($concurrentRuleDocPath)
+$concurrentRuleSinglePrimaryLineText = '- `主阻塞唯一`：若同时存在多个阻塞，必须选出“当前最先阻断推进”的主阻塞。'
 $concurrentRuleDocumentSplitLineText = '- `result.md`：写清“主阻塞”“次要待处理项”“恢复顺序”。'
 $concurrentRuleReportOrderLineText = '- `恢复顺序`：最后说明一旦主阻塞解除，恢复顺序是什么。'
 $concurrentRuleCloseoutCheckLineText = '- `恢复后重评`：是否已在恢复后重新评估主状态，而不是沿用旧状态。'
@@ -820,6 +821,10 @@ if ((Get-Content $configReviewDocPath) -notcontains $configReviewScriptEntryLine
 
 if ((Get-Content $configReviewDocPath) -notcontains $configReviewSourceLineText) {
     throw "测试前置条件不满足：$configReviewDocPath 中缺少 $configReviewSourceLineText"
+}
+
+if ((Get-Content $concurrentRuleDocPath) -notcontains $concurrentRuleSinglePrimaryLineText) {
+    throw "测试前置条件不满足：$concurrentRuleDocPath 中缺少 $concurrentRuleSinglePrimaryLineText"
 }
 
 if ((Get-Content $concurrentRuleDocPath) -notcontains $concurrentRuleDocumentSplitLineText) {
@@ -1002,6 +1007,16 @@ try {
 }
 finally {
     [System.IO.File]::WriteAllBytes($configReviewDocPath, $originalConfigReviewDocBytes)
+}
+
+try {
+    $driftedConcurrentRuleContent = (Get-Content $concurrentRuleDocPath -Raw).Replace($concurrentRuleSinglePrimaryLineText, '- `主阻塞唯一`：之后再看。')
+    [System.IO.File]::WriteAllText($concurrentRuleDocPath, $driftedConcurrentRuleContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/19-多 gate 与多异常并存处理规则.md') -ExpectedExitCode 1 -TestName 'block-concurrent-rule-single-primary-slot-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($concurrentRuleDocPath, $originalConcurrentRuleDocBytes)
 }
 
 try {
