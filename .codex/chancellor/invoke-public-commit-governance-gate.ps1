@@ -493,6 +493,16 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '稳态判断'; Description = '明确当前是否稳态' }
         [pscustomobject]@{ Name = '下一步'; Description = '给出最小下一步建议' }
     )
+    $expectedRepairCommandSlotItems = @(
+        [pscustomobject]@{ Name = '修复范围'; Description = '只在安全边界内处理当前常见问题' }
+        [pscustomobject]@{ Name = '处理方式'; Description = '优先尝试自动修复当前已知常见问题' }
+        [pscustomobject]@{ Name = '升级条件'; Description = '超出安全边界或无法自动修复时停止扩展并提示人工处理' }
+    )
+    $expectedPanelAcceptanceCommandSlotItems = @(
+        [pscustomobject]@{ Name = '触发场景'; Description = '入口相关改动后或切换后进入官方面板做人眼验板' }
+        [pscustomobject]@{ Name = '验板动作'; Description = '给出进入官方面板人工验收的固定步骤' }
+        [pscustomobject]@{ Name = '验板目标'; Description = '确认版本、模式与入口表现是否稳态' }
+    )
     $expectedChecklistCommands = @(
         '丞相版本'
         '丞相检查'
@@ -727,7 +737,7 @@ function Get-CanonicalPanelCommandState {
         }
     }
 
-    $boundarySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 两条维护命令边界' -SectionEndMarker '## 固定人工验收步骤'
+    $boundarySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 两条维护命令边界' -SectionEndMarker '## 丞相修复固定槽位'
     if ([string]::IsNullOrWhiteSpace($boundarySection)) {
         throw "面板入口验收未解析到两条维护命令边界：$acceptanceDocPath"
     }
@@ -753,6 +763,64 @@ function Get-CanonicalPanelCommandState {
 
         if ($matchedBoundaryRow.Description -ne $expectedBoundaryRow.Description) {
             throw "面板入口验收维护命令边界漂移：$($expectedBoundaryRow.Command) 期望 $($expectedBoundaryRow.Description)，实际 $($matchedBoundaryRow.Description)"
+        }
+    }
+
+    $repairCommandSlotSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 丞相修复固定槽位' -SectionEndMarker '## 丞相验板固定槽位'
+    if ([string]::IsNullOrWhiteSpace($repairCommandSlotSection)) {
+        throw "面板入口验收未解析到丞相修复固定槽位：$acceptanceDocPath"
+    }
+
+    $repairCommandSlotRows = @(
+        [regex]::Matches($repairCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($repairCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedRepairCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板入口验收丞相修复固定槽位序列'
+    foreach ($expectedRepairCommandSlotItem in $expectedRepairCommandSlotItems) {
+        $matchedRepairCommandSlotRow = @(
+            $repairCommandSlotRows |
+                Where-Object { $_.Name -eq $expectedRepairCommandSlotItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedRepairCommandSlotRow) {
+            throw "面板入口验收缺少丞相修复固定槽位：$($expectedRepairCommandSlotItem.Name)"
+        }
+
+        if ($matchedRepairCommandSlotRow.Description -ne $expectedRepairCommandSlotItem.Description) {
+            throw "面板入口验收丞相修复固定槽位漂移：$($expectedRepairCommandSlotItem.Name) 期望 $($expectedRepairCommandSlotItem.Description)，实际 $($matchedRepairCommandSlotRow.Description)"
+        }
+    }
+
+    $panelAcceptanceCommandSlotSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 丞相验板固定槽位' -SectionEndMarker '## 固定人工验收步骤'
+    if ([string]::IsNullOrWhiteSpace($panelAcceptanceCommandSlotSection)) {
+        throw "面板入口验收未解析到丞相验板固定槽位：$acceptanceDocPath"
+    }
+
+    $panelAcceptanceCommandSlotRows = @(
+        [regex]::Matches($panelAcceptanceCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($panelAcceptanceCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedPanelAcceptanceCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板入口验收丞相验板固定槽位序列'
+    foreach ($expectedPanelAcceptanceCommandSlotItem in $expectedPanelAcceptanceCommandSlotItems) {
+        $matchedPanelAcceptanceCommandSlotRow = @(
+            $panelAcceptanceCommandSlotRows |
+                Where-Object { $_.Name -eq $expectedPanelAcceptanceCommandSlotItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedPanelAcceptanceCommandSlotRow) {
+            throw "面板入口验收缺少丞相验板固定槽位：$($expectedPanelAcceptanceCommandSlotItem.Name)"
+        }
+
+        if ($matchedPanelAcceptanceCommandSlotRow.Description -ne $expectedPanelAcceptanceCommandSlotItem.Description) {
+            throw "面板入口验收丞相验板固定槽位漂移：$($expectedPanelAcceptanceCommandSlotItem.Name) 期望 $($expectedPanelAcceptanceCommandSlotItem.Description)，实际 $($matchedPanelAcceptanceCommandSlotRow.Description)"
         }
     }
 
@@ -1021,7 +1089,7 @@ function Get-CanonicalPanelCommandState {
         }
     }
 
-    $checklistBoundarySection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 相关维护命令边界' -SectionEndMarker '## 验板步骤'
+    $checklistBoundarySection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 相关维护命令边界' -SectionEndMarker '## 丞相修复固定槽位'
     if ([string]::IsNullOrWhiteSpace($checklistBoundarySection)) {
         throw "面板人工验板清单未解析到相关维护命令边界：$checklistPath"
     }
@@ -1047,6 +1115,64 @@ function Get-CanonicalPanelCommandState {
 
         if ($matchedChecklistBoundaryRow.Description -ne $expectedBoundaryRow.Description) {
             throw "面板人工验板清单维护命令边界漂移：$($expectedBoundaryRow.Command) 期望 $($expectedBoundaryRow.Description)，实际 $($matchedChecklistBoundaryRow.Description)"
+        }
+    }
+
+    $checklistRepairCommandSlotSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 丞相修复固定槽位' -SectionEndMarker '## 丞相验板固定槽位'
+    if ([string]::IsNullOrWhiteSpace($checklistRepairCommandSlotSection)) {
+        throw "面板人工验板清单未解析到丞相修复固定槽位：$checklistPath"
+    }
+
+    $checklistRepairCommandSlotRows = @(
+        [regex]::Matches($checklistRepairCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($checklistRepairCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedRepairCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单丞相修复固定槽位序列'
+    foreach ($expectedRepairCommandSlotItem in $expectedRepairCommandSlotItems) {
+        $matchedChecklistRepairCommandSlotRow = @(
+            $checklistRepairCommandSlotRows |
+                Where-Object { $_.Name -eq $expectedRepairCommandSlotItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedChecklistRepairCommandSlotRow) {
+            throw "面板人工验板清单缺少丞相修复固定槽位：$($expectedRepairCommandSlotItem.Name)"
+        }
+
+        if ($matchedChecklistRepairCommandSlotRow.Description -ne $expectedRepairCommandSlotItem.Description) {
+            throw "面板人工验板清单丞相修复固定槽位漂移：$($expectedRepairCommandSlotItem.Name) 期望 $($expectedRepairCommandSlotItem.Description)，实际 $($matchedChecklistRepairCommandSlotRow.Description)"
+        }
+    }
+
+    $checklistPanelAcceptanceCommandSlotSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 丞相验板固定槽位' -SectionEndMarker '## 验板步骤'
+    if ([string]::IsNullOrWhiteSpace($checklistPanelAcceptanceCommandSlotSection)) {
+        throw "面板人工验板清单未解析到丞相验板固定槽位：$checklistPath"
+    }
+
+    $checklistPanelAcceptanceCommandSlotRows = @(
+        [regex]::Matches($checklistPanelAcceptanceCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($checklistPanelAcceptanceCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedPanelAcceptanceCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单丞相验板固定槽位序列'
+    foreach ($expectedPanelAcceptanceCommandSlotItem in $expectedPanelAcceptanceCommandSlotItems) {
+        $matchedChecklistPanelAcceptanceCommandSlotRow = @(
+            $checklistPanelAcceptanceCommandSlotRows |
+                Where-Object { $_.Name -eq $expectedPanelAcceptanceCommandSlotItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedChecklistPanelAcceptanceCommandSlotRow) {
+            throw "面板人工验板清单缺少丞相验板固定槽位：$($expectedPanelAcceptanceCommandSlotItem.Name)"
+        }
+
+        if ($matchedChecklistPanelAcceptanceCommandSlotRow.Description -ne $expectedPanelAcceptanceCommandSlotItem.Description) {
+            throw "面板人工验板清单丞相验板固定槽位漂移：$($expectedPanelAcceptanceCommandSlotItem.Name) 期望 $($expectedPanelAcceptanceCommandSlotItem.Description)，实际 $($matchedChecklistPanelAcceptanceCommandSlotRow.Description)"
         }
     }
 
