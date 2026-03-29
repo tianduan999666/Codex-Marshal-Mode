@@ -2045,6 +2045,48 @@ function Get-CanonicalGovernanceConfigReviewDecisionLogSkeletonState {
     }
 }
 
+function Get-CanonicalGovernanceConfigReviewLongTermValueState {
+    $configReviewDocPath = 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
+    $expectedConfigReviewLongTermValueItems = @(
+        [pscustomobject]@{ Name = '可重复落盘'; Description = '把治理审计从原则推进到可重复落盘' }
+        [pscustomobject]@{ Name = '提前暴露漂移'; Description = '提前暴露入口口径漂移，而不是提交后再补洞' }
+        [pscustomobject]@{ Name = '目录内自含'; Description = '保持当前目录内自含，不引入额外系统或依赖' }
+    )
+
+    $configReviewLongTermValueSection = Get-FileSectionContent -FilePath $configReviewDocPath -SectionStartMarker '## 长期价值固定槽位'
+    if ([string]::IsNullOrWhiteSpace($configReviewLongTermValueSection)) {
+        throw "关键配置来源与漂移复核模板未解析到长期价值固定槽位：$configReviewDocPath"
+    }
+
+    $configReviewLongTermValueRows = @(
+        [regex]::Matches($configReviewLongTermValueSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($configReviewLongTermValueRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConfigReviewLongTermValueItems | ForEach-Object { $_.Name }) -Label '关键配置来源与漂移复核模板长期价值固定槽位序列'
+    foreach ($expectedConfigReviewLongTermValueItem in $expectedConfigReviewLongTermValueItems) {
+        $matchedConfigReviewLongTermValueRow = @(
+            $configReviewLongTermValueRows |
+                Where-Object { $_.Name -eq $expectedConfigReviewLongTermValueItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConfigReviewLongTermValueRow) {
+            throw "关键配置来源与漂移复核模板缺少长期价值固定槽位：$($expectedConfigReviewLongTermValueItem.Name)"
+        }
+
+        if ($matchedConfigReviewLongTermValueRow.Description -ne $expectedConfigReviewLongTermValueItem.Description) {
+            throw "关键配置来源与漂移复核模板长期价值固定槽位漂移：$($expectedConfigReviewLongTermValueItem.Name) 期望 $($expectedConfigReviewLongTermValueItem.Description)，实际 $($matchedConfigReviewLongTermValueRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConfigReviewLongTermValueItems = @($expectedConfigReviewLongTermValueItems)
+    }
+}
+
 function Get-CanonicalGovernanceConfigReviewOutputState {
     $configReviewDocPath = 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
     $expectedConfigReviewOutputItems = @(
@@ -2659,6 +2701,12 @@ catch {
 }
 try {
     [void](Get-CanonicalGovernanceConfigReviewDecisionLogSkeletonState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGovernanceConfigReviewLongTermValueState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

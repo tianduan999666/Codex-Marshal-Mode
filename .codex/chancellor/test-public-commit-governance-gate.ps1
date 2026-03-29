@@ -744,6 +744,7 @@ $originalConfigReviewDocBytes = [System.IO.File]::ReadAllBytes($configReviewDocP
 $configReviewTriggerLineText = '- `提交前预检落盘`：当前轮正在执行 `docs/40-执行/10-本地安全提交流程.md`，需要把提交前预检结果落盘。'
 $configReviewResultSkeletonLineText = '- `下一步`：写清是否继续提交前收口。'
 $configReviewDecisionLogSkeletonLineText = '- `影响`：写清是否可以继续进入提交前收口。'
+$configReviewLongTermValueLineText = '- `目录内自含`：保持当前目录内自含，不引入额外系统或依赖。'
 $configReviewOutputLineText = '- `先修平再提交`：复核后如发现漂移，优先修平口径，再继续提交。'
 $configReviewScriptEntryLineText = '- `收口入口`：`docs/40-执行/14-维护层动作矩阵与收口检查表.md`'
 $configReviewSourceLineText = '- `冻结边界依据`：`docs/30-方案/05-V4-Target-冻结清单.md`'
@@ -786,6 +787,10 @@ if ((Get-Content $configReviewDocPath) -notcontains $configReviewResultSkeletonL
 
 if ((Get-Content $configReviewDocPath) -notcontains $configReviewDecisionLogSkeletonLineText) {
     throw "测试前置条件不满足：$configReviewDocPath 中缺少 $configReviewDecisionLogSkeletonLineText"
+}
+
+if ((Get-Content $configReviewDocPath) -notcontains $configReviewLongTermValueLineText) {
+    throw "测试前置条件不满足：$configReviewDocPath 中缺少 $configReviewLongTermValueLineText"
 }
 
 if ((Get-Content $configReviewDocPath) -notcontains $configReviewOutputLineText) {
@@ -895,6 +900,16 @@ try {
     [System.IO.File]::WriteAllText($configReviewDocPath, $driftedConfigReviewContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/21-关键配置来源与漂移复核模板.md') -ExpectedExitCode 1 -TestName 'block-config-review-decision-log-skeleton-slot-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($configReviewDocPath, $originalConfigReviewDocBytes)
+}
+
+try {
+    $driftedConfigReviewContent = (Get-Content $configReviewDocPath -Raw).Replace($configReviewLongTermValueLineText, '- `目录内自含`：以后再看。')
+    [System.IO.File]::WriteAllText($configReviewDocPath, $driftedConfigReviewContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/21-关键配置来源与漂移复核模板.md') -ExpectedExitCode 1 -TestName 'block-config-review-long-term-value-slot-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($configReviewDocPath, $originalConfigReviewDocBytes)
