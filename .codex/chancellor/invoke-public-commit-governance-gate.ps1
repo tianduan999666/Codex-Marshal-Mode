@@ -518,10 +518,38 @@ function Get-BlockedPathRulesFromLocalSafeFlow {
         throw "公开提交禁止路径真源未解析到阻断规则：$localSafeFlowPath"
     }
 
+    $orderedBlockedExactPaths = Get-OrderedUniqueValues -Values @($blockedExactPaths)
+    $orderedBlockedPrefixes = Get-OrderedUniqueValues -Values @($blockedPrefixes)
+    $orderedBlockedPrefixExceptions = Get-OrderedUniqueValues -Values @($blockedPrefixExceptions)
+
+    $blockedPrefixOrderPaths = @(
+        'logs/'
+        'temp/generated/'
+    )
+    $blockedPrefixOrderSlice = @(
+        $orderedBlockedPrefixes |
+            Where-Object { $_ -in $blockedPrefixOrderPaths }
+    )
+    if ($blockedPrefixOrderSlice.Count -eq $blockedPrefixOrderPaths.Count) {
+        Assert-ExactOrderedValues -SourceValues $blockedPrefixOrderSlice -ExpectedValues $blockedPrefixOrderPaths -Label '公开提交禁止路径前缀真源'
+    }
+
+    $blockedExceptionOrderPaths = @(
+        'logs/README.md'
+        'temp/generated/README.md'
+    )
+    $blockedExceptionOrderSlice = @(
+        $orderedBlockedPrefixExceptions |
+            Where-Object { $_ -in $blockedExceptionOrderPaths }
+    )
+    if ($blockedExceptionOrderSlice.Count -eq $blockedExceptionOrderPaths.Count) {
+        Assert-ExactOrderedValues -SourceValues $blockedExceptionOrderSlice -ExpectedValues $blockedExceptionOrderPaths -Label '公开提交禁止路径例外真源'
+    }
+
     return [pscustomobject]@{
-        BlockedExactPaths = (Get-OrderedUniqueValues -Values @($blockedExactPaths))
-        BlockedPrefixes = (Get-OrderedUniqueValues -Values @($blockedPrefixes))
-        BlockedPrefixExceptions = (Get-OrderedUniqueValues -Values @($blockedPrefixExceptions))
+        BlockedExactPaths = $orderedBlockedExactPaths
+        BlockedPrefixes = $orderedBlockedPrefixes
+        BlockedPrefixExceptions = $orderedBlockedPrefixExceptions
     }
 }
 

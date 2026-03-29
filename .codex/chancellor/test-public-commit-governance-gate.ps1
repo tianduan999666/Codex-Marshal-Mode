@@ -237,6 +237,56 @@ finally {
     [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
 }
 
+$blockedTempGeneratedPrefixSourceLineText = 'prefix:temp/generated/'
+$blockedLogsPrefixSourceIndex = [Array]::IndexOf($localSafeFlowLines, $blockedLogsPrefixSourceLineText)
+$blockedTempGeneratedPrefixSourceIndex = [Array]::IndexOf($localSafeFlowLines, $blockedTempGeneratedPrefixSourceLineText)
+
+if ($blockedLogsPrefixSourceIndex -lt 0 -or $blockedTempGeneratedPrefixSourceIndex -lt 0) {
+    throw '测试前置条件不满足：公开提交禁止路径前缀顺序测试行缺失。'
+}
+
+if ($blockedLogsPrefixSourceIndex -gt $blockedTempGeneratedPrefixSourceIndex) {
+    throw '测试前置条件不满足：公开提交禁止路径前缀顺序已不是当前现状。'
+}
+
+try {
+    $driftedLocalSafeFlowLines = @($localSafeFlowLines)
+    $driftedLocalSafeFlowLines[$blockedLogsPrefixSourceIndex] = $blockedTempGeneratedPrefixSourceLineText
+    $driftedLocalSafeFlowLines[$blockedTempGeneratedPrefixSourceIndex] = $blockedLogsPrefixSourceLineText
+    $driftedLocalSafeFlowContent = ($driftedLocalSafeFlowLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($localSafeFlowPath, $driftedLocalSafeFlowContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/10-本地安全提交流程.md') -ExpectedExitCode 1 -TestName 'block-blocked-prefix-source-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
+}
+
+$blockedTempGeneratedReadmeExceptionSourceLineText = 'except:temp/generated/README.md'
+$blockedLogsReadmeExceptionSourceIndex = [Array]::IndexOf($localSafeFlowLines, $blockedLogsReadmeExceptionSourceLineText)
+$blockedTempGeneratedReadmeExceptionSourceIndex = [Array]::IndexOf($localSafeFlowLines, $blockedTempGeneratedReadmeExceptionSourceLineText)
+
+if ($blockedLogsReadmeExceptionSourceIndex -lt 0 -or $blockedTempGeneratedReadmeExceptionSourceIndex -lt 0) {
+    throw '测试前置条件不满足：公开提交禁止路径例外顺序测试行缺失。'
+}
+
+if ($blockedLogsReadmeExceptionSourceIndex -gt $blockedTempGeneratedReadmeExceptionSourceIndex) {
+    throw '测试前置条件不满足：公开提交禁止路径例外顺序已不是当前现状。'
+}
+
+try {
+    $driftedLocalSafeFlowLines = @($localSafeFlowLines)
+    $driftedLocalSafeFlowLines[$blockedLogsReadmeExceptionSourceIndex] = $blockedTempGeneratedReadmeExceptionSourceLineText
+    $driftedLocalSafeFlowLines[$blockedTempGeneratedReadmeExceptionSourceIndex] = $blockedLogsReadmeExceptionSourceLineText
+    $driftedLocalSafeFlowContent = ($driftedLocalSafeFlowLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($localSafeFlowPath, $driftedLocalSafeFlowContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/10-本地安全提交流程.md') -ExpectedExitCode 1 -TestName 'block-blocked-prefix-exception-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
+}
+
 $removedTargetEntryLineText = '- `30-方案/04-V4-Target-蓝图.md`'
 
 if ($docsReadmeLines -notcontains $removedTargetEntryLineText) {
