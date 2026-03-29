@@ -463,6 +463,16 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '面板命令'; Description = '再列出当前面板丞相命令及其含义' }
         [pscustomobject]@{ Name = '注意事项'; Description = '最后提示维护层动作、安全边界与人工验板提醒' }
     )
+    $expectedHelpUsageItems = @(
+        [pscustomobject]@{ Name = '默认入口'; Description = '当前默认用户入口是官方 Codex 面板' }
+        [pscustomobject]@{ Name = '适用场景'; Description = '普通用户日常使用优先在面板内完成，终端仅保留给维护、安装、迁移、排障' }
+        [pscustomobject]@{ Name = '维护层说明'; Description = '如必须落到脚本层，要明确说明“这是维护层动作”' }
+    )
+    $expectedHelpPanelCommandItems = @(
+        [pscustomobject]@{ Name = '命令顺序'; Description = '按丞相帮助、丞相状态、丞相检查、丞相修复、丞相验板、丞相版本的顺序展示' }
+        [pscustomobject]@{ Name = '命令含义'; Description = '每条命令都要带一句人话含义，不得只列命令名' }
+        [pscustomobject]@{ Name = '公开边界'; Description = '普通用户只暴露面板命令，不主动推荐终端丞相别名' }
+    )
     $expectedHelpNoticeItems = @(
         [pscustomobject]@{ Name = '安全边界'; Description = '普通用户入口优先留在官方面板，维护层动作不向普通用户外露复杂终端流程' }
         [pscustomobject]@{ Name = '维护层动作'; Description = '如必须落到脚本层，要明确说明“这是维护层动作”' }
@@ -586,7 +596,7 @@ function Get-CanonicalPanelCommandState {
         }
     }
 
-    $helpTemplateSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 帮助命令固定结构' -SectionEndMarker '## 注意事项固定子项'
+    $helpTemplateSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 帮助命令固定结构' -SectionEndMarker '## 当前用法固定子项'
     if ([string]::IsNullOrWhiteSpace($helpTemplateSection)) {
         throw "面板入口验收未解析到帮助命令固定结构：$acceptanceDocPath"
     }
@@ -612,6 +622,64 @@ function Get-CanonicalPanelCommandState {
 
         if ($matchedHelpTemplateRow.Description -ne $expectedHelpTemplateItem.Description) {
             throw "面板入口验收帮助命令固定结构漂移：$($expectedHelpTemplateItem.Name) 期望 $($expectedHelpTemplateItem.Description)，实际 $($matchedHelpTemplateRow.Description)"
+        }
+    }
+
+    $helpUsageSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 当前用法固定子项' -SectionEndMarker '## 面板命令固定子项'
+    if ([string]::IsNullOrWhiteSpace($helpUsageSection)) {
+        throw "面板入口验收未解析到当前用法固定子项：$acceptanceDocPath"
+    }
+
+    $helpUsageRows = @(
+        [regex]::Matches($helpUsageSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($helpUsageRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedHelpUsageItems | ForEach-Object { $_.Name }) -Label '面板入口验收当前用法固定子项序列'
+    foreach ($expectedHelpUsageItem in $expectedHelpUsageItems) {
+        $matchedHelpUsageRow = @(
+            $helpUsageRows |
+                Where-Object { $_.Name -eq $expectedHelpUsageItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedHelpUsageRow) {
+            throw "面板入口验收缺少当前用法固定子项：$($expectedHelpUsageItem.Name)"
+        }
+
+        if ($matchedHelpUsageRow.Description -ne $expectedHelpUsageItem.Description) {
+            throw "面板入口验收当前用法固定子项漂移：$($expectedHelpUsageItem.Name) 期望 $($expectedHelpUsageItem.Description)，实际 $($matchedHelpUsageRow.Description)"
+        }
+    }
+
+    $helpPanelCommandSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 面板命令固定子项' -SectionEndMarker '## 注意事项固定子项'
+    if ([string]::IsNullOrWhiteSpace($helpPanelCommandSection)) {
+        throw "面板入口验收未解析到面板命令固定子项：$acceptanceDocPath"
+    }
+
+    $helpPanelCommandRows = @(
+        [regex]::Matches($helpPanelCommandSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($helpPanelCommandRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedHelpPanelCommandItems | ForEach-Object { $_.Name }) -Label '面板入口验收面板命令固定子项序列'
+    foreach ($expectedHelpPanelCommandItem in $expectedHelpPanelCommandItems) {
+        $matchedHelpPanelCommandRow = @(
+            $helpPanelCommandRows |
+                Where-Object { $_.Name -eq $expectedHelpPanelCommandItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedHelpPanelCommandRow) {
+            throw "面板入口验收缺少面板命令固定子项：$($expectedHelpPanelCommandItem.Name)"
+        }
+
+        if ($matchedHelpPanelCommandRow.Description -ne $expectedHelpPanelCommandItem.Description) {
+            throw "面板入口验收面板命令固定子项漂移：$($expectedHelpPanelCommandItem.Name) 期望 $($expectedHelpPanelCommandItem.Description)，实际 $($matchedHelpPanelCommandRow.Description)"
         }
     }
 
@@ -735,7 +803,7 @@ function Get-CanonicalPanelCommandState {
         }
     }
 
-    $checklistHelpTemplateSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 帮助命令固定结构' -SectionEndMarker '## 注意事项固定子项'
+    $checklistHelpTemplateSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 帮助命令固定结构' -SectionEndMarker '## 当前用法固定子项'
     if ([string]::IsNullOrWhiteSpace($checklistHelpTemplateSection)) {
         throw "面板人工验板清单未解析到帮助命令固定结构：$checklistPath"
     }
@@ -761,6 +829,64 @@ function Get-CanonicalPanelCommandState {
 
         if ($matchedChecklistHelpTemplateRow.Description -ne $expectedHelpTemplateItem.Description) {
             throw "面板人工验板清单帮助命令固定结构漂移：$($expectedHelpTemplateItem.Name) 期望 $($expectedHelpTemplateItem.Description)，实际 $($matchedChecklistHelpTemplateRow.Description)"
+        }
+    }
+
+    $checklistHelpUsageSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 当前用法固定子项' -SectionEndMarker '## 面板命令固定子项'
+    if ([string]::IsNullOrWhiteSpace($checklistHelpUsageSection)) {
+        throw "面板人工验板清单未解析到当前用法固定子项：$checklistPath"
+    }
+
+    $checklistHelpUsageRows = @(
+        [regex]::Matches($checklistHelpUsageSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($checklistHelpUsageRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedHelpUsageItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单当前用法固定子项序列'
+    foreach ($expectedHelpUsageItem in $expectedHelpUsageItems) {
+        $matchedChecklistHelpUsageRow = @(
+            $checklistHelpUsageRows |
+                Where-Object { $_.Name -eq $expectedHelpUsageItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedChecklistHelpUsageRow) {
+            throw "面板人工验板清单缺少当前用法固定子项：$($expectedHelpUsageItem.Name)"
+        }
+
+        if ($matchedChecklistHelpUsageRow.Description -ne $expectedHelpUsageItem.Description) {
+            throw "面板人工验板清单当前用法固定子项漂移：$($expectedHelpUsageItem.Name) 期望 $($expectedHelpUsageItem.Description)，实际 $($matchedChecklistHelpUsageRow.Description)"
+        }
+    }
+
+    $checklistHelpPanelCommandSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 面板命令固定子项' -SectionEndMarker '## 注意事项固定子项'
+    if ([string]::IsNullOrWhiteSpace($checklistHelpPanelCommandSection)) {
+        throw "面板人工验板清单未解析到面板命令固定子项：$checklistPath"
+    }
+
+    $checklistHelpPanelCommandRows = @(
+        [regex]::Matches($checklistHelpPanelCommandSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($checklistHelpPanelCommandRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedHelpPanelCommandItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单面板命令固定子项序列'
+    foreach ($expectedHelpPanelCommandItem in $expectedHelpPanelCommandItems) {
+        $matchedChecklistHelpPanelCommandRow = @(
+            $checklistHelpPanelCommandRows |
+                Where-Object { $_.Name -eq $expectedHelpPanelCommandItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedChecklistHelpPanelCommandRow) {
+            throw "面板人工验板清单缺少面板命令固定子项：$($expectedHelpPanelCommandItem.Name)"
+        }
+
+        if ($matchedChecklistHelpPanelCommandRow.Description -ne $expectedHelpPanelCommandItem.Description) {
+            throw "面板人工验板清单面板命令固定子项漂移：$($expectedHelpPanelCommandItem.Name) 期望 $($expectedHelpPanelCommandItem.Description)，实际 $($matchedChecklistHelpPanelCommandRow.Description)"
         }
     }
 
