@@ -2385,6 +2385,55 @@ function Get-CanonicalConcurrentStatusReportScriptEntryState {
     }
 }
 
+function Get-CanonicalConcurrentStatusReportSemiAutoWriteState {
+    $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
+    $expectedConcurrentReportSemiAutoWriteItems = @(
+        [pscustomobject]@{ Name = 'TaskId'; Description = '目标任务包 ID' }
+        [pscustomobject]@{ Name = 'PrimaryStatus'; Description = '当前唯一主状态' }
+        [pscustomobject]@{ Name = 'PrimaryBlocker'; Description = '当前最先阻断推进的事项' }
+        [pscustomobject]@{ Name = 'PrimaryReason'; Description = '为什么它比其他事项更优先' }
+        [pscustomobject]@{ Name = 'SecondaryItems'; Description = '次要待处理项列表' }
+        [pscustomobject]@{ Name = 'RecoverySteps'; Description = '主阻塞解除后的恢复顺序' }
+        [pscustomobject]@{ Name = 'NextAction'; Description = '本轮最小下一步' }
+        [pscustomobject]@{ Name = 'DecisionBasis'; Description = '本轮裁决依据' }
+        [pscustomobject]@{ Name = 'RejectedCandidates'; Description = '本轮未选状态及原因' }
+        [pscustomobject]@{ Name = 'SyncState'; Description = '如当前主状态已确定，允许同步更新 `state.yaml`' }
+    )
+
+    $concurrentReportSemiAutoWriteSection = Get-FileSectionContent -FilePath $concurrentReportDocPath -SectionStartMarker '## 半自动写入建议固定槽位' -SectionEndMarker '## 维护层价值'
+    if ([string]::IsNullOrWhiteSpace($concurrentReportSemiAutoWriteSection)) {
+        throw "复杂并存汇报骨架模板未解析到半自动写入建议固定槽位：$concurrentReportDocPath"
+    }
+
+    $concurrentReportSemiAutoWriteRows = @(
+        [regex]::Matches($concurrentReportSemiAutoWriteSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($concurrentReportSemiAutoWriteRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConcurrentReportSemiAutoWriteItems | ForEach-Object { $_.Name }) -Label '复杂并存汇报骨架模板半自动写入建议固定槽位序列'
+    foreach ($expectedConcurrentReportSemiAutoWriteItem in $expectedConcurrentReportSemiAutoWriteItems) {
+        $matchedConcurrentReportSemiAutoWriteRow = @(
+            $concurrentReportSemiAutoWriteRows |
+                Where-Object { $_.Name -eq $expectedConcurrentReportSemiAutoWriteItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConcurrentReportSemiAutoWriteRow) {
+            throw "复杂并存汇报骨架模板缺少半自动写入建议固定槽位：$($expectedConcurrentReportSemiAutoWriteItem.Name)"
+        }
+
+        if ($matchedConcurrentReportSemiAutoWriteRow.Description -ne $expectedConcurrentReportSemiAutoWriteItem.Description) {
+            throw "复杂并存汇报骨架模板半自动写入建议固定槽位漂移：$($expectedConcurrentReportSemiAutoWriteItem.Name) 期望 $($expectedConcurrentReportSemiAutoWriteItem.Description)，实际 $($matchedConcurrentReportSemiAutoWriteRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConcurrentReportSemiAutoWriteItems = @($expectedConcurrentReportSemiAutoWriteItems)
+    }
+}
+
 function Get-CanonicalConcurrentStatusReportValueState {
     $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
     $expectedConcurrentReportValueItems = @(
@@ -3306,6 +3355,12 @@ catch {
 }
 try {
     [void](Get-CanonicalConcurrentStatusReportScriptEntryState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalConcurrentStatusReportSemiAutoWriteState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

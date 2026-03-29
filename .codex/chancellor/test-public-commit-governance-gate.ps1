@@ -764,6 +764,7 @@ $concurrentReportSummaryLineText = '- `一次性落盘`：再用本模板把 `re
 $concurrentReportTriggerLineText = '- `超出单一模板`：任务已经不适合只靠单一 gate 或单一异常模板表达。'
 $concurrentReportOutputLineText = '- `状态同步`：如已确定当前主推进口径，可同步更新 `state.yaml`。'
 $concurrentReportScriptEntryLineText = '- `收口`：`docs/40-执行/14-维护层动作矩阵与收口检查表.md`'
+$concurrentReportSemiAutoWriteLineText = '- `SyncState`：如当前主状态已确定，允许同步更新 `state.yaml`。'
 $concurrentReportValueLineText = '- `自动化入口`：为后续更强的复杂裁决自动化保留轻量入口。'
 
 if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixSyncSlotLineText) {
@@ -868,6 +869,10 @@ if ((Get-Content $concurrentReportDocPath) -notcontains $concurrentReportOutputL
 
 if ((Get-Content $concurrentReportDocPath) -notcontains $concurrentReportScriptEntryLineText) {
     throw "测试前置条件不满足：$concurrentReportDocPath 中缺少 $concurrentReportScriptEntryLineText"
+}
+
+if ((Get-Content $concurrentReportDocPath) -notcontains $concurrentReportSemiAutoWriteLineText) {
+    throw "测试前置条件不满足：$concurrentReportDocPath 中缺少 $concurrentReportSemiAutoWriteLineText"
 }
 
 if ((Get-Content $concurrentReportDocPath) -notcontains $concurrentReportValueLineText) {
@@ -1129,6 +1134,16 @@ try {
     [System.IO.File]::WriteAllText($concurrentReportDocPath, $driftedConcurrentReportContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/20-复杂并存汇报骨架模板.md') -ExpectedExitCode 1 -TestName 'block-concurrent-report-script-entry-slot-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($concurrentReportDocPath, $originalConcurrentReportDocBytes)
+}
+
+try {
+    $driftedConcurrentReportContent = (Get-Content $concurrentReportDocPath -Raw).Replace($concurrentReportSemiAutoWriteLineText, '- `SyncState`：之后再看。')
+    [System.IO.File]::WriteAllText($concurrentReportDocPath, $driftedConcurrentReportContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/20-复杂并存汇报骨架模板.md') -ExpectedExitCode 1 -TestName 'block-concurrent-report-semi-auto-write-slot-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($concurrentReportDocPath, $originalConcurrentReportDocBytes)
