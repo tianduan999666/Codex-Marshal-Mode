@@ -533,12 +533,23 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '任务冲突'; Description = '入口回复与本地激活任务状态明显冲突' }
         [pscustomobject]@{ Name = '复验失败'; Description = '重新执行必要同步动作后，仍无法通过新开会话与首句验板完成复验' }
     )
+    $expectedAcceptanceRecoveryItems = @(
+        [pscustomobject]@{ Name = '停止扩展'; Description = '先停止继续扩展任务范围' }
+        [pscustomobject]@{ Name = '回看变更'; Description = '回看最近入口相关变更是否涉及 `AGENTS.md`、规则文档或安装同步动作' }
+        [pscustomobject]@{ Name = '重新验板'; Description = '重新执行必要同步动作后，新开会话再次验板' }
+        [pscustomobject]@{ Name = '缺陷收口'; Description = '若仍失败，记录为入口缺陷，不带着问题进入真实任务试跑' }
+    )
     $expectedChecklistPassItems = @(
         [pscustomobject]@{ Name = '命令有效'; Description = '版本、检查、状态命令可用且口径完整' }
         [pscustomobject]@{ Name = '边界稳定'; Description = '修复与验板边界说明完整' }
         [pscustomobject]@{ Name = '验板闭环'; Description = '人工验板步骤模板完整' }
         [pscustomobject]@{ Name = '过程稳定'; Description = '整个过程不出现明显崩溃、失焦或命令失效' }
         [pscustomobject]@{ Name = '无需手改'; Description = '整个过程无需再手改本地文件' }
+    )
+    $expectedChecklistRecoveryItems = @(
+        [pscustomobject]@{ Name = '自动复核'; Description = '先执行：`codex-home-export/verify-cutover.ps1`' }
+        [pscustomobject]@{ Name = '自动回退'; Description = '若仍异常，再执行：`codex-home-export/rollback-from-backup.ps1`' }
+        [pscustomobject]@{ Name = '重新验板'; Description = '回退后重新打开面板，再次验板' }
     )
     $expectedChecklistCommands = @(
         '丞相版本'
@@ -974,6 +985,35 @@ function Get-CanonicalPanelCommandState {
 
         if ($matchedAcceptanceFailItemRow.Description -ne $expectedAcceptanceFailItem.Description) {
             throw "面板入口验收失败信号固定子项漂移：$($expectedAcceptanceFailItem.Name) 期望 $($expectedAcceptanceFailItem.Description)，实际 $($matchedAcceptanceFailItemRow.Description)"
+        }
+    }
+
+    $acceptanceRecoverySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 失败后的处置动作固定子项' -SectionEndMarker '## 与试跑阶段的关系'
+    if ([string]::IsNullOrWhiteSpace($acceptanceRecoverySection)) {
+        throw "面板入口验收未解析到失败后的处置动作固定子项：$acceptanceDocPath"
+    }
+
+    $acceptanceRecoveryRows = @(
+        [regex]::Matches($acceptanceRecoverySection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($acceptanceRecoveryRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedAcceptanceRecoveryItems | ForEach-Object { $_.Name }) -Label '面板入口验收失败后的处置动作固定子项序列'
+    foreach ($expectedAcceptanceRecoveryItem in $expectedAcceptanceRecoveryItems) {
+        $matchedAcceptanceRecoveryRow = @(
+            $acceptanceRecoveryRows |
+                Where-Object { $_.Name -eq $expectedAcceptanceRecoveryItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedAcceptanceRecoveryRow) {
+            throw "面板入口验收缺少失败后的处置动作固定子项：$($expectedAcceptanceRecoveryItem.Name)"
+        }
+
+        if ($matchedAcceptanceRecoveryRow.Description -ne $expectedAcceptanceRecoveryItem.Description) {
+            throw "面板入口验收失败后的处置动作固定子项漂移：$($expectedAcceptanceRecoveryItem.Name) 期望 $($expectedAcceptanceRecoveryItem.Description)，实际 $($matchedAcceptanceRecoveryRow.Description)"
         }
     }
 
@@ -1487,6 +1527,35 @@ function Get-CanonicalPanelCommandState {
 
         if ($matchedChecklistPassItemRow.Description -ne $expectedChecklistPassItem.Description) {
             throw "面板人工验板清单通过标准固定子项漂移：$($expectedChecklistPassItem.Name) 期望 $($expectedChecklistPassItem.Description)，实际 $($matchedChecklistPassItemRow.Description)"
+        }
+    }
+
+    $checklistRecoverySection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 若不通过固定子项'
+    if ([string]::IsNullOrWhiteSpace($checklistRecoverySection)) {
+        throw "面板人工验板清单未解析到若不通过固定子项：$checklistPath"
+    }
+
+    $checklistRecoveryRows = @(
+        [regex]::Matches($checklistRecoverySection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($checklistRecoveryRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedChecklistRecoveryItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单若不通过固定子项序列'
+    foreach ($expectedChecklistRecoveryItem in $expectedChecklistRecoveryItems) {
+        $matchedChecklistRecoveryRow = @(
+            $checklistRecoveryRows |
+                Where-Object { $_.Name -eq $expectedChecklistRecoveryItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedChecklistRecoveryRow) {
+            throw "面板人工验板清单缺少若不通过固定子项：$($expectedChecklistRecoveryItem.Name)"
+        }
+
+        if ($matchedChecklistRecoveryRow.Description -ne $expectedChecklistRecoveryItem.Description) {
+            throw "面板人工验板清单若不通过固定子项漂移：$($expectedChecklistRecoveryItem.Name) 期望 $($expectedChecklistRecoveryItem.Description)，实际 $($matchedChecklistRecoveryRow.Description)"
         }
     }
 

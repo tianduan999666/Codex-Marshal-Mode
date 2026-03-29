@@ -109,3 +109,9 @@
 1. 先执行：`codex-home-export/verify-cutover.ps1`
 2. 若仍异常，再执行：`codex-home-export/rollback-from-backup.ps1`
 3. 回退后重新打开面板，再次验板。
+
+## 若不通过固定子项
+
+- `自动复核`：先执行：`codex-home-export/verify-cutover.ps1`
+- `自动回退`：若仍异常，再执行：`codex-home-export/rollback-from-backup.ps1`
+- `重新验板`：回退后重新打开面板，再次验板。
