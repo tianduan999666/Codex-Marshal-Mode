@@ -972,6 +972,19 @@ finally {
 }
 
 try {
+    $driftedNavOverviewLines = @($navOverviewLines)
+    $driftedNavOverviewLines[$navOverviewBackgroundPlanningEntryIndex] = $navOverviewBackgroundGovernanceEntryLineText
+    $driftedNavOverviewLines[$navOverviewBackgroundGovernanceEntryIndex] = $navOverviewBackgroundPlanningEntryLineText
+    $driftedNavOverviewContent = ($driftedNavOverviewLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($navOverviewPath, $driftedNavOverviewContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/00-导航/02-现行标准件总览.md') -ExpectedExitCode 1 -TestName 'block-public-target-entry-order-drift-nav-overview'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($navOverviewPath, $originalNavOverviewBytes)
+}
+
+try {
     $driftedReadmeLines = @($readmeLines)
     $driftedReadmeLines[$planningEntryIndex] = $governanceEntryLineText
     $driftedReadmeLines[$governanceEntryIndex] = $planningEntryLineText
