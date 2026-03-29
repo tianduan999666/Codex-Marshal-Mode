@@ -1956,6 +1956,52 @@ function Get-CanonicalGovernanceConfigReviewTriggerState {
     }
 }
 
+function Get-CanonicalGovernanceConfigReviewResultSkeletonState {
+    $configReviewDocPath = 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
+    $expectedConfigReviewResultSkeletonItems = @(
+        [pscustomobject]@{ Name = '复核模板'; Description = '写明 `docs/40-执行/21-关键配置来源与漂移复核模板.md`' }
+        [pscustomobject]@{ Name = '治理规范'; Description = '写明 `docs/30-方案/08-V4-治理审计候选规范.md`' }
+        [pscustomobject]@{ Name = '配置来源'; Description = '写清当前公开入口与现行件导航入口' }
+        [pscustomobject]@{ Name = '版本与现行依据'; Description = '写清当前推进顺序依据与冻结边界依据' }
+        [pscustomobject]@{ Name = '漂移检查'; Description = '写清公开入口与现行件导航是否一致，以及实施计划与冻结边界是否冲突' }
+        [pscustomobject]@{ Name = '复核结论'; Description = '写清当前是否存在需先修平的公开漂移' }
+        [pscustomobject]@{ Name = '下一步'; Description = '写清是否继续提交前收口' }
+    )
+
+    $configReviewResultSkeletonSection = Get-FileSectionContent -FilePath $configReviewDocPath -SectionStartMarker '## `result.md` 推荐骨架固定槽位' -SectionEndMarker '## `decision-log.md` 推荐骨架'
+    if ([string]::IsNullOrWhiteSpace($configReviewResultSkeletonSection)) {
+        throw "关键配置来源与漂移复核模板未解析到 result.md 推荐骨架固定槽位：$configReviewDocPath"
+    }
+
+    $configReviewResultSkeletonRows = @(
+        [regex]::Matches($configReviewResultSkeletonSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($configReviewResultSkeletonRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConfigReviewResultSkeletonItems | ForEach-Object { $_.Name }) -Label '关键配置来源与漂移复核模板 result.md 推荐骨架固定槽位序列'
+    foreach ($expectedConfigReviewResultSkeletonItem in $expectedConfigReviewResultSkeletonItems) {
+        $matchedConfigReviewResultSkeletonRow = @(
+            $configReviewResultSkeletonRows |
+                Where-Object { $_.Name -eq $expectedConfigReviewResultSkeletonItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConfigReviewResultSkeletonRow) {
+            throw "关键配置来源与漂移复核模板缺少 result.md 推荐骨架固定槽位：$($expectedConfigReviewResultSkeletonItem.Name)"
+        }
+
+        if ($matchedConfigReviewResultSkeletonRow.Description -ne $expectedConfigReviewResultSkeletonItem.Description) {
+            throw "关键配置来源与漂移复核模板 result.md 推荐骨架固定槽位漂移：$($expectedConfigReviewResultSkeletonItem.Name) 期望 $($expectedConfigReviewResultSkeletonItem.Description)，实际 $($matchedConfigReviewResultSkeletonRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConfigReviewResultSkeletonItems = @($expectedConfigReviewResultSkeletonItems)
+    }
+}
+
 function Get-CanonicalGovernanceConfigReviewOutputState {
     $configReviewDocPath = 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
     $expectedConfigReviewOutputItems = @(
@@ -2558,6 +2604,12 @@ catch {
 }
 try {
     [void](Get-CanonicalGovernanceConfigReviewTriggerState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGovernanceConfigReviewResultSkeletonState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
