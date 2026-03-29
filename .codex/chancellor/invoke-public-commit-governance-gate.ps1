@@ -1954,6 +1954,48 @@ function Get-CanonicalGovernanceConfigReviewOutputState {
     }
 }
 
+function Get-CanonicalGovernanceConfigReviewScriptEntryState {
+    $configReviewDocPath = 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
+    $expectedConfigReviewScriptEntryItems = @(
+        [pscustomobject]@{ Name = '脚本入口'; Description = '`.codex/chancellor/write-governance-config-review.ps1`' }
+        [pscustomobject]@{ Name = '治理依据'; Description = '`docs/30-方案/08-V4-治理审计候选规范.md`' }
+        [pscustomobject]@{ Name = '收口入口'; Description = '`docs/40-执行/14-维护层动作矩阵与收口检查表.md`' }
+    )
+
+    $configReviewScriptEntrySection = Get-FileSectionContent -FilePath $configReviewDocPath -SectionStartMarker '## 推荐脚本入口固定槽位' -SectionEndMarker '## 推荐复核来源'
+    if ([string]::IsNullOrWhiteSpace($configReviewScriptEntrySection)) {
+        throw "关键配置来源与漂移复核模板未解析到推荐脚本入口固定槽位：$configReviewDocPath"
+    }
+
+    $configReviewScriptEntryRows = @(
+        [regex]::Matches($configReviewScriptEntrySection, '(?m)^- `([^`]+)`：(.+?)\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = $_.Groups[2].Value.Trim()
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($configReviewScriptEntryRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConfigReviewScriptEntryItems | ForEach-Object { $_.Name }) -Label '关键配置来源与漂移复核模板推荐脚本入口固定槽位序列'
+    foreach ($expectedConfigReviewScriptEntryItem in $expectedConfigReviewScriptEntryItems) {
+        $matchedConfigReviewScriptEntryRow = @(
+            $configReviewScriptEntryRows |
+                Where-Object { $_.Name -eq $expectedConfigReviewScriptEntryItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConfigReviewScriptEntryRow) {
+            throw "关键配置来源与漂移复核模板缺少推荐脚本入口固定槽位：$($expectedConfigReviewScriptEntryItem.Name)"
+        }
+
+        if ($matchedConfigReviewScriptEntryRow.Description -ne $expectedConfigReviewScriptEntryItem.Description) {
+            throw "关键配置来源与漂移复核模板推荐脚本入口固定槽位漂移：$($expectedConfigReviewScriptEntryItem.Name) 期望 $($expectedConfigReviewScriptEntryItem.Description)，实际 $($matchedConfigReviewScriptEntryRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConfigReviewScriptEntryItems = @($expectedConfigReviewScriptEntryItems)
+    }
+}
+
 function Get-CanonicalGovernanceConfigReviewSourceState {
     $configReviewDocPath = 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
     $expectedConfigReviewSourceItems = @(
@@ -2472,6 +2514,12 @@ catch {
 }
 try {
     [void](Get-CanonicalGovernanceConfigReviewOutputState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGovernanceConfigReviewScriptEntryState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
