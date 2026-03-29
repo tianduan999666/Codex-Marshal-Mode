@@ -1643,6 +1643,50 @@ function Get-CanonicalMaintenanceEntrySyncState {
     }
 }
 
+function Get-CanonicalMaintenanceDecisionOrderState {
+    $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
+    $expectedMaintenanceDecisionOrderItems = @(
+        [pscustomobject]@{ Name = '动作判类'; Description = '先判断动作属于“提交、起包、归档、入口同步、拍板准备、治理复核”哪一类' }
+        [pscustomobject]@{ Name = '进入主入口'; Description = '再进入对应主入口文档，不跨文档来回跳' }
+        [pscustomobject]@{ Name = '追加治理复核'; Description = '当前轮若影响公开口径或现行标准件，收口前追加一次治理审计复核' }
+        [pscustomobject]@{ Name = '执行统一收口'; Description = '动作完成后，统一执行收口检查表' }
+        [pscustomobject]@{ Name = '结束条件'; Description = '只有通过收口检查，才算本轮维护层动作结束' }
+    )
+
+    $maintenanceDecisionOrderSection = Get-FileSectionContent -FilePath $maintenanceMatrixPath -SectionStartMarker '## 默认决策顺序固定槽位' -SectionEndMarker '## 收口检查表'
+    if ([string]::IsNullOrWhiteSpace($maintenanceDecisionOrderSection)) {
+        throw "维护层动作矩阵未解析到默认决策顺序固定槽位：$maintenanceMatrixPath"
+    }
+
+    $maintenanceDecisionOrderRows = @(
+        [regex]::Matches($maintenanceDecisionOrderSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($maintenanceDecisionOrderRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedMaintenanceDecisionOrderItems | ForEach-Object { $_.Name }) -Label '维护层动作矩阵默认决策顺序固定槽位序列'
+    foreach ($expectedMaintenanceDecisionOrderItem in $expectedMaintenanceDecisionOrderItems) {
+        $matchedMaintenanceDecisionOrderRow = @(
+            $maintenanceDecisionOrderRows |
+                Where-Object { $_.Name -eq $expectedMaintenanceDecisionOrderItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedMaintenanceDecisionOrderRow) {
+            throw "维护层动作矩阵缺少默认决策顺序固定槽位：$($expectedMaintenanceDecisionOrderItem.Name)"
+        }
+
+        if ($matchedMaintenanceDecisionOrderRow.Description -ne $expectedMaintenanceDecisionOrderItem.Description) {
+            throw "维护层动作矩阵默认决策顺序固定槽位漂移：$($expectedMaintenanceDecisionOrderItem.Name) 期望 $($expectedMaintenanceDecisionOrderItem.Description)，实际 $($matchedMaintenanceDecisionOrderRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        MaintenanceDecisionOrderItems = @($expectedMaintenanceDecisionOrderItems)
+    }
+}
+
 function Get-CanonicalMaintenanceBasicCloseoutState {
     $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
     $expectedMaintenanceBasicCloseoutItems = @(
@@ -2165,6 +2209,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceEntrySyncState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalMaintenanceDecisionOrderState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
