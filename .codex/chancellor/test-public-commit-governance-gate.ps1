@@ -73,4 +73,26 @@ finally {
     [System.IO.File]::WriteAllBytes($execReadmePath, $originalExecReadmeBytes)
 }
 
+$docsReadmePath = Join-Path $repoRootPath 'docs/README.md'
+$originalDocsReadmeBytes = [System.IO.File]::ReadAllBytes($docsReadmePath)
+$docsReadmeLines = Get-Content $docsReadmePath
+$removedRuleEntryLineText = '- `reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`'
+
+if ($docsReadmeLines -notcontains $removedRuleEntryLineText) {
+    throw "测试前置条件不满足：$docsReadmePath 中缺少 $removedRuleEntryLineText"
+}
+
+try {
+    $driftedDocsReadmeLines = @(
+        $docsReadmeLines | Where-Object { $_ -ne $removedRuleEntryLineText }
+    )
+    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-public-rule-entry-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
+}
+
 Write-Host 'PASS: test-public-commit-governance-gate.ps1'

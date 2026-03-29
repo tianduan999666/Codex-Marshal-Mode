@@ -113,6 +113,33 @@ function Get-MatchedExecStandardDocNamesFromFile {
     )
 }
 
+function Get-MatchedNormalizedDocPathsFromFile {
+    param(
+        [string]$FilePath,
+        [string]$RegexPattern,
+        [string]$PathPrefix = ''
+    )
+
+    if (-not (Test-Path $FilePath)) {
+        return @()
+    }
+
+    $fileContent = Get-Content $FilePath -Raw
+    return @(
+        [regex]::Matches($fileContent, $RegexPattern) |
+            ForEach-Object {
+                $capturedPath = ConvertTo-NormalizedPath $_.Groups[1].Value
+                if ($PathPrefix -ne '') {
+                    ConvertTo-NormalizedPath ($PathPrefix + $capturedPath)
+                }
+                else {
+                    $capturedPath
+                }
+            } |
+            Sort-Object -Unique
+    )
+}
+
 $requiredPolicyFiles = @(
     'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md',
     'docs/reference/02-仓库卫生与命名规范.md',
@@ -178,6 +205,35 @@ $publicExecEntryChecks = @(
         Path = 'docs/40-执行/README.md'
         Label = '执行区 README'
         RegexPattern = '(?m)^- `([0-9]{2}-[^`]+\.md)`\r?$'
+    }
+)
+$criticalPublicRuleEntryPaths = @(
+    'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md',
+    'docs/reference/02-仓库卫生与命名规范.md',
+    'docs/30-方案/02-V4-目录锁定清单.md',
+    'docs/30-方案/08-V4-治理审计候选规范.md',
+    'docs/40-执行/10-本地安全提交流程.md',
+    'docs/40-执行/14-维护层动作矩阵与收口检查表.md',
+    'docs/40-执行/21-关键配置来源与漂移复核模板.md'
+)
+$publicRuleEntryChecks = @(
+    @{
+        Path = 'README.md'
+        Label = 'README 规则入口'
+        RegexPattern = '`(docs/(?:reference|30-方案|40-执行)/[^`]+\.md)`'
+        PathPrefix = ''
+    },
+    @{
+        Path = 'docs/README.md'
+        Label = 'docs/README 规则入口'
+        RegexPattern = '`((?:reference|30-方案|40-执行)/[^`]+\.md)`'
+        PathPrefix = 'docs/'
+    },
+    @{
+        Path = 'docs/00-导航/02-现行标准件总览.md'
+        Label = '现行标准件总览规则入口'
+        RegexPattern = '`(docs/(?:reference|30-方案|40-执行)/[^`]+\.md)`'
+        PathPrefix = ''
     }
 )
 
@@ -265,6 +321,23 @@ foreach ($entryCheck in $publicExecEntryChecks) {
 
     if ($extraExecDocNames.Count -gt 0) {
         $violationMessages.Add("$($entryCheck.Label) 存在未受控的执行区入口：$($extraExecDocNames -join '、')")
+    }
+}
+
+foreach ($ruleEntryCheck in $publicRuleEntryChecks) {
+    if (-not (Test-Path $ruleEntryCheck.Path)) {
+        $violationMessages.Add("缺少规则入口文件：$($ruleEntryCheck.Path)")
+        continue
+    }
+
+    $actualRuleEntryPaths = Get-MatchedNormalizedDocPathsFromFile -FilePath $ruleEntryCheck.Path -RegexPattern $ruleEntryCheck.RegexPattern -PathPrefix $ruleEntryCheck.PathPrefix
+    $missingRuleEntryPaths = @(
+        $criticalPublicRuleEntryPaths |
+            Where-Object { $_ -notin $actualRuleEntryPaths }
+    )
+
+    if ($missingRuleEntryPaths.Count -gt 0) {
+        $violationMessages.Add("$($ruleEntryCheck.Label) 缺少关键规则入口：$($missingRuleEntryPaths -join '、')")
     }
 }
 
