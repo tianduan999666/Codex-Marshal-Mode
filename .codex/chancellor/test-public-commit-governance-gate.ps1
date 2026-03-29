@@ -210,6 +210,32 @@ finally {
     [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
 }
 
+$restartGuideTaskSpecEntryLineText = '- 任务包规范：`docs/40-执行/01-任务包规范.md`'
+$restartGuideTaskTemplateEntryLineText = '- 任务包模板：`docs/40-执行/02-任务包模板.md`'
+$restartGuideTaskSpecEntryIndex = [Array]::IndexOf($readmeLines, $restartGuideTaskSpecEntryLineText)
+$restartGuideTaskTemplateEntryIndex = [Array]::IndexOf($readmeLines, $restartGuideTaskTemplateEntryLineText)
+
+if ($restartGuideTaskSpecEntryIndex -lt 0 -or $restartGuideTaskTemplateEntryIndex -lt 0) {
+    throw "测试前置条件不满足：$readmePath 中缺少重启导读核心顺序测试行。"
+}
+
+if ($restartGuideTaskSpecEntryIndex -gt $restartGuideTaskTemplateEntryIndex) {
+    throw "测试前置条件不满足：$readmePath 中重启导读核心顺序已不是当前现状。"
+}
+
+try {
+    $driftedReadmeLines = @($readmeLines)
+    $driftedReadmeLines[$restartGuideTaskSpecEntryIndex] = $restartGuideTaskTemplateEntryLineText
+    $driftedReadmeLines[$restartGuideTaskTemplateEntryIndex] = $restartGuideTaskSpecEntryLineText
+    $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($readmePath, $driftedReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('README.md') -ExpectedExitCode 1 -TestName 'block-restart-guide-core-entry-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
+}
+
 $restartGuidePath = Join-Path $repoRootPath 'docs/00-导航/01-V4-重启导读.md'
 $originalRestartGuideBytes = [System.IO.File]::ReadAllBytes($restartGuidePath)
 $restartGuideLines = Get-Content $restartGuidePath

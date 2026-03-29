@@ -683,21 +683,8 @@ foreach ($ruleEntryCheck in $publicRuleEntryChecks) {
         $violationMessages.Add("$($ruleEntryCheck.Label) 缺少关键规则入口：$($missingRuleEntryPaths -join '、')")
     }
 }
-foreach ($restartGuideEntryCheck in $publicRestartGuideEntryChecks) {
-    if (-not (Test-Path $restartGuideEntryCheck.Path)) {
-        $violationMessages.Add("缺少重启导读核心入口文件：$($restartGuideEntryCheck.Path)")
-        continue
-    }
-
-    $actualRestartGuideEntryPaths = Get-MatchedNormalizedDocPathsFromFile -FilePath $restartGuideEntryCheck.Path -RegexPattern $restartGuideEntryCheck.RegexPattern -PathPrefix $restartGuideEntryCheck.PathPrefix
-    $missingRestartGuideEntryPaths = @(
-        $restartGuideCanonicalEntryPaths |
-            Where-Object { $_ -notin $actualRestartGuideEntryPaths }
-    )
-
-    if ($missingRestartGuideEntryPaths.Count -gt 0) {
-        $violationMessages.Add("$($restartGuideEntryCheck.Label) 缺少重启导读核心入口：$($missingRestartGuideEntryPaths -join '、')")
-    }
+foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicRestartGuideEntryChecks -CriticalEntryPaths $restartGuideCanonicalEntryPaths -MissingFileLabel '重启导读核心入口文件' -MissingEntryLabel '重启导读核心入口' -OrderDriftLabel '重启导读核心入口顺序漂移')) {
+    $violationMessages.Add($entryViolationMessage)
 }
 foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicStartupPhaseEntryChecks -CriticalEntryPaths $criticalStartupPhaseEntryPaths -MissingFileLabel '启动阶段入口文件' -MissingEntryLabel '启动阶段关键入口' -OrderDriftLabel '启动阶段入口顺序漂移')) {
     $violationMessages.Add($entryViolationMessage)
