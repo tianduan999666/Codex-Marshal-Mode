@@ -1954,6 +1954,50 @@ function Get-CanonicalConcurrentGateRuleSinglePrimaryState {
     }
 }
 
+function Get-CanonicalConcurrentGateRuleNextActorPriorityState {
+    $concurrentRuleDocPath = 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
+    $expectedConcurrentRuleNextActorPriorityItems = @(
+        [pscustomobject]@{ Name = 'waiting_assist'; Description = '下一步必须由外部协助、额外信息或环境修复先发生' }
+        [pscustomobject]@{ Name = 'waiting_gate'; Description = '下一步必须由主公拍板先发生' }
+        [pscustomobject]@{ Name = 'paused'; Description = '当前执行者必须先手动停住，不允许继续推进' }
+        [pscustomobject]@{ Name = 'ready_to_resume'; Description = '已具备恢复条件，只差按既定恢复点继续' }
+        [pscustomobject]@{ Name = 'running / ready / verifying / done'; Description = '无主阻塞，进入正常推进态' }
+    )
+
+    $concurrentRuleNextActorPrioritySection = Get-FileSectionContent -FilePath $concurrentRuleDocPath -SectionStartMarker '## 第二原则：按下一行动主体决定优先级固定槽位' -SectionEndMarker '## 第三原则：多个 gate 并存时的主次划分'
+    if ([string]::IsNullOrWhiteSpace($concurrentRuleNextActorPrioritySection)) {
+        throw "多 gate 与多异常并存处理规则未解析到按下一行动主体决定优先级固定槽位：$concurrentRuleDocPath"
+    }
+
+    $concurrentRuleNextActorPriorityRows = @(
+        [regex]::Matches($concurrentRuleNextActorPrioritySection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($concurrentRuleNextActorPriorityRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConcurrentRuleNextActorPriorityItems | ForEach-Object { $_.Name }) -Label '多 gate 与多异常并存处理规则按下一行动主体决定优先级固定槽位序列'
+    foreach ($expectedConcurrentRuleNextActorPriorityItem in $expectedConcurrentRuleNextActorPriorityItems) {
+        $matchedConcurrentRuleNextActorPriorityRow = @(
+            $concurrentRuleNextActorPriorityRows |
+                Where-Object { $_.Name -eq $expectedConcurrentRuleNextActorPriorityItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConcurrentRuleNextActorPriorityRow) {
+            throw "多 gate 与多异常并存处理规则缺少按下一行动主体决定优先级固定槽位：$($expectedConcurrentRuleNextActorPriorityItem.Name)"
+        }
+
+        if ($matchedConcurrentRuleNextActorPriorityRow.Description -ne $expectedConcurrentRuleNextActorPriorityItem.Description) {
+            throw "多 gate 与多异常并存处理规则按下一行动主体决定优先级固定槽位漂移：$($expectedConcurrentRuleNextActorPriorityItem.Name) 期望 $($expectedConcurrentRuleNextActorPriorityItem.Description)，实际 $($matchedConcurrentRuleNextActorPriorityRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConcurrentRuleNextActorPriorityItems = @($expectedConcurrentRuleNextActorPriorityItems)
+    }
+}
+
 function Get-CanonicalConcurrentGateRuleCloseoutCheckState {
     $concurrentRuleDocPath = 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
     $expectedConcurrentRuleCloseoutCheckItems = @(
@@ -3115,6 +3159,12 @@ catch {
 }
 try {
     [void](Get-CanonicalConcurrentGateRuleSinglePrimaryState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalConcurrentGateRuleNextActorPriorityState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

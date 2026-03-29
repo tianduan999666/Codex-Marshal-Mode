@@ -31,6 +31,14 @@
 4. `ready_to_resume`：已具备恢复条件，只差按既定恢复点继续。
 5. `running / ready / verifying / done`：无主阻塞，进入正常推进态。
 
+## 第二原则：按下一行动主体决定优先级固定槽位
+
+- `waiting_assist`：下一步必须由外部协助、额外信息或环境修复先发生。
+- `waiting_gate`：下一步必须由主公拍板先发生。
+- `paused`：当前执行者必须先手动停住，不允许继续推进。
+- `ready_to_resume`：已具备恢复条件，只差按既定恢复点继续。
+- `running / ready / verifying / done`：无主阻塞，进入正常推进态。
+
 ## 第三原则：多个 gate 并存时的主次划分
 
 若 `gates.yaml` 中同时存在多个 `pending` gate：
