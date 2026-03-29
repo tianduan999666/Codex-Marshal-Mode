@@ -1953,6 +1953,48 @@ function Get-CanonicalConcurrentStatusReportSummaryState {
     }
 }
 
+function Get-CanonicalConcurrentStatusReportTriggerState {
+    $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
+    $expectedConcurrentReportTriggerItems = @(
+        [pscustomobject]@{ Name = '已选主状态'; Description = '已按 `docs/40-执行/19-多 gate 与多异常并存处理规则.md` 选出主状态' }
+        [pscustomobject]@{ Name = '同步复杂裁决'; Description = '当前需要把复杂裁决结果同步进任务包' }
+        [pscustomobject]@{ Name = '超出单一模板'; Description = '任务已经不适合只靠单一 gate 或单一异常模板表达' }
+    )
+
+    $concurrentReportTriggerSection = Get-FileSectionContent -FilePath $concurrentReportDocPath -SectionStartMarker '## 什么时候用固定槽位' -SectionEndMarker '## 最低产出'
+    if ([string]::IsNullOrWhiteSpace($concurrentReportTriggerSection)) {
+        throw "复杂并存汇报骨架模板未解析到什么时候用固定槽位：$concurrentReportDocPath"
+    }
+
+    $concurrentReportTriggerRows = @(
+        [regex]::Matches($concurrentReportTriggerSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($concurrentReportTriggerRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConcurrentReportTriggerItems | ForEach-Object { $_.Name }) -Label '复杂并存汇报骨架模板什么时候用固定槽位序列'
+    foreach ($expectedConcurrentReportTriggerItem in $expectedConcurrentReportTriggerItems) {
+        $matchedConcurrentReportTriggerRow = @(
+            $concurrentReportTriggerRows |
+                Where-Object { $_.Name -eq $expectedConcurrentReportTriggerItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConcurrentReportTriggerRow) {
+            throw "复杂并存汇报骨架模板缺少什么时候用固定槽位：$($expectedConcurrentReportTriggerItem.Name)"
+        }
+
+        if ($matchedConcurrentReportTriggerRow.Description -ne $expectedConcurrentReportTriggerItem.Description) {
+            throw "复杂并存汇报骨架模板什么时候用固定槽位漂移：$($expectedConcurrentReportTriggerItem.Name) 期望 $($expectedConcurrentReportTriggerItem.Description)，实际 $($matchedConcurrentReportTriggerRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConcurrentReportTriggerItems = @($expectedConcurrentReportTriggerItems)
+    }
+}
+
 function Get-CanonicalConcurrentStatusReportOutputState {
     $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
     $expectedConcurrentReportOutputItems = @(
@@ -2901,6 +2943,12 @@ catch {
 }
 try {
     [void](Get-CanonicalConcurrentStatusReportSummaryState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalConcurrentStatusReportTriggerState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
