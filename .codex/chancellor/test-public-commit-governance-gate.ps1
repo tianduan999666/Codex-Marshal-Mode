@@ -50,7 +50,7 @@ $testCases = @(
     },
     @{
         Name = 'allow-panel-command-consistency'
-        Paths = @('AGENTS.md', 'codex-home-export/VERSION.json', 'codex-home-export/panel-acceptance-checklist.md')
+        Paths = @('AGENTS.md', 'codex-home-export/VERSION.json', 'codex-home-export/panel-acceptance-checklist.md', 'docs/40-执行/03-面板入口验收.md')
         ExpectedExitCode = 0
     }
 )
@@ -1315,8 +1315,10 @@ finally {
 
 $agentsPanelCommandLineText = '| `丞相验板` | 给出进入官方面板人工验收的固定步骤 |'
 $codexHomeExportPanelChecklistPath = Join-Path $repoRootPath 'codex-home-export/panel-acceptance-checklist.md'
+$panelAcceptanceDocPath = Join-Path $repoRootPath 'docs/40-执行/03-面板入口验收.md'
 $originalAgentsPanelBytes = [System.IO.File]::ReadAllBytes($agentsPath)
 $originalCodexHomeExportPanelChecklistBytes = [System.IO.File]::ReadAllBytes($codexHomeExportPanelChecklistPath)
+$originalPanelAcceptanceDocBytes = [System.IO.File]::ReadAllBytes($panelAcceptanceDocPath)
 
 if ($agentsLines -notcontains $agentsPanelCommandLineText) {
     throw "测试前置条件不满足：$agentsPath 中缺少 $agentsPanelCommandLineText"
@@ -1351,6 +1353,26 @@ try {
     [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-commands-checklist-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
+}
+
+try {
+    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace('`丞相版本`：返回当前丞相模式版本与版本来源。', '`丞相版本`：返回当前版本号。')
+    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-response-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
+}
+
+try {
+    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace('`丞相检查` 能做最小必要检查并返回人话结论。', '`丞相检查` 能返回检查结果。')
+    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-response-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)

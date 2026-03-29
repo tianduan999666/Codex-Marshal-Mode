@@ -466,13 +466,37 @@ function Get-CanonicalPanelCommandState {
         throw "AGENTS 未解析到面板丞相命令区块：$agentsPath"
     }
 
+    $agentPanelCommandRows = @(
+        [regex]::Matches($agentsSection, '(?m)^\|\s*`([^`]+)`\s*\|\s*([^|]+?)\s*\|\s*$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Command = $_.Groups[1].Value
+                    Description = $_.Groups[2].Value.Trim()
+                }
+            }
+    )
     $agentPanelCommands = @(
         Get-OrderedUniqueValues -Values @(
-            [regex]::Matches($agentsSection, '(?m)^\|\s*`([^`]+)`\s*\|') |
-                ForEach-Object { $_.Groups[1].Value }
+            $agentPanelCommandRows | ForEach-Object { $_.Command }
         )
     )
     Assert-ExactOrderedValues -SourceValues $agentPanelCommands -ExpectedValues $expectedPanelCommands -Label 'AGENTS 面板丞相命令真源'
+
+    $expectedAcceptanceRows = @()
+    foreach ($expectedAcceptanceCommand in $expectedChecklistCommands) {
+        $matchedAgentRow = @(
+            $agentPanelCommandRows |
+                Where-Object { $_.Command -eq $expectedAcceptanceCommand }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedAgentRow) {
+            throw "AGENTS 面板丞相命令真源缺少命令：$expectedAcceptanceCommand"
+        }
+
+        $expectedAcceptanceRows += [pscustomobject]@{
+            Command = $matchedAgentRow.Command
+            Description = $matchedAgentRow.Description
+        }
+    }
 
     $versionInfo = Read-JsonObjectFromFile -Path $versionPath -Label '生产母体版本文件'
     $versionPanelCommands = @(
@@ -482,6 +506,36 @@ function Get-CanonicalPanelCommandState {
         throw "生产母体版本文件缺少 panel_commands：$versionPath"
     }
     Assert-ExactOrderedValues -SourceValues $versionPanelCommands -ExpectedValues $expectedPanelCommands -Label '生产母体 panel_commands'
+
+    $acceptanceDocPath = 'docs/40-执行/03-面板入口验收.md'
+    $acceptanceSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 三条核心命令验收口径' -SectionEndMarker '## 通过标准'
+    if ([string]::IsNullOrWhiteSpace($acceptanceSection)) {
+        throw "面板入口验收未解析到三条核心命令验收口径：$acceptanceDocPath"
+    }
+
+    $acceptanceRows = @(
+        [regex]::Matches($acceptanceSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Command = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($acceptanceRows | ForEach-Object { $_.Command }) -ExpectedValues $expectedChecklistCommands -Label '面板入口验收核心命令序列'
+    foreach ($expectedAcceptanceRow in $expectedAcceptanceRows) {
+        $matchedAcceptanceRow = @(
+            $acceptanceRows |
+                Where-Object { $_.Command -eq $expectedAcceptanceRow.Command }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedAcceptanceRow) {
+            throw "面板入口验收缺少核心命令口径：$($expectedAcceptanceRow.Command)"
+        }
+
+        if ($matchedAcceptanceRow.Description -ne $expectedAcceptanceRow.Description) {
+            throw "面板入口验收命令口径漂移：$($expectedAcceptanceRow.Command) 期望 $($expectedAcceptanceRow.Description)，实际 $($matchedAcceptanceRow.Description)"
+        }
+    }
 
     if (-not (Test-Path $checklistPath)) {
         throw "缺少面板人工验板清单：$checklistPath"
@@ -499,9 +553,39 @@ function Get-CanonicalPanelCommandState {
     }
     Assert-ExactOrderedValues -SourceValues $checklistCommands -ExpectedValues $expectedChecklistCommands -Label '面板人工验板清单命令序列'
 
+    $checklistPassSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 通过标准' -SectionEndMarker '## 若不通过'
+    if ([string]::IsNullOrWhiteSpace($checklistPassSection)) {
+        throw "面板人工验板清单未解析到通过标准区块：$checklistPath"
+    }
+
+    $checklistAcceptanceRows = @(
+        [regex]::Matches($checklistPassSection, '(?m)^- `([^`]+)` 能(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Command = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($checklistAcceptanceRows | ForEach-Object { $_.Command }) -ExpectedValues $expectedChecklistCommands -Label '面板人工验板清单通过标准命令序列'
+    foreach ($expectedAcceptanceRow in $expectedAcceptanceRows) {
+        $matchedChecklistAcceptanceRow = @(
+            $checklistAcceptanceRows |
+                Where-Object { $_.Command -eq $expectedAcceptanceRow.Command }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedChecklistAcceptanceRow) {
+            throw "面板人工验板清单缺少通过标准：$($expectedAcceptanceRow.Command)"
+        }
+
+        if ($matchedChecklistAcceptanceRow.Description -ne $expectedAcceptanceRow.Description) {
+            throw "面板人工验板清单通过标准漂移：$($expectedAcceptanceRow.Command) 期望 $($expectedAcceptanceRow.Description)，实际 $($matchedChecklistAcceptanceRow.Description)"
+        }
+    }
+
     return [pscustomobject]@{
         PanelCommands = $expectedPanelCommands
         ChecklistCommands = $expectedChecklistCommands
+        AcceptanceRows = @($expectedAcceptanceRows)
     }
 }
 
