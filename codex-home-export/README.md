@@ -13,10 +13,10 @@
 - `README.md`
 - `VERSION.json`
 - `manifest.json`
+- `install-to-home.ps1`
 
 ## 当前未落文件
 
-- `install-to-home.ps1`
 - 回滚脚本
 - 切换后固定验板脚本或清单
 - 完整导出内容（如 `prompts/`、`scripts/`、`skills/`、`agents/` 等）

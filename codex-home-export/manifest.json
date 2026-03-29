@@ -6,7 +6,8 @@
   "included": [
     "README.md",
     "VERSION.json",
-    "manifest.json"
+    "manifest.json",
+    "install-to-home.ps1"
   ],
   "excluded": [
     "auth.json",
