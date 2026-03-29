@@ -1912,6 +1912,50 @@ function Get-CanonicalMaintenanceValueState {
     }
 }
 
+function Get-CanonicalConcurrentStatusReportOutputState {
+    $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
+    $expectedConcurrentReportOutputItems = @(
+        [pscustomobject]@{ Name = '主状态落盘'; Description = '`result.md` 写清主状态、主阻塞、主阻塞原因' }
+        [pscustomobject]@{ Name = '次要事项与恢复顺序'; Description = '`result.md` 列出次要待处理项、恢复顺序与治理复核' }
+        [pscustomobject]@{ Name = '裁决留痕'; Description = '`decision-log.md` 记录为何选当前主状态，而不是其他候选状态' }
+        [pscustomobject]@{ Name = '治理复核'; Description = '提交前按 `docs/30-方案/08-V4-治理审计候选规范.md` 追加治理审计复核' }
+        [pscustomobject]@{ Name = '状态同步'; Description = '如已确定当前主推进口径，可同步更新 `state.yaml`' }
+    )
+
+    $concurrentReportOutputSection = Get-FileSectionContent -FilePath $concurrentReportDocPath -SectionStartMarker '## 最低产出固定槽位' -SectionEndMarker '## 推荐脚本入口'
+    if ([string]::IsNullOrWhiteSpace($concurrentReportOutputSection)) {
+        throw "复杂并存汇报骨架模板未解析到最低产出固定槽位：$concurrentReportDocPath"
+    }
+
+    $concurrentReportOutputRows = @(
+        [regex]::Matches($concurrentReportOutputSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($concurrentReportOutputRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConcurrentReportOutputItems | ForEach-Object { $_.Name }) -Label '复杂并存汇报骨架模板最低产出固定槽位序列'
+    foreach ($expectedConcurrentReportOutputItem in $expectedConcurrentReportOutputItems) {
+        $matchedConcurrentReportOutputRow = @(
+            $concurrentReportOutputRows |
+                Where-Object { $_.Name -eq $expectedConcurrentReportOutputItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConcurrentReportOutputRow) {
+            throw "复杂并存汇报骨架模板缺少最低产出固定槽位：$($expectedConcurrentReportOutputItem.Name)"
+        }
+
+        if ($matchedConcurrentReportOutputRow.Description -ne $expectedConcurrentReportOutputItem.Description) {
+            throw "复杂并存汇报骨架模板最低产出固定槽位漂移：$($expectedConcurrentReportOutputItem.Name) 期望 $($expectedConcurrentReportOutputItem.Description)，实际 $($matchedConcurrentReportOutputRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConcurrentReportOutputItems = @($expectedConcurrentReportOutputItems)
+    }
+}
+
 function Get-CanonicalConcurrentStatusReportValueState {
     $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
     $expectedConcurrentReportValueItems = @(
@@ -2767,6 +2811,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceValueState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalConcurrentStatusReportOutputState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

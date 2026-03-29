@@ -751,6 +751,7 @@ $configReviewScriptEntryLineText = '- `收口入口`：`docs/40-执行/14-维护
 $configReviewSourceLineText = '- `冻结边界依据`：`docs/30-方案/05-V4-Target-冻结清单.md`'
 $concurrentReportDocPath = Join-Path $repoRootPath 'docs/40-执行/20-复杂并存汇报骨架模板.md'
 $originalConcurrentReportDocBytes = [System.IO.File]::ReadAllBytes($concurrentReportDocPath)
+$concurrentReportOutputLineText = '- `状态同步`：如已确定当前主推进口径，可同步更新 `state.yaml`。'
 $concurrentReportValueLineText = '- `自动化入口`：为后续更强的复杂裁决自动化保留轻量入口。'
 
 if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixSyncSlotLineText) {
@@ -811,6 +812,10 @@ if ((Get-Content $configReviewDocPath) -notcontains $configReviewScriptEntryLine
 
 if ((Get-Content $configReviewDocPath) -notcontains $configReviewSourceLineText) {
     throw "测试前置条件不满足：$configReviewDocPath 中缺少 $configReviewSourceLineText"
+}
+
+if ((Get-Content $concurrentReportDocPath) -notcontains $concurrentReportOutputLineText) {
+    throw "测试前置条件不满足：$concurrentReportDocPath 中缺少 $concurrentReportOutputLineText"
 }
 
 if ((Get-Content $concurrentReportDocPath) -notcontains $concurrentReportValueLineText) {
@@ -965,6 +970,16 @@ try {
 }
 finally {
     [System.IO.File]::WriteAllBytes($configReviewDocPath, $originalConfigReviewDocBytes)
+}
+
+try {
+    $driftedConcurrentReportContent = (Get-Content $concurrentReportDocPath -Raw).Replace($concurrentReportOutputLineText, '- `状态同步`：之后再决定。')
+    [System.IO.File]::WriteAllText($concurrentReportDocPath, $driftedConcurrentReportContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/20-复杂并存汇报骨架模板.md') -ExpectedExitCode 1 -TestName 'block-concurrent-report-output-slot-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($concurrentReportDocPath, $originalConcurrentReportDocBytes)
 }
 
 try {
