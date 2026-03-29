@@ -167,6 +167,63 @@ function Get-OrderedNormalizedDocPathsFromFile {
     )
 }
 
+function Get-FileSectionContent {
+    param(
+        [string]$FilePath,
+        [string]$SectionStartMarker,
+        [string]$SectionEndMarker = ''
+    )
+
+    if (-not (Test-Path $FilePath)) {
+        return ''
+    }
+
+    $fileContent = Get-Content $FilePath -Raw
+    $sectionStartIndex = $fileContent.IndexOf($SectionStartMarker)
+    if ($sectionStartIndex -lt 0) {
+        return ''
+    }
+
+    $sectionContent = $fileContent.Substring($sectionStartIndex + $SectionStartMarker.Length)
+    if (-not [string]::IsNullOrWhiteSpace($SectionEndMarker)) {
+        $sectionEndIndex = $sectionContent.IndexOf($SectionEndMarker)
+        if ($sectionEndIndex -ge 0) {
+            $sectionContent = $sectionContent.Substring(0, $sectionEndIndex)
+        }
+    }
+
+    return $sectionContent
+}
+
+function Get-OrderedNormalizedDocPathsFromSection {
+    param(
+        [string]$FilePath,
+        [string]$RegexPattern,
+        [string]$PathPrefix = '',
+        [string]$SectionStartMarker,
+        [string]$SectionEndMarker = ''
+    )
+
+    $sectionContent = Get-FileSectionContent -FilePath $FilePath -SectionStartMarker $SectionStartMarker -SectionEndMarker $SectionEndMarker
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        return @()
+    }
+
+    return @(
+        [regex]::Matches($sectionContent, $RegexPattern) |
+            ForEach-Object {
+                $capturedPath = ConvertTo-NormalizedPath $_.Groups[1].Value
+                if ($PathPrefix -ne '') {
+                    ConvertTo-NormalizedPath ($PathPrefix + $capturedPath)
+                }
+                else {
+                    $capturedPath
+                }
+            } |
+            Where-Object { $_ -ne '' }
+    )
+}
+
 function Get-OrderedUniqueValues {
     param([string[]]$Values)
 
@@ -206,7 +263,13 @@ function Get-OrderedEntryViolationMessages {
             continue
         }
 
-        $orderedMatchedPaths = Get-OrderedNormalizedDocPathsFromFile -FilePath $entryCheck.Path -RegexPattern $entryCheck.RegexPattern -PathPrefix $entryCheck.PathPrefix
+        if ($entryCheck.ContainsKey('SectionStartMarker')) {
+            $orderedMatchedPaths = Get-OrderedNormalizedDocPathsFromSection -FilePath $entryCheck.Path -RegexPattern $entryCheck.RegexPattern -PathPrefix $entryCheck.PathPrefix -SectionStartMarker $entryCheck.SectionStartMarker -SectionEndMarker $entryCheck.SectionEndMarker
+        }
+        else {
+            $orderedMatchedPaths = Get-OrderedNormalizedDocPathsFromFile -FilePath $entryCheck.Path -RegexPattern $entryCheck.RegexPattern -PathPrefix $entryCheck.PathPrefix
+        }
+
         $actualEntryPaths = Get-OrderedUniqueValues -Values @(
             $orderedMatchedPaths |
                 Where-Object { $_ -in $CriticalEntryPaths }
@@ -397,6 +460,26 @@ $publicMaintenanceEntryChecks = @(
         PathPrefix = ''
     }
 )
+$readingOrderTargetEntryChecks = @(
+    @{
+        Path = 'docs/00-导航/02-现行标准件总览.md'
+        Label = '现行总览阅读顺序 Target 主线'
+        RegexPattern = '`(docs/(?:20-决策|30-方案|40-执行)/[^`]+\.md)`'
+        PathPrefix = ''
+        SectionStartMarker = '## 阅读顺序建议'
+        SectionEndMarker = '## 什么不是现行标准件'
+    }
+)
+$readingOrderMaintenanceEntryChecks = @(
+    @{
+        Path = 'docs/00-导航/02-现行标准件总览.md'
+        Label = '现行总览阅读顺序维护层主线'
+        RegexPattern = '`(docs/40-执行/[^`]+\.md)`'
+        PathPrefix = ''
+        SectionStartMarker = '## 阅读顺序建议'
+        SectionEndMarker = '## 什么不是现行标准件'
+    }
+)
 
 $changedPathList = Get-NormalizedChangedPaths
 if ($changedPathList.Count -eq 0) {
@@ -506,6 +589,12 @@ foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChec
     $violationMessages.Add($entryViolationMessage)
 }
 foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicMaintenanceEntryChecks -CriticalEntryPaths $criticalMaintenanceLifecycleEntryPaths -MissingFileLabel '维护层主线入口文件' -MissingEntryLabel '维护层关键入口' -OrderDriftLabel '维护层关键入口顺序漂移')) {
+    $violationMessages.Add($entryViolationMessage)
+}
+foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $readingOrderTargetEntryChecks -CriticalEntryPaths $criticalTargetLifecycleEntryPaths -MissingFileLabel '阅读顺序区文件' -MissingEntryLabel '阅读顺序关键入口' -OrderDriftLabel '阅读顺序建议顺序漂移')) {
+    $violationMessages.Add($entryViolationMessage)
+}
+foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $readingOrderMaintenanceEntryChecks -CriticalEntryPaths $criticalMaintenanceLifecycleEntryPaths -MissingFileLabel '阅读顺序区文件' -MissingEntryLabel '阅读顺序关键入口' -OrderDriftLabel '阅读顺序建议顺序漂移')) {
     $violationMessages.Add($entryViolationMessage)
 }
 
