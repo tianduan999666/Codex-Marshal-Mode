@@ -143,4 +143,49 @@ finally {
     [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
 }
 
+$removedMaintenanceEntryLineText = '- `40-执行/16-拍板包半自动模板.md`'
+
+if ($docsReadmeLines -notcontains $removedMaintenanceEntryLineText) {
+    throw "测试前置条件不满足：$docsReadmePath 中缺少 $removedMaintenanceEntryLineText"
+}
+
+try {
+    $driftedDocsReadmeLines = @(
+        $docsReadmeLines | Where-Object { $_ -ne $removedMaintenanceEntryLineText }
+    )
+    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-public-maintenance-entry-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
+}
+
+$maintenanceGateEntryLineText = '- 多 gate 与多异常并存处理规则：`docs/40-执行/19-多 gate 与多异常并存处理规则.md`'
+$maintenanceConcurrentEntryLineText = '- 复杂并存汇报骨架模板：`docs/40-执行/20-复杂并存汇报骨架模板.md`'
+$maintenanceGateEntryIndex = [Array]::IndexOf($readmeLines, $maintenanceGateEntryLineText)
+$maintenanceConcurrentEntryIndex = [Array]::IndexOf($readmeLines, $maintenanceConcurrentEntryLineText)
+
+if ($maintenanceGateEntryIndex -lt 0 -or $maintenanceConcurrentEntryIndex -lt 0) {
+    throw "测试前置条件不满足：$readmePath 中缺少维护层主线关键入口测试行。"
+}
+
+if ($maintenanceGateEntryIndex -gt $maintenanceConcurrentEntryIndex) {
+    throw "测试前置条件不满足：$readmePath 中维护层入口顺序已不是当前现状。"
+}
+
+try {
+    $driftedReadmeLines = @($readmeLines)
+    $driftedReadmeLines[$maintenanceGateEntryIndex] = $maintenanceConcurrentEntryLineText
+    $driftedReadmeLines[$maintenanceConcurrentEntryIndex] = $maintenanceGateEntryLineText
+    $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($readmePath, $driftedReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('README.md') -ExpectedExitCode 1 -TestName 'block-public-maintenance-entry-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
+}
+
 Write-Host 'PASS: test-public-commit-governance-gate.ps1'

@@ -185,6 +185,62 @@ function Get-OrderedUniqueValues {
     return @($orderedUniqueValues)
 }
 
+function Get-OrderedEntryViolationMessages {
+    param(
+        [object[]]$EntryChecks,
+        [string[]]$CriticalEntryPaths,
+        [string]$MissingFileLabel,
+        [string]$MissingEntryLabel,
+        [string]$OrderDriftLabel
+    )
+
+    $entryViolationMessages = New-Object System.Collections.Generic.List[string]
+    $expectedOrderText = @(
+        $CriticalEntryPaths |
+            ForEach-Object { Split-Path $_ -Leaf }
+    ) -join ' → '
+
+    foreach ($entryCheck in $EntryChecks) {
+        if (-not (Test-Path $entryCheck.Path)) {
+            $entryViolationMessages.Add("缺少$MissingFileLabel：$($entryCheck.Path)")
+            continue
+        }
+
+        $orderedMatchedPaths = Get-OrderedNormalizedDocPathsFromFile -FilePath $entryCheck.Path -RegexPattern $entryCheck.RegexPattern -PathPrefix $entryCheck.PathPrefix
+        $actualEntryPaths = Get-OrderedUniqueValues -Values @(
+            $orderedMatchedPaths |
+                Where-Object { $_ -in $CriticalEntryPaths }
+        )
+        $missingEntryPaths = @(
+            $CriticalEntryPaths |
+                Where-Object { $_ -notin $actualEntryPaths }
+        )
+
+        if ($missingEntryPaths.Count -gt 0) {
+            $entryViolationMessages.Add("$($entryCheck.Label) 缺少$MissingEntryLabel：$($missingEntryPaths -join '、')")
+            continue
+        }
+
+        $hasOrderDrift = $false
+        for ($index = 0; $index -lt $CriticalEntryPaths.Count; $index++) {
+            if ($actualEntryPaths[$index] -ne $CriticalEntryPaths[$index]) {
+                $hasOrderDrift = $true
+                break
+            }
+        }
+
+        if ($hasOrderDrift) {
+            $actualOrderText = @(
+                $actualEntryPaths |
+                    ForEach-Object { Split-Path $_ -Leaf }
+            ) -join ' → '
+            $entryViolationMessages.Add("$($entryCheck.Label) $OrderDriftLabel：期望 $expectedOrderText；实际 $actualOrderText")
+        }
+    }
+
+    return @($entryViolationMessages)
+}
+
 $requiredPolicyFiles = @(
     'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md',
     'docs/reference/02-仓库卫生与命名规范.md',
@@ -310,6 +366,37 @@ $publicTargetEntryChecks = @(
         PathPrefix = ''
     }
 )
+$criticalMaintenanceLifecycleEntryPaths = @(
+    'docs/40-执行/13-维护层总入口.md',
+    'docs/40-执行/14-维护层动作矩阵与收口检查表.md',
+    'docs/40-执行/15-拍板包准备与收口规范.md',
+    'docs/40-执行/16-拍板包半自动模板.md',
+    'docs/40-执行/17-拍板结果回写模板.md',
+    'docs/40-执行/18-异常路径与回退模板.md',
+    'docs/40-执行/19-多 gate 与多异常并存处理规则.md',
+    'docs/40-执行/20-复杂并存汇报骨架模板.md',
+    'docs/40-执行/21-关键配置来源与漂移复核模板.md'
+)
+$publicMaintenanceEntryChecks = @(
+    @{
+        Path = 'README.md'
+        Label = 'README 维护层主线入口'
+        RegexPattern = '`(docs/40-执行/[^`]+\.md)`'
+        PathPrefix = ''
+    },
+    @{
+        Path = 'docs/README.md'
+        Label = 'docs/README 维护层主线入口'
+        RegexPattern = '`(40-执行/[^`]+\.md)`'
+        PathPrefix = 'docs/'
+    },
+    @{
+        Path = 'docs/00-导航/02-现行标准件总览.md'
+        Label = '现行标准件总览维护层主线入口'
+        RegexPattern = '`(docs/40-执行/[^`]+\.md)`'
+        PathPrefix = ''
+    }
+)
 
 $changedPathList = Get-NormalizedChangedPaths
 if ($changedPathList.Count -eq 0) {
@@ -415,46 +502,11 @@ foreach ($ruleEntryCheck in $publicRuleEntryChecks) {
     }
 }
 
-$expectedTargetOrderText = @(
-    $criticalTargetLifecycleEntryPaths |
-        ForEach-Object { Split-Path $_ -Leaf }
-) -join ' → '
-foreach ($targetEntryCheck in $publicTargetEntryChecks) {
-    if (-not (Test-Path $targetEntryCheck.Path)) {
-        $violationMessages.Add("缺少 Target 主线入口文件：$($targetEntryCheck.Path)")
-        continue
-    }
-
-    $orderedMatchedTargetPaths = Get-OrderedNormalizedDocPathsFromFile -FilePath $targetEntryCheck.Path -RegexPattern $targetEntryCheck.RegexPattern -PathPrefix $targetEntryCheck.PathPrefix
-    $actualTargetEntryPaths = Get-OrderedUniqueValues -Values @(
-        $orderedMatchedTargetPaths |
-            Where-Object { $_ -in $criticalTargetLifecycleEntryPaths }
-    )
-    $missingTargetEntryPaths = @(
-        $criticalTargetLifecycleEntryPaths |
-            Where-Object { $_ -notin $actualTargetEntryPaths }
-    )
-
-    if ($missingTargetEntryPaths.Count -gt 0) {
-        $violationMessages.Add("$($targetEntryCheck.Label) 缺少关键主线入口：$($missingTargetEntryPaths -join '、')")
-        continue
-    }
-
-    $hasTargetOrderDrift = $false
-    for ($index = 0; $index -lt $criticalTargetLifecycleEntryPaths.Count; $index++) {
-        if ($actualTargetEntryPaths[$index] -ne $criticalTargetLifecycleEntryPaths[$index]) {
-            $hasTargetOrderDrift = $true
-            break
-        }
-    }
-
-    if ($hasTargetOrderDrift) {
-        $actualTargetOrderText = @(
-            $actualTargetEntryPaths |
-                ForEach-Object { Split-Path $_ -Leaf }
-        ) -join ' → '
-        $violationMessages.Add("$($targetEntryCheck.Label) 关键主线入口顺序漂移：期望 $expectedTargetOrderText；实际 $actualTargetOrderText")
-    }
+foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicTargetEntryChecks -CriticalEntryPaths $criticalTargetLifecycleEntryPaths -MissingFileLabel 'Target 主线入口文件' -MissingEntryLabel '关键主线入口' -OrderDriftLabel '关键主线入口顺序漂移')) {
+    $violationMessages.Add($entryViolationMessage)
+}
+foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicMaintenanceEntryChecks -CriticalEntryPaths $criticalMaintenanceLifecycleEntryPaths -MissingFileLabel '维护层主线入口文件' -MissingEntryLabel '维护层关键入口' -OrderDriftLabel '维护层关键入口顺序漂移')) {
+    $violationMessages.Add($entryViolationMessage)
 }
 
 if ($violationMessages.Count -gt 0) {
