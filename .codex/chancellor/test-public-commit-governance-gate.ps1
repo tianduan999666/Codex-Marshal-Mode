@@ -1033,6 +1033,32 @@ finally {
     [System.IO.File]::WriteAllBytes($targetPlanPath, $originalTargetPlanBytes)
 }
 
+$navOverviewMaintenanceGateEntryLineText = '19. `docs/40-执行/19-多 gate 与多异常并存处理规则.md`'
+$navOverviewMaintenanceConcurrentEntryLineText = '20. `docs/40-执行/20-复杂并存汇报骨架模板.md`'
+$navOverviewMaintenanceGateEntryIndex = [Array]::IndexOf($navOverviewLines, $navOverviewMaintenanceGateEntryLineText)
+$navOverviewMaintenanceConcurrentEntryIndex = [Array]::IndexOf($navOverviewLines, $navOverviewMaintenanceConcurrentEntryLineText)
+
+if ($navOverviewMaintenanceGateEntryIndex -lt 0 -or $navOverviewMaintenanceConcurrentEntryIndex -lt 0) {
+    throw "测试前置条件不满足：$navOverviewPath 中缺少维护层主线入口背景区测试行。"
+}
+
+if ($navOverviewMaintenanceGateEntryIndex -gt $navOverviewMaintenanceConcurrentEntryIndex) {
+    throw "测试前置条件不满足：$navOverviewPath 中维护层主线入口背景区顺序已不是当前现状。"
+}
+
+try {
+    $driftedNavOverviewLines = @($navOverviewLines)
+    $driftedNavOverviewLines[$navOverviewMaintenanceGateEntryIndex] = $navOverviewMaintenanceConcurrentEntryLineText
+    $driftedNavOverviewLines[$navOverviewMaintenanceConcurrentEntryIndex] = $navOverviewMaintenanceGateEntryLineText
+    $driftedNavOverviewContent = ($driftedNavOverviewLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($navOverviewPath, $driftedNavOverviewContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/00-导航/02-现行标准件总览.md') -ExpectedExitCode 1 -TestName 'block-public-maintenance-entry-order-drift-nav-overview'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($navOverviewPath, $originalNavOverviewBytes)
+}
+
 $readingOrderGateLineText = '26. 需要裁决多 gate 或多异常的主状态时，看 `docs/40-执行/19-多 gate 与多异常并存处理规则.md`'
 $readingOrderConcurrentLineText = '27. 需要把复杂并存场景快速落进任务包时，看 `docs/40-执行/20-复杂并存汇报骨架模板.md`'
 $readingOrderGateIndex = [Array]::IndexOf($navOverviewLines, $readingOrderGateLineText)
