@@ -242,6 +242,44 @@ function Get-OrderedUniqueValues {
     return @($orderedUniqueValues)
 }
 
+function Get-OrderedPathSlice {
+    param(
+        [string[]]$SourcePaths,
+        [string]$StartPath,
+        [string]$EndPath,
+        [string]$SliceLabel = '有序路径片段'
+    )
+
+    $orderedSlice = New-Object System.Collections.Generic.List[string]
+    $hasStarted = $false
+    $hasEnded = $false
+    foreach ($sourcePath in $SourcePaths) {
+        if (-not $hasStarted) {
+            if ($sourcePath -ne $StartPath) {
+                continue
+            }
+
+            $hasStarted = $true
+        }
+
+        $orderedSlice.Add($sourcePath)
+        if ($sourcePath -eq $EndPath) {
+            $hasEnded = $true
+            break
+        }
+    }
+
+    if (-not $hasStarted) {
+        throw "$SliceLabel 缺少起始路径：$StartPath"
+    }
+
+    if (-not $hasEnded) {
+        throw "$SliceLabel 缺少结束路径或结束路径出现在起始路径之前：$EndPath"
+    }
+
+    return @($orderedSlice)
+}
+
 function Get-OrderedEntryViolationMessages {
     param(
         [object[]]$EntryChecks,
@@ -400,15 +438,17 @@ $publicRuleEntryChecks = @(
         PathPrefix = ''
     }
 )
-$criticalTargetLifecycleEntryPaths = @(
-    'docs/30-方案/03-V4-MVP边界清单.md',
-    'docs/20-决策/02-V4-Target-进入决议.md',
-    'docs/30-方案/04-V4-Target-蓝图.md',
-    'docs/30-方案/05-V4-Target-冻结清单.md',
-    'docs/30-方案/07-V4-规划策略候选规范.md',
-    'docs/30-方案/08-V4-治理审计候选规范.md',
-    'docs/40-执行/12-V4-Target-实施计划.md'
+$precomputedViolationMessages = New-Object System.Collections.Generic.List[string]
+$navOverviewReadingOrderPaths = Get-OrderedUniqueValues -Values @(
+    Get-OrderedNormalizedDocPathsFromSection -FilePath 'docs/00-导航/02-现行标准件总览.md' -RegexPattern '`(docs/(?:20-决策|30-方案|40-执行)/[^`]+\.md)`' -PathPrefix '' -SectionStartMarker '## 阅读顺序建议' -SectionEndMarker '## 什么不是现行标准件'
 )
+$criticalTargetLifecycleEntryPaths = @()
+try {
+    $criticalTargetLifecycleEntryPaths = Get-OrderedPathSlice -SourcePaths $navOverviewReadingOrderPaths -StartPath 'docs/20-决策/02-V4-Target-进入决议.md' -EndPath 'docs/40-执行/12-V4-Target-实施计划.md' -SliceLabel '现行总览阅读顺序 Target 主线'
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
 $publicTargetEntryChecks = @(
     @{
         Path = 'README.md'
@@ -429,17 +469,13 @@ $publicTargetEntryChecks = @(
         PathPrefix = ''
     }
 )
-$criticalMaintenanceLifecycleEntryPaths = @(
-    'docs/40-执行/13-维护层总入口.md',
-    'docs/40-执行/14-维护层动作矩阵与收口检查表.md',
-    'docs/40-执行/15-拍板包准备与收口规范.md',
-    'docs/40-执行/16-拍板包半自动模板.md',
-    'docs/40-执行/17-拍板结果回写模板.md',
-    'docs/40-执行/18-异常路径与回退模板.md',
-    'docs/40-执行/19-多 gate 与多异常并存处理规则.md',
-    'docs/40-执行/20-复杂并存汇报骨架模板.md',
-    'docs/40-执行/21-关键配置来源与漂移复核模板.md'
-)
+$criticalMaintenanceLifecycleEntryPaths = @()
+try {
+    $criticalMaintenanceLifecycleEntryPaths = Get-OrderedPathSlice -SourcePaths $navOverviewReadingOrderPaths -StartPath 'docs/40-执行/13-维护层总入口.md' -EndPath 'docs/40-执行/21-关键配置来源与漂移复核模板.md' -SliceLabel '现行总览阅读顺序维护层主线'
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
 $publicMaintenanceEntryChecks = @(
     @{
         Path = 'README.md'
@@ -536,6 +572,9 @@ if ($changedPathList.Count -eq 0) {
 }
 
 $violationMessages = New-Object System.Collections.Generic.List[string]
+foreach ($precomputedViolationMessage in $precomputedViolationMessages) {
+    $violationMessages.Add($precomputedViolationMessage)
+}
 foreach ($policyFilePath in $requiredPolicyFiles) {
     if (-not (Test-Path $policyFilePath)) {
         $violationMessages.Add("缺少必需规则文件：$policyFilePath")
