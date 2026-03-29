@@ -741,6 +741,7 @@ $maintenanceMatrixPairingLineText = '- `公开口径变更前`：追加一次 `0
 $maintenanceMatrixValueLineText = '- `保留控制平面`：为后续更强自动化保留稳定的人类控制平面。'
 $configReviewDocPath = Join-Path $repoRootPath 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
 $originalConfigReviewDocBytes = [System.IO.File]::ReadAllBytes($configReviewDocPath)
+$configReviewSummaryLineText = '- `统一落盘复核`：再用本模板把配置来源、版本依据与漂移检查统一落进任务包。'
 $configReviewTriggerLineText = '- `提交前预检落盘`：当前轮正在执行 `docs/40-执行/10-本地安全提交流程.md`，需要把提交前预检结果落盘。'
 $configReviewResultSkeletonLineText = '- `下一步`：写清是否继续提交前收口。'
 $configReviewDecisionLogSkeletonLineText = '- `影响`：写清是否可以继续进入提交前收口。'
@@ -775,6 +776,10 @@ if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixPairingL
 
 if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixValueLineText) {
     throw "测试前置条件不满足：$maintenanceMatrixPath 中缺少 $maintenanceMatrixValueLineText"
+}
+
+if ((Get-Content $configReviewDocPath) -notcontains $configReviewSummaryLineText) {
+    throw "测试前置条件不满足：$configReviewDocPath 中缺少 $configReviewSummaryLineText"
 }
 
 if ((Get-Content $configReviewDocPath) -notcontains $configReviewTriggerLineText) {
@@ -873,6 +878,16 @@ try {
 }
 finally {
     [System.IO.File]::WriteAllBytes($maintenanceMatrixPath, $originalMaintenanceMatrixBytes)
+}
+
+try {
+    $driftedConfigReviewContent = (Get-Content $configReviewDocPath -Raw).Replace($configReviewSummaryLineText, '- `统一落盘复核`：之后再看。')
+    [System.IO.File]::WriteAllText($configReviewDocPath, $driftedConfigReviewContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/21-关键配置来源与漂移复核模板.md') -ExpectedExitCode 1 -TestName 'block-config-review-summary-slot-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($configReviewDocPath, $originalConfigReviewDocBytes)
 }
 
 try {
