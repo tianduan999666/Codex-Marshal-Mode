@@ -117,6 +117,25 @@ finally {
     [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
 }
 
+$coreGovernanceRuleSourceMiddleLineText = '2. `docs/reference/02-仓库卫生与命名规范.md`'
+
+if ($localSafeFlowLines -notcontains $coreGovernanceRuleSourceMiddleLineText) {
+    throw "测试前置条件不满足：$localSafeFlowPath 中缺少 $coreGovernanceRuleSourceMiddleLineText"
+}
+
+try {
+    $driftedLocalSafeFlowLines = @(
+        $localSafeFlowLines | Where-Object { $_ -ne $coreGovernanceRuleSourceMiddleLineText }
+    )
+    $driftedLocalSafeFlowContent = ($driftedLocalSafeFlowLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($localSafeFlowPath, $driftedLocalSafeFlowContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/10-本地安全提交流程.md') -ExpectedExitCode 1 -TestName 'block-core-rule-source-middle-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
+}
+
 $blockedLogsPrefixSourceLineText = 'prefix:logs/'
 $blockedLogsReadmeExceptionSourceLineText = 'except:logs/README.md'
 
@@ -533,64 +552,22 @@ finally {
     [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
 }
 
-$coreGovernanceRuleSourceLocalSafeFlowLineText = '5. `docs/40-执行/10-本地安全提交流程.md`'
-$execReadmeLocalSafeFlowLineText = '- `10-本地安全提交流程.md`'
-$readmeLocalSafeFlowLineText = '- 本地安全提交流程：`docs/40-执行/10-本地安全提交流程.md`'
-$docsReadmeLocalSafeFlowLineText = '- `40-执行/10-本地安全提交流程.md`'
-$navOverviewCurrentLocalSafeFlowLineText = '11. `docs/40-执行/10-本地安全提交流程.md`'
-$navOverviewReadingLocalSafeFlowLineText = '11. 需要处理本地提交稳定性时，看 `docs/40-执行/10-本地安全提交流程.md`'
-$maintenanceGuideLocalSafeFlowLineText = '- 文档：`docs/40-执行/10-本地安全提交流程.md`'
-
-if ($localSafeFlowLines -notcontains $coreGovernanceRuleSourceLocalSafeFlowLineText -or $execReadmeLines -notcontains $execReadmeLocalSafeFlowLineText -or $readmeLines -notcontains $readmeLocalSafeFlowLineText -or $docsReadmeLines -notcontains $docsReadmeLocalSafeFlowLineText -or $navOverviewLines -notcontains $navOverviewCurrentLocalSafeFlowLineText -or $navOverviewLines -notcontains $navOverviewReadingLocalSafeFlowLineText -or $maintenanceGuideLines -notcontains $maintenanceGuideLocalSafeFlowLineText) {
+$coreGovernanceRuleSourceExtraLineText = '7. `docs/40-执行/21-关键配置来源与漂移复核模板.md`'
+if ($localSafeFlowLines -notcontains $coreGovernanceRuleSourceExtraLineText) {
     throw '测试前置条件不满足：核心治理规则真源联动测试行缺失。'
 }
 
 try {
     $driftedLocalSafeFlowLines = @(
-        $localSafeFlowLines | Where-Object { $_ -ne $coreGovernanceRuleSourceLocalSafeFlowLineText }
+        $localSafeFlowLines | Where-Object { $_ -ne $coreGovernanceRuleSourceExtraLineText }
     )
     $driftedLocalSafeFlowContent = ($driftedLocalSafeFlowLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($localSafeFlowPath, $driftedLocalSafeFlowContent, $utf8NoBom)
 
-    $driftedExecReadmeLines = @(
-        $execReadmeLines | Where-Object { $_ -ne $execReadmeLocalSafeFlowLineText }
-    )
-    $driftedExecReadmeContent = ($driftedExecReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
-    [System.IO.File]::WriteAllText($execReadmePath, $driftedExecReadmeContent, $utf8NoBom)
-
-    $driftedReadmeLines = @(
-        $readmeLines | Where-Object { $_ -ne $readmeLocalSafeFlowLineText }
-    )
-    $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
-    [System.IO.File]::WriteAllText($readmePath, $driftedReadmeContent, $utf8NoBom)
-
-    $driftedDocsReadmeLines = @(
-        $docsReadmeLines | Where-Object { $_ -ne $docsReadmeLocalSafeFlowLineText }
-    )
-    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
-    [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
-
-    $driftedNavOverviewLines = @(
-        $navOverviewLines | Where-Object { $_ -ne $navOverviewCurrentLocalSafeFlowLineText -and $_ -ne $navOverviewReadingLocalSafeFlowLineText }
-    )
-    $driftedNavOverviewContent = ($driftedNavOverviewLines -join [Environment]::NewLine) + [Environment]::NewLine
-    [System.IO.File]::WriteAllText($navOverviewPath, $driftedNavOverviewContent, $utf8NoBom)
-
-    $driftedMaintenanceGuideLines = @(
-        $maintenanceGuideLines | Where-Object { $_ -ne $maintenanceGuideLocalSafeFlowLineText }
-    )
-    $driftedMaintenanceGuideContent = ($driftedMaintenanceGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
-    [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/10-本地安全提交流程.md', 'docs/40-执行/README.md', 'README.md', 'docs/README.md', 'docs/00-导航/02-现行标准件总览.md', 'docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 0 -TestName 'allow-core-rule-source-sync'
+    Invoke-GateForTestCase -Paths @('docs/40-执行/10-本地安全提交流程.md') -ExpectedExitCode 0 -TestName 'allow-core-rule-source-sync'
 }
 finally {
     [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
-    [System.IO.File]::WriteAllBytes($execReadmePath, $originalExecReadmeBytes)
-    [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
-    [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
-    [System.IO.File]::WriteAllBytes($navOverviewPath, $originalNavOverviewBytes)
-    [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
 }
 
 $targetPlanPath = Join-Path $repoRootPath 'docs/40-执行/12-V4-Target-实施计划.md'

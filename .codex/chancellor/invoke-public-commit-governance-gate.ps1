@@ -387,6 +387,28 @@ function Get-CanonicalStartupPhaseEntryPaths {
     return $startupPhaseSlice
 }
 
+function Get-CanonicalCoreGovernanceRuleSourcePaths {
+    $localSafeFlowPath = 'docs/40-执行/10-本地安全提交流程.md'
+    $coreGovernanceRuleSourcePaths = Get-OrderedUniqueValues -Values @(
+        Get-OrderedNormalizedDocPathsFromSection -FilePath $localSafeFlowPath -RegexPattern '`(docs/(?:reference|30-方案|40-执行)/[^`]+\.md)`' -PathPrefix '' -SectionStartMarker '## 核心治理规则入口真源' -SectionEndMarker '## 公开提交硬门禁'
+    )
+
+    if ($coreGovernanceRuleSourcePaths.Count -eq 0) {
+        throw "核心治理规则入口真源区块未解析到规则文档：$localSafeFlowPath"
+    }
+
+    $requiredCoreGovernanceRuleSourcePaths = @(
+        'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md'
+        'docs/reference/02-仓库卫生与命名规范.md'
+        'docs/30-方案/02-V4-目录锁定清单.md'
+        'docs/30-方案/08-V4-治理审计候选规范.md'
+        'docs/40-执行/10-本地安全提交流程.md'
+        'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
+    )
+    Assert-RequiredPathsPresent -SourcePaths $coreGovernanceRuleSourcePaths -RequiredPaths $requiredCoreGovernanceRuleSourcePaths -Label '核心治理规则入口真源'
+    return $coreGovernanceRuleSourcePaths
+}
+
 function Get-BlockedPathRulesFromLocalSafeFlow {
     $localSafeFlowPath = 'docs/40-执行/10-本地安全提交流程.md'
     $blockedPathBlock = Get-CodeBlockContentFromSection -FilePath $localSafeFlowPath -SectionStartMarker '## 公开提交禁止路径真源' -SectionEndMarker '## 公开提交硬门禁'
@@ -572,13 +594,7 @@ function Get-OrderedEntryViolationMessages {
 $precomputedViolationMessages = New-Object System.Collections.Generic.List[string]
 $coreGovernanceRuleSourcePaths = @()
 try {
-    $coreGovernanceRuleSourcePaths = Get-OrderedUniqueValues -Values @(
-        Get-OrderedNormalizedDocPathsFromSection -FilePath 'docs/40-执行/10-本地安全提交流程.md' -RegexPattern '`(docs/(?:reference|30-方案|40-执行)/[^`]+\.md)`' -PathPrefix '' -SectionStartMarker '## 核心治理规则入口真源' -SectionEndMarker '## 公开提交硬门禁'
-    )
-
-    if ($coreGovernanceRuleSourcePaths.Count -eq 0) {
-        throw '核心治理规则入口真源区块未解析到规则文档：docs/40-执行/10-本地安全提交流程.md'
-    }
+    $coreGovernanceRuleSourcePaths = Get-CanonicalCoreGovernanceRuleSourcePaths
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
