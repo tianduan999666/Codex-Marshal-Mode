@@ -455,6 +455,9 @@ function Get-CanonicalPanelCommandState {
         '丞相验板'
         '丞相版本'
     )
+    $expectedHelpCommands = @(
+        '丞相帮助'
+    )
     $expectedChecklistCommands = @(
         '丞相版本'
         '丞相检查'
@@ -485,6 +488,22 @@ function Get-CanonicalPanelCommandState {
         )
     )
     Assert-ExactOrderedValues -SourceValues $agentPanelCommands -ExpectedValues $expectedPanelCommands -Label 'AGENTS 面板丞相命令真源'
+
+    $expectedHelpRows = @()
+    foreach ($expectedHelpCommand in $expectedHelpCommands) {
+        $matchedAgentRow = @(
+            $agentPanelCommandRows |
+                Where-Object { $_.Command -eq $expectedHelpCommand }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedAgentRow) {
+            throw "AGENTS 面板丞相命令真源缺少命令：$expectedHelpCommand"
+        }
+
+        $expectedHelpRows += [pscustomobject]@{
+            Command = $matchedAgentRow.Command
+            Description = $matchedAgentRow.Description
+        }
+    }
 
     $expectedAcceptanceRows = @()
     foreach ($expectedAcceptanceCommand in $expectedChecklistCommands) {
@@ -528,6 +547,35 @@ function Get-CanonicalPanelCommandState {
     Assert-ExactOrderedValues -SourceValues $versionPanelCommands -ExpectedValues $expectedPanelCommands -Label '生产母体 panel_commands'
 
     $acceptanceDocPath = 'docs/40-执行/03-面板入口验收.md'
+    $helpSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 帮助命令公开用法' -SectionEndMarker '## 两条维护命令边界'
+    if ([string]::IsNullOrWhiteSpace($helpSection)) {
+        throw "面板入口验收未解析到帮助命令公开用法：$acceptanceDocPath"
+    }
+
+    $helpRows = @(
+        [regex]::Matches($helpSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Command = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($helpRows | ForEach-Object { $_.Command }) -ExpectedValues $expectedHelpCommands -Label '面板入口验收帮助命令用法序列'
+    foreach ($expectedHelpRow in $expectedHelpRows) {
+        $matchedHelpRow = @(
+            $helpRows |
+                Where-Object { $_.Command -eq $expectedHelpRow.Command }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedHelpRow) {
+            throw "面板入口验收缺少帮助命令用法：$($expectedHelpRow.Command)"
+        }
+
+        if ($matchedHelpRow.Description -ne $expectedHelpRow.Description) {
+            throw "面板入口验收帮助命令用法漂移：$($expectedHelpRow.Command) 期望 $($expectedHelpRow.Description)，实际 $($matchedHelpRow.Description)"
+        }
+    }
+
     $boundarySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 两条维护命令边界' -SectionEndMarker '## 固定人工验收步骤'
     if ([string]::IsNullOrWhiteSpace($boundarySection)) {
         throw "面板入口验收未解析到两条维护命令边界：$acceptanceDocPath"
@@ -588,6 +636,35 @@ function Get-CanonicalPanelCommandState {
 
     if (-not (Test-Path $checklistPath)) {
         throw "缺少面板人工验板清单：$checklistPath"
+    }
+
+    $checklistHelpSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 帮助命令公开用法' -SectionEndMarker '## 相关维护命令边界'
+    if ([string]::IsNullOrWhiteSpace($checklistHelpSection)) {
+        throw "面板人工验板清单未解析到帮助命令公开用法：$checklistPath"
+    }
+
+    $checklistHelpRows = @(
+        [regex]::Matches($checklistHelpSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Command = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($checklistHelpRows | ForEach-Object { $_.Command }) -ExpectedValues $expectedHelpCommands -Label '面板人工验板清单帮助命令用法序列'
+    foreach ($expectedHelpRow in $expectedHelpRows) {
+        $matchedChecklistHelpRow = @(
+            $checklistHelpRows |
+                Where-Object { $_.Command -eq $expectedHelpRow.Command }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedChecklistHelpRow) {
+            throw "面板人工验板清单缺少帮助命令用法：$($expectedHelpRow.Command)"
+        }
+
+        if ($matchedChecklistHelpRow.Description -ne $expectedHelpRow.Description) {
+            throw "面板人工验板清单帮助命令用法漂移：$($expectedHelpRow.Command) 期望 $($expectedHelpRow.Description)，实际 $($matchedChecklistHelpRow.Description)"
+        }
     }
 
     $checklistBoundarySection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 相关维护命令边界' -SectionEndMarker '## 验板步骤'

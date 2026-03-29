@@ -1314,7 +1314,9 @@ finally {
 }
 
 $agentsPanelCommandLineText = '| `丞相验板` | 给出进入官方面板人工验收的固定步骤 |'
+$panelHelpUsageLineText = '- `丞相帮助`：显示当前用法、命令与注意事项。'
 $panelRepairBoundaryLineText = '- `丞相修复`：在安全边界内尝试自动修复常见问题。'
+$checklistHelpUsageLineText = '- `丞相帮助`：显示当前用法、命令与注意事项。'
 $checklistAcceptanceBoundaryLineText = '- `丞相验板`：给出进入官方面板人工验收的固定步骤。'
 $codexHomeExportPanelChecklistPath = Join-Path $repoRootPath 'codex-home-export/panel-acceptance-checklist.md'
 $panelAcceptanceDocPath = Join-Path $repoRootPath 'docs/40-执行/03-面板入口验收.md'
@@ -1326,8 +1328,16 @@ if ($agentsLines -notcontains $agentsPanelCommandLineText) {
     throw "测试前置条件不满足：$agentsPath 中缺少 $agentsPanelCommandLineText"
 }
 
+if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelHelpUsageLineText) {
+    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelHelpUsageLineText"
+}
+
 if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelRepairBoundaryLineText) {
     throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelRepairBoundaryLineText"
+}
+
+if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistHelpUsageLineText) {
+    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistHelpUsageLineText"
 }
 
 if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistAcceptanceBoundaryLineText) {
@@ -1369,6 +1379,16 @@ finally {
 }
 
 try {
+    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelHelpUsageLineText, '- `丞相帮助`：显示帮助。')
+    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-help-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
+}
+
+try {
     $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelRepairBoundaryLineText, '- `丞相修复`：尝试自动修复问题。')
     [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
 
@@ -1386,6 +1406,16 @@ try {
 }
 finally {
     [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
+}
+
+try {
+    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistHelpUsageLineText, '- `丞相帮助`：显示帮助。')
+    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-help-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
 }
 
 try {
