@@ -2042,6 +2042,49 @@ function Get-CanonicalConcurrentGateRuleGatePriorityState {
     }
 }
 
+function Get-CanonicalConcurrentGateRuleGateExceptionDecisionState {
+    $concurrentRuleDocPath = 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
+    $expectedConcurrentRuleGateExceptionDecisionItems = @(
+        [pscustomobject]@{ Name = '讨论条件未满足'; Description = '若异常导致当前连拍板包都不具备讨论条件，主状态优先用 `waiting_assist` 或 `paused`，gate 保留但不主导当前状态' }
+        [pscustomobject]@{ Name = '异常收口后待拍板'; Description = '若异常已收口，当前仍需主公拍板才能继续，主状态用 `waiting_gate`' }
+        [pscustomobject]@{ Name = '已拍板待恢复'; Description = '若主公已拍板，但恢复动作尚未准备好，主状态按异常结果切到 `paused` 或 `ready_to_resume`' }
+        [pscustomobject]@{ Name = '拍板回退先回写'; Description = '若拍板结果本身要求回退，先完成 `decided/dropped` 回写，再按异常模板切换到新的异常态' }
+    )
+
+    $concurrentRuleGateExceptionDecisionSection = Get-FileSectionContent -FilePath $concurrentRuleDocPath -SectionStartMarker '## 第四原则：gate 与异常并存时的裁决固定槽位' -SectionEndMarker '## 第五原则：文档落盘分工'
+    if ([string]::IsNullOrWhiteSpace($concurrentRuleGateExceptionDecisionSection)) {
+        throw "多 gate 与多异常并存处理规则未解析到 gate 与异常并存时的裁决固定槽位：$concurrentRuleDocPath"
+    }
+
+    $concurrentRuleGateExceptionDecisionRows = @(
+        [regex]::Matches($concurrentRuleGateExceptionDecisionSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($concurrentRuleGateExceptionDecisionRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConcurrentRuleGateExceptionDecisionItems | ForEach-Object { $_.Name }) -Label '多 gate 与多异常并存处理规则 gate 与异常并存时的裁决固定槽位序列'
+    foreach ($expectedConcurrentRuleGateExceptionDecisionItem in $expectedConcurrentRuleGateExceptionDecisionItems) {
+        $matchedConcurrentRuleGateExceptionDecisionRow = @(
+            $concurrentRuleGateExceptionDecisionRows |
+                Where-Object { $_.Name -eq $expectedConcurrentRuleGateExceptionDecisionItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConcurrentRuleGateExceptionDecisionRow) {
+            throw "多 gate 与多异常并存处理规则缺少 gate 与异常并存时的裁决固定槽位：$($expectedConcurrentRuleGateExceptionDecisionItem.Name)"
+        }
+
+        if ($matchedConcurrentRuleGateExceptionDecisionRow.Description -ne $expectedConcurrentRuleGateExceptionDecisionItem.Description) {
+            throw "多 gate 与多异常并存处理规则 gate 与异常并存时的裁决固定槽位漂移：$($expectedConcurrentRuleGateExceptionDecisionItem.Name) 期望 $($expectedConcurrentRuleGateExceptionDecisionItem.Description)，实际 $($matchedConcurrentRuleGateExceptionDecisionRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConcurrentRuleGateExceptionDecisionItems = @($expectedConcurrentRuleGateExceptionDecisionItems)
+    }
+}
+
 function Get-CanonicalConcurrentGateRuleCloseoutCheckState {
     $concurrentRuleDocPath = 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
     $expectedConcurrentRuleCloseoutCheckItems = @(
@@ -3215,6 +3258,12 @@ catch {
 }
 try {
     [void](Get-CanonicalConcurrentGateRuleGatePriorityState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalConcurrentGateRuleGateExceptionDecisionState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
