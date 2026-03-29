@@ -719,6 +719,18 @@ $criticalRuleOrderPaths = @(
     'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md'
     'docs/reference/02-仓库卫生与命名规范.md'
 )
+$agentConstraintEntryChecks = @(
+    @{
+        Path = 'AGENTS.md'
+        Label = 'AGENTS 核心约束入口'
+        RegexPattern = '`((?:docs/reference|docs/30-方案)/[^`]+\.md)`'
+        PathPrefix = ''
+    }
+)
+$criticalAgentConstraintPaths = @(
+    'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md'
+    'docs/30-方案/02-V4-目录锁定清单.md'
+)
 $criticalTargetLifecycleEntryPaths = @()
 try {
     $criticalTargetLifecycleEntryPaths = Get-CanonicalTargetLifecycleEntryPaths
@@ -972,6 +984,9 @@ foreach ($ruleEntryCheck in $publicRuleEntryChecks) {
     }
 }
 foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $ruleOrderEntryChecks -CriticalEntryPaths $criticalRuleOrderPaths -MissingFileLabel '规则入口文件' -MissingEntryLabel '关键规则入口' -OrderDriftLabel '关键规则入口顺序漂移')) {
+    $violationMessages.Add($entryViolationMessage)
+}
+foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $agentConstraintEntryChecks -CriticalEntryPaths $criticalAgentConstraintPaths -MissingFileLabel 'AGENTS 文件' -MissingEntryLabel '核心约束入口' -OrderDriftLabel '核心约束入口顺序漂移')) {
     $violationMessages.Add($entryViolationMessage)
 }
 foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicRestartGuideEntryChecks -CriticalEntryPaths $restartGuideCanonicalEntryPaths -MissingFileLabel '重启导读核心入口文件' -MissingEntryLabel '重启导读核心入口' -OrderDriftLabel '重启导读核心入口顺序漂移')) {

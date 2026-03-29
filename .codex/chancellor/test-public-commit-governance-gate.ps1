@@ -95,6 +95,28 @@ finally {
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
 }
 
+$agentsPath = Join-Path $repoRootPath 'AGENTS.md'
+$originalAgentsBytes = [System.IO.File]::ReadAllBytes($agentsPath)
+$agentsLines = Get-Content $agentsPath
+$agentsRuleGuideLineText = '- 反屎山总纲：`docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`'
+
+if ($agentsLines -notcontains $agentsRuleGuideLineText) {
+    throw "测试前置条件不满足：$agentsPath 中缺少 $agentsRuleGuideLineText"
+}
+
+try {
+    $driftedAgentsLines = @(
+        $agentsLines | Where-Object { $_ -ne $agentsRuleGuideLineText }
+    )
+    $driftedAgentsContent = ($driftedAgentsLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($agentsPath, $driftedAgentsContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('AGENTS.md') -ExpectedExitCode 1 -TestName 'block-agents-core-rule-entry-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($agentsPath, $originalAgentsBytes)
+}
+
 $localSafeFlowPath = Join-Path $repoRootPath 'docs/40-执行/10-本地安全提交流程.md'
 $originalLocalSafeFlowBytes = [System.IO.File]::ReadAllBytes($localSafeFlowPath)
 $localSafeFlowLines = Get-Content $localSafeFlowPath
