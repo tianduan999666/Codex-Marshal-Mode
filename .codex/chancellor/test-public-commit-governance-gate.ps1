@@ -708,6 +708,32 @@ finally {
     [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
 }
 
+$docsReadmeMaintenanceGateEntryLineText = '- `40-执行/19-多 gate 与多异常并存处理规则.md`'
+$docsReadmeMaintenanceConcurrentEntryLineText = '- `40-执行/20-复杂并存汇报骨架模板.md`'
+$docsReadmeMaintenanceGateEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeMaintenanceGateEntryLineText)
+$docsReadmeMaintenanceConcurrentEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeMaintenanceConcurrentEntryLineText)
+
+if ($docsReadmeMaintenanceGateEntryIndex -lt 0 -or $docsReadmeMaintenanceConcurrentEntryIndex -lt 0) {
+    throw "测试前置条件不满足：$docsReadmePath 中缺少维护层主线关键入口测试行。"
+}
+
+if ($docsReadmeMaintenanceGateEntryIndex -gt $docsReadmeMaintenanceConcurrentEntryIndex) {
+    throw "测试前置条件不满足：$docsReadmePath 中维护层入口顺序已不是当前现状。"
+}
+
+try {
+    $driftedDocsReadmeLines = @($docsReadmeLines)
+    $driftedDocsReadmeLines[$docsReadmeMaintenanceGateEntryIndex] = $docsReadmeMaintenanceConcurrentEntryLineText
+    $driftedDocsReadmeLines[$docsReadmeMaintenanceConcurrentEntryIndex] = $docsReadmeMaintenanceGateEntryLineText
+    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-public-maintenance-entry-order-drift-docs-readme'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
+}
+
 $navOverviewPath = Join-Path $repoRootPath 'docs/00-导航/02-现行标准件总览.md'
 $originalNavOverviewBytes = [System.IO.File]::ReadAllBytes($navOverviewPath)
 $navOverviewLines = Get-Content $navOverviewPath
