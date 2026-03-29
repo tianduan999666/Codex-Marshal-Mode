@@ -340,6 +340,30 @@ function Get-CanonicalTargetLifecycleEntryPaths {
     return Get-OrderedPathSlice -SourcePaths $targetLifecyclePaths -StartPath 'docs/20-决策/02-V4-Target-进入决议.md' -EndPath 'docs/40-执行/12-V4-Target-实施计划.md' -SliceLabel 'Target 主线真源'
 }
 
+function Get-CanonicalStartupPhaseEntryPaths {
+    $restartGuidePath = 'docs/00-导航/01-V4-重启导读.md'
+    $startupPhasePaths = Get-OrderedUniqueValues -Values @(
+        Get-OrderedNormalizedDocPathsFromSection -FilePath $restartGuidePath -RegexPattern '(?m)^(docs/(?:00-导航|10-输入材料|20-决策|30-方案)/[^\r\n]+\.md)\s*$' -PathPrefix '' -SectionStartMarker '## 启动阶段真源' -SectionEndMarker '## '
+    )
+
+    if ($startupPhasePaths.Count -eq 0) {
+        throw "重启导读未解析到启动阶段真源：$restartGuidePath"
+    }
+
+    $startupPhaseSlice = Get-OrderedPathSlice -SourcePaths $startupPhasePaths -StartPath 'docs/00-导航/02-现行标准件总览.md' -EndPath 'docs/30-方案/03-V4-MVP边界清单.md' -SliceLabel '启动阶段真源'
+    $requiredStartupPhasePaths = @(
+        'docs/00-导航/02-现行标准件总览.md'
+        'docs/00-导航/01-V4-重启导读.md'
+        'docs/20-决策/01-V4-重启ADR.md'
+        'docs/10-输入材料/01-旧仓必需资产清单.md'
+        'docs/30-方案/01-V4-最小目录蓝图.md'
+        'docs/30-方案/02-V4-目录锁定清单.md'
+        'docs/30-方案/03-V4-MVP边界清单.md'
+    )
+    Assert-RequiredOrderedPathsPresent -SourcePaths $startupPhaseSlice -RequiredPaths $requiredStartupPhasePaths -Label '启动阶段真源'
+    return $startupPhaseSlice
+}
+
 function Get-BlockedPathRulesFromLocalSafeFlow {
     $localSafeFlowPath = 'docs/40-执行/10-本地安全提交流程.md'
     $blockedPathBlock = Get-CodeBlockContentFromSection -FilePath $localSafeFlowPath -SectionStartMarker '## 公开提交禁止路径真源' -SectionEndMarker '## 公开提交硬门禁'
@@ -439,6 +463,43 @@ function Get-OrderedPathSlice {
     }
 
     return @($orderedSlice)
+}
+
+function Assert-RequiredOrderedPathsPresent {
+    param(
+        [string[]]$SourcePaths,
+        [string[]]$RequiredPaths,
+        [string]$Label = '关键路径集合'
+    )
+
+    $orderedSourcePaths = Get-OrderedUniqueValues -Values @($SourcePaths)
+    $orderedRequiredPaths = Get-OrderedUniqueValues -Values @($RequiredPaths)
+    $missingRequiredPaths = @(
+        $orderedRequiredPaths |
+            Where-Object { $_ -notin $orderedSourcePaths }
+    )
+
+    if ($missingRequiredPaths.Count -gt 0) {
+        throw "$Label 缺少必需路径：$($missingRequiredPaths -join '、')"
+    }
+
+    $lastMatchedIndex = -1
+    foreach ($requiredPath in $orderedRequiredPaths) {
+        $matchedIndex = [Array]::IndexOf($orderedSourcePaths, $requiredPath)
+        if ($matchedIndex -lt 0) {
+            throw "$Label 缺少必需路径：$requiredPath"
+        }
+
+        if ($matchedIndex -lt $lastMatchedIndex) {
+            $expectedOrderText = @(
+                $orderedRequiredPaths |
+                    ForEach-Object { Split-Path $_ -Leaf }
+            ) -join ' → '
+            throw "$Label 顺序漂移：期望 $expectedOrderText"
+        }
+
+        $lastMatchedIndex = $matchedIndex
+    }
 }
 
 function Get-OrderedEntryViolationMessages {
@@ -708,22 +769,12 @@ $publicRestartGuideEntryChecks = @(
         PathPrefix = 'docs/'
     }
 )
-$startupPhaseBoundaryPath = 'docs/30-方案/03-V4-MVP边界清单.md'
-$criticalStartupPhaseEntryPaths = New-Object System.Collections.Generic.List[string]
-$criticalStartupPhaseEntryPaths.Add('docs/00-导航/02-现行标准件总览.md')
-$criticalStartupPhaseEntryPaths.Add('docs/00-导航/01-V4-重启导读.md')
-foreach ($restartGuideEntryPath in $restartGuideCanonicalEntryPaths) {
-    if ($restartGuideEntryPath -eq 'docs/00-导航/02-现行标准件总览.md') {
-        continue
-    }
-
-    if ($restartGuideEntryPath -notin $criticalStartupPhaseEntryPaths) {
-        $criticalStartupPhaseEntryPaths.Add($restartGuideEntryPath)
-    }
-
-    if ($restartGuideEntryPath -eq $startupPhaseBoundaryPath) {
-        break
-    }
+$criticalStartupPhaseEntryPaths = @()
+try {
+    $criticalStartupPhaseEntryPaths = Get-CanonicalStartupPhaseEntryPaths
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
 }
 $publicStartupPhaseEntryChecks = @(
     @{

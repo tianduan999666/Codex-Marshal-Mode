@@ -298,6 +298,41 @@ finally {
     [System.IO.File]::WriteAllBytes($restartGuidePath, $originalRestartGuideBytes)
 }
 
+$startupPhaseSourceMarkerLineText = '## 启动阶段真源'
+$startupPhaseSourceDecisionLineText = 'docs/20-决策/01-V4-重启ADR.md'
+$startupPhaseSourceMarkerIndex = [Array]::IndexOf($restartGuideLines, $startupPhaseSourceMarkerLineText)
+$startupPhaseSourceDecisionIndex = -1
+for ($lineIndex = $startupPhaseSourceMarkerIndex + 1; $lineIndex -lt $restartGuideLines.Count; $lineIndex++) {
+    if ($restartGuideLines[$lineIndex] -like '## *') {
+        break
+    }
+
+    if ($restartGuideLines[$lineIndex] -eq $startupPhaseSourceDecisionLineText) {
+        $startupPhaseSourceDecisionIndex = $lineIndex
+        break
+    }
+}
+
+if ($startupPhaseSourceMarkerIndex -lt 0 -or $startupPhaseSourceDecisionIndex -lt 0) {
+    throw "测试前置条件不满足：$restartGuidePath 中缺少启动阶段真源测试行。"
+}
+
+try {
+    $driftedRestartGuideLines = New-Object System.Collections.Generic.List[string]
+    foreach ($lineIndex in 0..($restartGuideLines.Count - 1)) {
+        if ($lineIndex -ne $startupPhaseSourceDecisionIndex) {
+            [void]$driftedRestartGuideLines.Add($restartGuideLines[$lineIndex])
+        }
+    }
+    $driftedRestartGuideContent = ($driftedRestartGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($restartGuidePath, $driftedRestartGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/00-导航/01-V4-重启导读.md') -ExpectedExitCode 1 -TestName 'block-startup-phase-source-boundary-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($restartGuidePath, $originalRestartGuideBytes)
+}
+
 $removedMaintenanceEntryLineText = '- `40-执行/16-拍板包半自动模板.md`'
 
 if ($docsReadmeLines -notcontains $removedMaintenanceEntryLineText) {
