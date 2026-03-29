@@ -1689,6 +1689,50 @@ function Get-CanonicalMaintenanceBasicCloseoutState {
     }
 }
 
+function Get-CanonicalMaintenanceGovernanceAuditState {
+    $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
+    $expectedMaintenanceGovernanceAuditItems = @(
+        [pscustomobject]@{ Name = '来源依据'; Description = '当前轮关键配置或关键口径，已经说明来源、版本或现行依据' }
+        [pscustomobject]@{ Name = '决策留痕'; Description = '当前轮关键决策，已经在 `decision-log.md` 或现行文档中写明原因、依据与影响' }
+        [pscustomobject]@{ Name = '输出追溯'; Description = '当前轮关键输出，已经能追溯到现行件、验证结果、拍板链路或异常链路' }
+        [pscustomobject]@{ Name = '入口修平'; Description = '`README.md`、`docs/README.md`、`docs/00-导航/02-现行标准件总览.md`、`docs/40-执行/12-V4-Target-实施计划.md` 之间不存在口径漂移；若有，已经修平' }
+        [pscustomobject]@{ Name = '边界复核'; Description = '已经复核公开仓边界，确保 `.codex/`、`logs/`、`temp/generated/`、`.vscode/`、`.serena/` 等运行态与本地工具状态不进入公开仓' }
+    )
+
+    $maintenanceGovernanceAuditSection = Get-FileSectionContent -FilePath $maintenanceMatrixPath -SectionStartMarker '### 治理审计补充检查固定槽位' -SectionEndMarker '## 公开仓边界提醒'
+    if ([string]::IsNullOrWhiteSpace($maintenanceGovernanceAuditSection)) {
+        throw "维护层动作矩阵未解析到治理审计补充检查固定槽位：$maintenanceMatrixPath"
+    }
+
+    $maintenanceGovernanceAuditRows = @(
+        [regex]::Matches($maintenanceGovernanceAuditSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($maintenanceGovernanceAuditRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedMaintenanceGovernanceAuditItems | ForEach-Object { $_.Name }) -Label '维护层动作矩阵治理审计补充检查固定槽位序列'
+    foreach ($expectedMaintenanceGovernanceAuditItem in $expectedMaintenanceGovernanceAuditItems) {
+        $matchedMaintenanceGovernanceAuditRow = @(
+            $maintenanceGovernanceAuditRows |
+                Where-Object { $_.Name -eq $expectedMaintenanceGovernanceAuditItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedMaintenanceGovernanceAuditRow) {
+            throw "维护层动作矩阵缺少治理审计补充检查固定槽位：$($expectedMaintenanceGovernanceAuditItem.Name)"
+        }
+
+        if ($matchedMaintenanceGovernanceAuditRow.Description -ne $expectedMaintenanceGovernanceAuditItem.Description) {
+            throw "维护层动作矩阵治理审计补充检查固定槽位漂移：$($expectedMaintenanceGovernanceAuditItem.Name) 期望 $($expectedMaintenanceGovernanceAuditItem.Description)，实际 $($matchedMaintenanceGovernanceAuditRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        MaintenanceGovernanceAuditItems = @($expectedMaintenanceGovernanceAuditItems)
+    }
+}
+
 function Get-CanonicalMaintenanceCapabilityDocPaths {
     $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
     $maintenanceCapabilityPaths = Get-OrderedUniqueValues -Values @(
@@ -2127,6 +2171,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceBasicCloseoutState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalMaintenanceGovernanceAuditState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
