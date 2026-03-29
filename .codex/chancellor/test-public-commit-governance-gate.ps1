@@ -906,4 +906,54 @@ finally {
     [System.IO.File]::WriteAllBytes($lockListPath, $originalLockListBytes)
 }
 
+$approvedTopLevelAgentsLineText = 'AGENTS.md'
+$approvedTopLevelReadmeIndex = [Array]::IndexOf($lockListLines, $approvedTopLevelReadmeLineText)
+$approvedTopLevelAgentsIndex = [Array]::IndexOf($lockListLines, $approvedTopLevelAgentsLineText)
+
+if ($approvedTopLevelReadmeIndex -lt 0 -or $approvedTopLevelAgentsIndex -lt 0) {
+    throw '测试前置条件不满足：目录锁定清单缺少顶层批准顺序测试行。'
+}
+
+if ($approvedTopLevelReadmeIndex -gt $approvedTopLevelAgentsIndex) {
+    throw '测试前置条件不满足：目录锁定清单顶层批准顺序已不是当前现状。'
+}
+
+try {
+    $driftedLockListLines = @($lockListLines)
+    $driftedLockListLines[$approvedTopLevelReadmeIndex] = $approvedTopLevelAgentsLineText
+    $driftedLockListLines[$approvedTopLevelAgentsIndex] = $approvedTopLevelReadmeLineText
+    $driftedLockListContent = ($driftedLockListLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($lockListPath, $driftedLockListContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/30-方案/02-V4-目录锁定清单.md') -ExpectedExitCode 1 -TestName 'block-lock-list-approved-root-entry-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($lockListPath, $originalLockListBytes)
+}
+
+$approvedTrackedResolveGateScriptLineText = '.codex/chancellor/resolve-gate-package.ps1'
+$approvedTrackedGateScriptIndex = [Array]::IndexOf($lockListLines, $approvedTrackedGateScriptLineText)
+$approvedTrackedResolveGateScriptIndex = [Array]::IndexOf($lockListLines, $approvedTrackedResolveGateScriptLineText)
+
+if ($approvedTrackedGateScriptIndex -lt 0 -or $approvedTrackedResolveGateScriptIndex -lt 0) {
+    throw '测试前置条件不满足：目录锁定清单缺少运行态白名单顺序测试行。'
+}
+
+if ($approvedTrackedGateScriptIndex -gt $approvedTrackedResolveGateScriptIndex) {
+    throw '测试前置条件不满足：目录锁定清单运行态白名单顺序已不是当前现状。'
+}
+
+try {
+    $driftedLockListLines = @($lockListLines)
+    $driftedLockListLines[$approvedTrackedGateScriptIndex] = $approvedTrackedResolveGateScriptLineText
+    $driftedLockListLines[$approvedTrackedResolveGateScriptIndex] = $approvedTrackedGateScriptLineText
+    $driftedLockListContent = ($driftedLockListLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($lockListPath, $driftedLockListContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/30-方案/02-V4-目录锁定清单.md') -ExpectedExitCode 1 -TestName 'block-lock-list-approved-codex-file-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($lockListPath, $originalLockListBytes)
+}
+
 Write-Host 'PASS: test-public-commit-governance-gate.ps1'

@@ -278,7 +278,18 @@ function Get-ApprovedTopLevelEntriesFromLockList {
         $approvedEntries.Add($trimmedLine)
     }
 
-    return Get-OrderedUniqueValues -Values @($approvedEntries)
+    $orderedApprovedEntries = Get-OrderedUniqueValues -Values @($approvedEntries)
+    $expectedApprovedEntries = @(
+        'docs'
+        '.codex'
+        'logs'
+        'temp'
+        'README.md'
+        'AGENTS.md'
+        '.gitignore'
+    )
+    Assert-ExactOrderedValues -SourceValues $orderedApprovedEntries -ExpectedValues $expectedApprovedEntries -Label '目录锁定清单顶层批准项'
+    return $orderedApprovedEntries
 }
 
 function Get-ApprovedTrackedCodexFilesFromLockList {
@@ -298,7 +309,22 @@ function Get-ApprovedTrackedCodexFilesFromLockList {
         $approvedCodexFiles.Add($trimmedLine)
     }
 
-    return Get-OrderedUniqueValues -Values @($approvedCodexFiles)
+    $orderedApprovedCodexFiles = Get-OrderedUniqueValues -Values @($approvedCodexFiles)
+    $expectedApprovedCodexFiles = @(
+        '.codex/chancellor/README.md'
+        '.codex/chancellor/create-gate-package.ps1'
+        '.codex/chancellor/create-task-package.ps1'
+        '.codex/chancellor/install-public-commit-governance-hook.ps1'
+        '.codex/chancellor/invoke-public-commit-governance-gate.ps1'
+        '.codex/chancellor/record-exception-state.ps1'
+        '.codex/chancellor/resolve-gate-package.ps1'
+        '.codex/chancellor/tasks/README.md'
+        '.codex/chancellor/test-public-commit-governance-gate.ps1'
+        '.codex/chancellor/write-concurrent-status-report.ps1'
+        '.codex/chancellor/write-governance-config-review.ps1'
+    )
+    Assert-ExactOrderedValues -SourceValues $orderedApprovedCodexFiles -ExpectedValues $expectedApprovedCodexFiles -Label '目录锁定清单运行态白名单'
+    return $orderedApprovedCodexFiles
 }
 
 function Get-CanonicalMaintenanceCapabilityDocPaths {
@@ -553,6 +579,40 @@ function Assert-RequiredPathsPresent {
 
     if ($missingRequiredPaths.Count -gt 0) {
         throw "$Label 缺少必需路径：$($missingRequiredPaths -join '、')"
+    }
+}
+
+function Assert-ExactOrderedValues {
+    param(
+        [string[]]$SourceValues,
+        [string[]]$ExpectedValues,
+        [string]$Label = '有序值集合'
+    )
+
+    $orderedSourceValues = Get-OrderedUniqueValues -Values @($SourceValues)
+    $orderedExpectedValues = Get-OrderedUniqueValues -Values @($ExpectedValues)
+    $missingExpectedValues = @(
+        $orderedExpectedValues |
+            Where-Object { $_ -notin $orderedSourceValues }
+    )
+    if ($missingExpectedValues.Count -gt 0) {
+        throw "$Label 缺少必需项：$($missingExpectedValues -join '、')"
+    }
+
+    $unexpectedSourceValues = @(
+        $orderedSourceValues |
+            Where-Object { $_ -notin $orderedExpectedValues }
+    )
+    if ($unexpectedSourceValues.Count -gt 0) {
+        throw "$Label 存在未批准项：$($unexpectedSourceValues -join '、')"
+    }
+
+    for ($index = 0; $index -lt $orderedExpectedValues.Count; $index++) {
+        if ($orderedSourceValues[$index] -ne $orderedExpectedValues[$index]) {
+            $expectedOrderText = $orderedExpectedValues -join ' → '
+            $actualOrderText = $orderedSourceValues -join ' → '
+            throw "$Label 顺序漂移：期望 $expectedOrderText；实际 $actualOrderText"
+        }
     }
 }
 
