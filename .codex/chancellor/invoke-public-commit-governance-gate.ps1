@@ -443,6 +443,68 @@ function Get-CodexHomeExportConsistencyState {
     }
 }
 
+function Get-CanonicalPanelCommandState {
+    $agentsPath = 'AGENTS.md'
+    $versionPath = 'codex-home-export/VERSION.json'
+    $checklistPath = 'codex-home-export/panel-acceptance-checklist.md'
+    $expectedPanelCommands = @(
+        '丞相帮助'
+        '丞相状态'
+        '丞相检查'
+        '丞相修复'
+        '丞相验板'
+        '丞相版本'
+    )
+    $expectedChecklistCommands = @(
+        '丞相版本'
+        '丞相检查'
+        '丞相状态'
+    )
+
+    $agentsSection = Get-FileSectionContent -FilePath $agentsPath -SectionStartMarker '## 面板丞相命令' -SectionEndMarker '## 仓库卫生纪律'
+    if ([string]::IsNullOrWhiteSpace($agentsSection)) {
+        throw "AGENTS 未解析到面板丞相命令区块：$agentsPath"
+    }
+
+    $agentPanelCommands = @(
+        Get-OrderedUniqueValues -Values @(
+            [regex]::Matches($agentsSection, '(?m)^\|\s*`([^`]+)`\s*\|') |
+                ForEach-Object { $_.Groups[1].Value }
+        )
+    )
+    Assert-ExactOrderedValues -SourceValues $agentPanelCommands -ExpectedValues $expectedPanelCommands -Label 'AGENTS 面板丞相命令真源'
+
+    $versionInfo = Read-JsonObjectFromFile -Path $versionPath -Label '生产母体版本文件'
+    $versionPanelCommands = @(
+        Get-OrderedUniqueValues -Values @($versionInfo.panel_commands)
+    )
+    if ($versionPanelCommands.Count -eq 0) {
+        throw "生产母体版本文件缺少 panel_commands：$versionPath"
+    }
+    Assert-ExactOrderedValues -SourceValues $versionPanelCommands -ExpectedValues $expectedPanelCommands -Label '生产母体 panel_commands'
+
+    if (-not (Test-Path $checklistPath)) {
+        throw "缺少面板人工验板清单：$checklistPath"
+    }
+
+    $checklistContent = Get-Content $checklistPath -Raw
+    $checklistCommands = @(
+        Get-OrderedUniqueValues -Values @(
+            [regex]::Matches($checklistContent, '丞相(?:帮助|状态|检查|修复|验板|版本)') |
+                ForEach-Object { $_.Value }
+        )
+    )
+    if ($checklistCommands.Count -eq 0) {
+        throw "面板人工验板清单未解析到丞相命令：$checklistPath"
+    }
+    Assert-ExactOrderedValues -SourceValues $checklistCommands -ExpectedValues $expectedChecklistCommands -Label '面板人工验板清单命令序列'
+
+    return [pscustomobject]@{
+        PanelCommands = $expectedPanelCommands
+        ChecklistCommands = $expectedChecklistCommands
+    }
+}
+
 function Get-CanonicalMaintenanceCapabilityDocPaths {
     $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
     $maintenanceCapabilityPaths = Get-OrderedUniqueValues -Values @(
@@ -862,6 +924,12 @@ catch {
 }
 try {
     [void](Get-CodexHomeExportConsistencyState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalPanelCommandState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

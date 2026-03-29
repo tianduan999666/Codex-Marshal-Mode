@@ -1,6 +1,7 @@
 # 面板人工验板清单
 
 适用场景：完成 `install-to-home.ps1` 与 `verify-cutover.ps1` 后，人工确认本机生产切换是否丝滑。
+当前验板命令口径以 `codex-home-export/VERSION.json` 的 `panel_commands` 为准。
 
 ## 验板步骤
 

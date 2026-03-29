@@ -47,6 +47,11 @@ $testCases = @(
         Name = 'allow-codex-home-export-consistency'
         Paths = @('codex-home-export/README.md', 'codex-home-export/manifest.json', 'codex-home-export/VERSION.json')
         ExpectedExitCode = 0
+    },
+    @{
+        Name = 'allow-panel-command-consistency'
+        Paths = @('AGENTS.md', 'codex-home-export/VERSION.json', 'codex-home-export/panel-acceptance-checklist.md')
+        ExpectedExitCode = 0
     }
 )
 
@@ -1306,6 +1311,49 @@ try {
 }
 finally {
     [System.IO.File]::WriteAllBytes($codexHomeExportVersionPath, $originalCodexHomeExportVersionBytes)
+}
+
+$agentsPanelCommandLineText = '| `丞相验板` | 给出进入官方面板人工验收的固定步骤 |'
+$codexHomeExportPanelChecklistPath = Join-Path $repoRootPath 'codex-home-export/panel-acceptance-checklist.md'
+$originalAgentsPanelBytes = [System.IO.File]::ReadAllBytes($agentsPath)
+$originalCodexHomeExportPanelChecklistBytes = [System.IO.File]::ReadAllBytes($codexHomeExportPanelChecklistPath)
+
+if ($agentsLines -notcontains $agentsPanelCommandLineText) {
+    throw "测试前置条件不满足：$agentsPath 中缺少 $agentsPanelCommandLineText"
+}
+
+try {
+    $driftedVersionInfo = Get-Content $codexHomeExportVersionPath -Raw | ConvertFrom-Json
+    $driftedVersionInfo.panel_commands = @(
+        $driftedVersionInfo.panel_commands | Where-Object { $_ -ne '丞相修复' }
+    )
+    $driftedVersionContent = ($driftedVersionInfo | ConvertTo-Json -Depth 10)
+    [System.IO.File]::WriteAllText($codexHomeExportVersionPath, $driftedVersionContent + [Environment]::NewLine, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/VERSION.json') -ExpectedExitCode 1 -TestName 'block-panel-commands-version-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportVersionPath, $originalCodexHomeExportVersionBytes)
+}
+
+try {
+    $driftedAgentsContent = (Get-Content $agentsPath -Raw).Replace($agentsPanelCommandLineText, '| `丞相回板` | 给出进入官方面板人工验收的固定步骤 |')
+    [System.IO.File]::WriteAllText($agentsPath, $driftedAgentsContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('AGENTS.md') -ExpectedExitCode 1 -TestName 'block-panel-commands-agents-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($agentsPath, $originalAgentsPanelBytes)
+}
+
+try {
+    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace('丞相状态', '丞相帮助')
+    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-commands-checklist-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
 }
 
 Write-Host 'PASS: test-public-commit-governance-gate.ps1'
