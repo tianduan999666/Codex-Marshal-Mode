@@ -1912,6 +1912,50 @@ function Get-CanonicalMaintenanceValueState {
     }
 }
 
+function Get-CanonicalGovernanceConfigReviewTriggerState {
+    $configReviewDocPath = 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
+    $expectedConfigReviewTriggerItems = @(
+        [pscustomobject]@{ Name = '现行标准件变更'; Description = '当前轮新增或修改了现行标准件' }
+        [pscustomobject]@{ Name = '公开改动提交前'; Description = '当前轮准备提交并推送公开改动' }
+        [pscustomobject]@{ Name = '解释现行依据'; Description = '当前轮需要解释“现在为什么以这份口径为准”' }
+        [pscustomobject]@{ Name = '怀疑存在漂移'; Description = '当前轮怀疑入口文档、实施计划、冻结边界之间存在漂移' }
+        [pscustomobject]@{ Name = '提交前预检落盘'; Description = '当前轮正在执行 `docs/40-执行/10-本地安全提交流程.md`，需要把提交前预检结果落盘' }
+    )
+
+    $configReviewTriggerSection = Get-FileSectionContent -FilePath $configReviewDocPath -SectionStartMarker '## 什么时候用固定槽位' -SectionEndMarker '## 最低产出'
+    if ([string]::IsNullOrWhiteSpace($configReviewTriggerSection)) {
+        throw "关键配置来源与漂移复核模板未解析到什么时候用固定槽位：$configReviewDocPath"
+    }
+
+    $configReviewTriggerRows = @(
+        [regex]::Matches($configReviewTriggerSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($configReviewTriggerRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConfigReviewTriggerItems | ForEach-Object { $_.Name }) -Label '关键配置来源与漂移复核模板什么时候用固定槽位序列'
+    foreach ($expectedConfigReviewTriggerItem in $expectedConfigReviewTriggerItems) {
+        $matchedConfigReviewTriggerRow = @(
+            $configReviewTriggerRows |
+                Where-Object { $_.Name -eq $expectedConfigReviewTriggerItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConfigReviewTriggerRow) {
+            throw "关键配置来源与漂移复核模板缺少什么时候用固定槽位：$($expectedConfigReviewTriggerItem.Name)"
+        }
+
+        if ($matchedConfigReviewTriggerRow.Description -ne $expectedConfigReviewTriggerItem.Description) {
+            throw "关键配置来源与漂移复核模板什么时候用固定槽位漂移：$($expectedConfigReviewTriggerItem.Name) 期望 $($expectedConfigReviewTriggerItem.Description)，实际 $($matchedConfigReviewTriggerRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConfigReviewTriggerItems = @($expectedConfigReviewTriggerItems)
+    }
+}
+
 function Get-CanonicalGovernanceConfigReviewOutputState {
     $configReviewDocPath = 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
     $expectedConfigReviewOutputItems = @(
@@ -2508,6 +2552,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceValueState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGovernanceConfigReviewTriggerState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
