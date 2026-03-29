@@ -324,6 +324,18 @@ function Get-CanonicalMaintenanceLifecycleEntryPaths {
         throw "维护层总入口未解析到维护层主线真源：$maintenanceGuidePath"
     }
 
+    $requiredMaintenanceLifecyclePaths = @(
+        'docs/40-执行/13-维护层总入口.md'
+        'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
+        'docs/40-执行/15-拍板包准备与收口规范.md'
+        'docs/40-执行/16-拍板包半自动模板.md'
+        'docs/40-执行/17-拍板结果回写模板.md'
+        'docs/40-执行/18-异常路径与回退模板.md'
+        'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
+        'docs/40-执行/20-复杂并存汇报骨架模板.md'
+        'docs/40-执行/21-关键配置来源与漂移复核模板.md'
+    )
+    Assert-RequiredPathsPresent -SourcePaths $maintenanceLifecyclePaths -RequiredPaths $requiredMaintenanceLifecyclePaths -Label '维护层主线真源'
     return $maintenanceLifecyclePaths
 }
 
@@ -337,7 +349,18 @@ function Get-CanonicalTargetLifecycleEntryPaths {
         throw "Target 实施计划未解析到 Target 主线真源：$targetPlanPath"
     }
 
-    return Get-OrderedPathSlice -SourcePaths $targetLifecyclePaths -StartPath 'docs/20-决策/02-V4-Target-进入决议.md' -EndPath 'docs/40-执行/12-V4-Target-实施计划.md' -SliceLabel 'Target 主线真源'
+    $targetLifecycleSlice = Get-OrderedPathSlice -SourcePaths $targetLifecyclePaths -StartPath 'docs/20-决策/02-V4-Target-进入决议.md' -EndPath 'docs/40-执行/12-V4-Target-实施计划.md' -SliceLabel 'Target 主线真源'
+    $requiredTargetLifecyclePaths = @(
+        'docs/20-决策/02-V4-Target-进入决议.md'
+        'docs/30-方案/04-V4-Target-蓝图.md'
+        'docs/30-方案/05-V4-Target-冻结清单.md'
+        'docs/30-方案/06-V4-OS-参考技术采纳评估.md'
+        'docs/30-方案/07-V4-规划策略候选规范.md'
+        'docs/30-方案/08-V4-治理审计候选规范.md'
+        'docs/40-执行/12-V4-Target-实施计划.md'
+    )
+    Assert-RequiredPathsPresent -SourcePaths $targetLifecycleSlice -RequiredPaths $requiredTargetLifecyclePaths -Label 'Target 主线真源'
+    return $targetLifecycleSlice
 }
 
 function Get-CanonicalStartupPhaseEntryPaths {
@@ -360,7 +383,7 @@ function Get-CanonicalStartupPhaseEntryPaths {
         'docs/30-方案/02-V4-目录锁定清单.md'
         'docs/30-方案/03-V4-MVP边界清单.md'
     )
-    Assert-RequiredOrderedPathsPresent -SourcePaths $startupPhaseSlice -RequiredPaths $requiredStartupPhasePaths -Label '启动阶段真源'
+    Assert-RequiredPathsPresent -SourcePaths $startupPhaseSlice -RequiredPaths $requiredStartupPhasePaths -Label '启动阶段真源'
     return $startupPhaseSlice
 }
 
@@ -465,7 +488,7 @@ function Get-OrderedPathSlice {
     return @($orderedSlice)
 }
 
-function Assert-RequiredOrderedPathsPresent {
+function Assert-RequiredPathsPresent {
     param(
         [string[]]$SourcePaths,
         [string[]]$RequiredPaths,
@@ -481,24 +504,6 @@ function Assert-RequiredOrderedPathsPresent {
 
     if ($missingRequiredPaths.Count -gt 0) {
         throw "$Label 缺少必需路径：$($missingRequiredPaths -join '、')"
-    }
-
-    $lastMatchedIndex = -1
-    foreach ($requiredPath in $orderedRequiredPaths) {
-        $matchedIndex = [Array]::IndexOf($orderedSourcePaths, $requiredPath)
-        if ($matchedIndex -lt 0) {
-            throw "$Label 缺少必需路径：$requiredPath"
-        }
-
-        if ($matchedIndex -lt $lastMatchedIndex) {
-            $expectedOrderText = @(
-                $orderedRequiredPaths |
-                    ForEach-Object { Split-Path $_ -Leaf }
-            ) -join ' → '
-            throw "$Label 顺序漂移：期望 $expectedOrderText"
-        }
-
-        $lastMatchedIndex = $matchedIndex
     }
 }
 

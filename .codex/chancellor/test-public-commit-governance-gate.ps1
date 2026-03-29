@@ -420,6 +420,19 @@ finally {
     [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
 }
 
+try {
+    $driftedMaintenanceGuideLines = @(
+        $maintenanceGuideLines | Where-Object { $_ -ne $maintenanceGuideMainlineGateLineText }
+    )
+    $driftedMaintenanceGuideContent = ($driftedMaintenanceGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 1 -TestName 'block-maintenance-mainline-source-middle-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
+}
+
 $maintenanceGateEntryLineText = '- 多 gate 与多异常并存处理规则：`docs/40-执行/19-多 gate 与多异常并存处理规则.md`'
 $maintenanceConcurrentEntryLineText = '- 复杂并存汇报骨架模板：`docs/40-执行/20-复杂并存汇报骨架模板.md`'
 $maintenanceGateEntryIndex = [Array]::IndexOf($readmeLines, $maintenanceGateEntryLineText)
@@ -597,6 +610,25 @@ try {
     [System.IO.File]::WriteAllText($targetPlanPath, $driftedTargetPlanContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/12-V4-Target-实施计划.md') -ExpectedExitCode 1 -TestName 'block-reading-order-target-source-boundary-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($targetPlanPath, $originalTargetPlanBytes)
+}
+
+$removedTargetSourcePlanningLineText = 'docs/30-方案/07-V4-规划策略候选规范.md'
+
+if ($targetPlanLines -notcontains $removedTargetSourcePlanningLineText) {
+    throw "测试前置条件不满足：$targetPlanPath 中缺少 $removedTargetSourcePlanningLineText"
+}
+
+try {
+    $driftedTargetPlanLines = @(
+        $targetPlanLines | Where-Object { $_ -ne $removedTargetSourcePlanningLineText }
+    )
+    $driftedTargetPlanContent = ($driftedTargetPlanLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($targetPlanPath, $driftedTargetPlanContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/12-V4-Target-实施计划.md') -ExpectedExitCode 1 -TestName 'block-target-mainline-source-middle-missing'
 }
 finally {
     [System.IO.File]::WriteAllBytes($targetPlanPath, $originalTargetPlanBytes)
