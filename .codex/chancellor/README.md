@@ -11,3 +11,4 @@
 - 拍板结果回写模板见：`resolve-gate-package.ps1`（已含治理提示与治理复核骨架）
 - 异常路径与回退模板见：`record-exception-state.ps1`（已含治理提示与治理复核骨架）
 - 复杂并存汇报骨架模板见：`write-concurrent-status-report.ps1`（已含治理提示与治理复核骨架）
+- 关键配置来源与漂移复核模板见：`write-governance-config-review.ps1`（已含配置来源、版本依据与漂移检查骨架）

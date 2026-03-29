@@ -110,6 +110,7 @@ $resultMarkdownText = @"
 - 回看 `state.yaml`，改成真实下一步、最小推进步与验证信号。
 - 按 $planningGuideRelativePath 决定是否需要改路。
 - 提交前按 $governanceGuideRelativePath 追加治理审计复核。
+- 如当前轮涉及入口、现行标准件或公开口径，按 docs/40-执行/21-关键配置来源与漂移复核模板.md 追加配置来源与漂移复核。
 - 按 $closeoutGuideRelativePath 完成本轮收口。
 
 ## 规划复核
