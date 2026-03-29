@@ -480,6 +480,23 @@ $readingOrderMaintenanceEntryChecks = @(
         SectionEndMarker = '## 什么不是现行标准件'
     }
 )
+$restartGuideCanonicalEntryPaths = Get-OrderedUniqueValues -Values @(
+    Get-OrderedNormalizedDocPathsFromSection -FilePath 'docs/00-导航/01-V4-重启导读.md' -RegexPattern '`(docs/[^`]+\.md)`' -PathPrefix '' -SectionStartMarker '## 先看什么' -SectionEndMarker '## '
+)
+$publicRestartGuideEntryChecks = @(
+    @{
+        Path = 'README.md'
+        Label = 'README 重启导读核心入口'
+        RegexPattern = '`(docs/(?:00-导航|10-输入材料|20-决策|30-方案|40-执行|reference)/[^`]+\.md)`'
+        PathPrefix = ''
+    },
+    @{
+        Path = 'docs/README.md'
+        Label = 'docs/README 重启导读核心入口'
+        RegexPattern = '`((?:00-导航|10-输入材料|20-决策|30-方案|40-执行|reference)/[^`]+\.md)`'
+        PathPrefix = 'docs/'
+    }
+)
 
 $changedPathList = Get-NormalizedChangedPaths
 if ($changedPathList.Count -eq 0) {
@@ -582,6 +599,22 @@ foreach ($ruleEntryCheck in $publicRuleEntryChecks) {
 
     if ($missingRuleEntryPaths.Count -gt 0) {
         $violationMessages.Add("$($ruleEntryCheck.Label) 缺少关键规则入口：$($missingRuleEntryPaths -join '、')")
+    }
+}
+foreach ($restartGuideEntryCheck in $publicRestartGuideEntryChecks) {
+    if (-not (Test-Path $restartGuideEntryCheck.Path)) {
+        $violationMessages.Add("缺少重启导读核心入口文件：$($restartGuideEntryCheck.Path)")
+        continue
+    }
+
+    $actualRestartGuideEntryPaths = Get-MatchedNormalizedDocPathsFromFile -FilePath $restartGuideEntryCheck.Path -RegexPattern $restartGuideEntryCheck.RegexPattern -PathPrefix $restartGuideEntryCheck.PathPrefix
+    $missingRestartGuideEntryPaths = @(
+        $restartGuideCanonicalEntryPaths |
+            Where-Object { $_ -notin $actualRestartGuideEntryPaths }
+    )
+
+    if ($missingRestartGuideEntryPaths.Count -gt 0) {
+        $violationMessages.Add("$($restartGuideEntryCheck.Label) 缺少重启导读核心入口：$($missingRestartGuideEntryPaths -join '、')")
     }
 }
 

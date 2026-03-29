@@ -143,6 +143,25 @@ finally {
     [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
 }
 
+$removedRestartGuideCoreEntryLineText = '- `10-输入材料/01-旧仓必需资产清单.md`'
+
+if ($docsReadmeLines -notcontains $removedRestartGuideCoreEntryLineText) {
+    throw "测试前置条件不满足：$docsReadmePath 中缺少 $removedRestartGuideCoreEntryLineText"
+}
+
+try {
+    $driftedDocsReadmeLines = @(
+        $docsReadmeLines | Where-Object { $_ -ne $removedRestartGuideCoreEntryLineText }
+    )
+    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-restart-guide-core-entry-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
+}
+
 $removedMaintenanceEntryLineText = '- `40-执行/16-拍板包半自动模板.md`'
 
 if ($docsReadmeLines -notcontains $removedMaintenanceEntryLineText) {
