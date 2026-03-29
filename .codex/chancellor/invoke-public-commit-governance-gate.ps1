@@ -503,6 +503,12 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '验板动作'; Description = '给出进入官方面板人工验收的固定步骤' }
         [pscustomobject]@{ Name = '验板目标'; Description = '确认版本、模式与入口表现是否稳态' }
     )
+    $expectedAcceptanceScopeItems = @(
+        [pscustomobject]@{ Name = '首句入口风格'; Description = '`丞相：` 首句入口风格' }
+        [pscustomobject]@{ Name = '最小响应口径'; Description = '面板内置命令的最小响应口径' }
+        [pscustomobject]@{ Name = '任务包衔接'; Description = '入口与 `.codex/chancellor/tasks/` 的衔接关系' }
+        [pscustomobject]@{ Name = '人工复验步骤'; Description = '入口相关改动后的人工复验步骤' }
+    )
     $expectedAcceptanceStepItems = @(
         [pscustomobject]@{ Name = '预处理动作'; Description = '如有入口相关改动，先完成必要安装或同步动作' }
         [pscustomobject]@{ Name = '新开会话'; Description = '新开一个聊天会话，不复用旧会话' }
@@ -645,6 +651,35 @@ function Get-CanonicalPanelCommandState {
     Assert-ExactOrderedValues -SourceValues $versionPanelCommands -ExpectedValues $expectedPanelCommands -Label '生产母体 panel_commands'
 
     $acceptanceDocPath = 'docs/40-执行/03-面板入口验收.md'
+    $acceptanceScopeSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 验收范围固定槽位' -SectionEndMarker '## 本轮不验收'
+    if ([string]::IsNullOrWhiteSpace($acceptanceScopeSection)) {
+        throw "面板入口验收未解析到验收范围固定槽位：$acceptanceDocPath"
+    }
+
+    $acceptanceScopeRows = @(
+        [regex]::Matches($acceptanceScopeSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($acceptanceScopeRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedAcceptanceScopeItems | ForEach-Object { $_.Name }) -Label '面板入口验收验收范围固定槽位序列'
+    foreach ($expectedAcceptanceScopeItem in $expectedAcceptanceScopeItems) {
+        $matchedAcceptanceScopeRow = @(
+            $acceptanceScopeRows |
+                Where-Object { $_.Name -eq $expectedAcceptanceScopeItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedAcceptanceScopeRow) {
+            throw "面板入口验收缺少验收范围固定槽位：$($expectedAcceptanceScopeItem.Name)"
+        }
+
+        if ($matchedAcceptanceScopeRow.Description -ne $expectedAcceptanceScopeItem.Description) {
+            throw "面板入口验收验收范围固定槽位漂移：$($expectedAcceptanceScopeItem.Name) 期望 $($expectedAcceptanceScopeItem.Description)，实际 $($matchedAcceptanceScopeRow.Description)"
+        }
+    }
+
     $helpSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 帮助命令公开用法' -SectionEndMarker '## 帮助命令固定结构'
     if ([string]::IsNullOrWhiteSpace($helpSection)) {
         throw "面板入口验收未解析到帮助命令公开用法：$acceptanceDocPath"
