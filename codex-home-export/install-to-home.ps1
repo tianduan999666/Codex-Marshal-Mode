@@ -121,4 +121,4 @@ $installRecord = [ordered]@{
 Set-Utf8NoBomContent -Path $runtimeInstallRecordPath -Content ($installRecord | ConvertTo-Json -Depth 4)
 Write-Ok '已同步 cx-version.json、manifest.json、README.md 与安装记录。'
 Write-Info "安装记录：$runtimeInstallRecordPath"
-Write-WarnLine '当前仅完成单机最小骨架同步；尚未包含回滚脚本与完整验板闭环。'
+Write-WarnLine '当前已具备自动安装、自动回滚与自动验板；仍建议新开会话执行面板人工验板。'
