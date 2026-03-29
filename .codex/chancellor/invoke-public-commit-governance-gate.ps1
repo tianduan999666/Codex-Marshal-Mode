@@ -1603,7 +1603,7 @@ function Get-CanonicalPanelCommandState {
 function Get-CanonicalMaintenanceCapabilityDocPaths {
     $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
     $maintenanceCapabilityPaths = Get-OrderedUniqueValues -Values @(
-        Get-OrderedNormalizedDocPathsFromSection -FilePath $maintenanceGuidePath -RegexPattern '`(docs/(?:(?:30-方案/08-[^`]+\.md)|(?:40-执行/(?:10|11|14|15|16|17|18|19|20|21)-[^`]+\.md)|(?:90-归档/01-[^`]+\.md)))`' -PathPrefix '' -SectionStartMarker '## 当前维护层能力' -SectionEndMarker '## 维护层主线真源'
+        Get-OrderedNormalizedDocPathsFromSection -FilePath $maintenanceGuidePath -RegexPattern '`(docs/(?:(?:30-方案/08-[^`]+\.md)|(?:40-执行/(?:03|10|11|14|15|16|17|18|19|20|21)-[^`]+\.md)|(?:90-归档/01-[^`]+\.md)))`' -PathPrefix '' -SectionStartMarker '## 当前维护层能力' -SectionEndMarker '## 维护层主线真源'
     )
 
     if ($maintenanceCapabilityPaths.Count -eq 0) {
@@ -1611,6 +1611,7 @@ function Get-CanonicalMaintenanceCapabilityDocPaths {
     }
 
     $maintenanceCapabilityOrderPaths = @(
+        'docs/40-执行/03-面板入口验收.md'
         'docs/30-方案/08-V4-治理审计候选规范.md'
         'docs/40-执行/21-关键配置来源与漂移复核模板.md'
     )
@@ -2213,13 +2214,13 @@ $publicMaintenanceCapabilityEntryChecks = @(
     @{
         Path = 'README.md'
         Label = 'README 维护层补充入口'
-        RegexPattern = '`(docs/(?:(?:30-方案/08-[^`]+\.md)|(?:40-执行/(?:10|11|14|15|16|17|18|19|20|21)-[^`]+\.md)|(?:90-归档/01-[^`]+\.md)))`'
+        RegexPattern = '`(docs/(?:(?:30-方案/08-[^`]+\.md)|(?:40-执行/(?:03|10|11|14|15|16|17|18|19|20|21)-[^`]+\.md)|(?:90-归档/01-[^`]+\.md)))`'
         PathPrefix = ''
     },
     @{
         Path = 'docs/README.md'
         Label = 'docs/README 维护层补充入口'
-        RegexPattern = '`((?:(?:30-方案/08-[^`]+\.md)|(?:40-执行/(?:10|11|14|15|16|17|18|19|20|21)-[^`]+\.md)|(?:90-归档/01-[^`]+\.md)))`'
+        RegexPattern = '`((?:(?:30-方案/08-[^`]+\.md)|(?:40-执行/(?:03|10|11|14|15|16|17|18|19|20|21)-[^`]+\.md)|(?:90-归档/01-[^`]+\.md)))`'
         PathPrefix = 'docs/'
     }
 )
@@ -2227,17 +2228,18 @@ $publicMaintenanceCapabilityOrderEntryChecks = @(
     @{
         Path = 'README.md'
         Label = 'README 维护层补充入口'
-        RegexPattern = '`(docs/(?:(?:30-方案/08-[^`]+\.md)|(?:40-执行/21-[^`]+\.md)))`'
+        RegexPattern = '`(docs/(?:(?:40-执行/03-[^`]+\.md)|(?:30-方案/08-[^`]+\.md)|(?:40-执行/21-[^`]+\.md)))`'
         PathPrefix = ''
     },
     @{
         Path = 'docs/README.md'
         Label = 'docs/README 维护层补充入口'
-        RegexPattern = '`((?:(?:30-方案/08-[^`]+\.md)|(?:40-执行/21-[^`]+\.md)))`'
+        RegexPattern = '`((?:(?:40-执行/03-[^`]+\.md)|(?:30-方案/08-[^`]+\.md)|(?:40-执行/21-[^`]+\.md)))`'
         PathPrefix = 'docs/'
     }
 )
 $criticalMaintenanceCapabilityOrderPaths = @(
+    'docs/40-执行/03-面板入口验收.md'
     'docs/30-方案/08-V4-治理审计候选规范.md'
     'docs/40-执行/21-关键配置来源与漂移复核模板.md'
 )

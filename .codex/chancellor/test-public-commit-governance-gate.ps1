@@ -567,27 +567,31 @@ finally {
     [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
 }
 
+$readmePanelCapabilityEntryLineText = '- 面板入口验收：`docs/40-执行/03-面板入口验收.md`'
 $readmeGovernanceCapabilityEntryLineText = '- V4-治理审计候选规范：`docs/30-方案/08-V4-治理审计候选规范.md`'
 $readmeConfigCapabilityEntryLineText = '- 关键配置来源与漂移复核模板：`docs/40-执行/21-关键配置来源与漂移复核模板.md`'
+$docsReadmePanelCapabilityEntryLineText = '- `40-执行/03-面板入口验收.md`'
 $docsReadmeGovernanceCapabilityEntryLineText = '- `30-方案/08-V4-治理审计候选规范.md`'
 $docsReadmeConfigCapabilityEntryLineText = '- `40-执行/21-关键配置来源与漂移复核模板.md`'
+$readmePanelCapabilityEntryIndex = [Array]::IndexOf($readmeLines, $readmePanelCapabilityEntryLineText)
 $readmeGovernanceCapabilityEntryIndex = [Array]::IndexOf($readmeLines, $readmeGovernanceCapabilityEntryLineText)
 $readmeConfigCapabilityEntryIndex = [Array]::IndexOf($readmeLines, $readmeConfigCapabilityEntryLineText)
+$docsReadmePanelCapabilityEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmePanelCapabilityEntryLineText)
 $docsReadmeGovernanceCapabilityEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeGovernanceCapabilityEntryLineText)
 $docsReadmeConfigCapabilityEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeConfigCapabilityEntryLineText)
 
-if ($readmeGovernanceCapabilityEntryIndex -lt 0 -or $readmeConfigCapabilityEntryIndex -lt 0 -or $docsReadmeGovernanceCapabilityEntryIndex -lt 0 -or $docsReadmeConfigCapabilityEntryIndex -lt 0) {
+if ($readmePanelCapabilityEntryIndex -lt 0 -or $readmeGovernanceCapabilityEntryIndex -lt 0 -or $readmeConfigCapabilityEntryIndex -lt 0 -or $docsReadmePanelCapabilityEntryIndex -lt 0 -or $docsReadmeGovernanceCapabilityEntryIndex -lt 0 -or $docsReadmeConfigCapabilityEntryIndex -lt 0) {
     throw '测试前置条件不满足：维护层补充入口顺序测试行缺失。'
 }
 
-if ($readmeGovernanceCapabilityEntryIndex -gt $readmeConfigCapabilityEntryIndex -or $docsReadmeGovernanceCapabilityEntryIndex -gt $docsReadmeConfigCapabilityEntryIndex) {
+if ($readmePanelCapabilityEntryIndex -gt $readmeGovernanceCapabilityEntryIndex -or $readmeGovernanceCapabilityEntryIndex -gt $readmeConfigCapabilityEntryIndex -or $docsReadmePanelCapabilityEntryIndex -gt $docsReadmeGovernanceCapabilityEntryIndex -or $docsReadmeGovernanceCapabilityEntryIndex -gt $docsReadmeConfigCapabilityEntryIndex) {
     throw '测试前置条件不满足：维护层补充入口顺序已不是当前现状。'
 }
 
 try {
     $driftedReadmeLines = @($readmeLines)
-    $driftedReadmeLines[$readmeGovernanceCapabilityEntryIndex] = $readmeConfigCapabilityEntryLineText
-    $driftedReadmeLines[$readmeConfigCapabilityEntryIndex] = $readmeGovernanceCapabilityEntryLineText
+    $driftedReadmeLines[$readmePanelCapabilityEntryIndex] = $readmeGovernanceCapabilityEntryLineText
+    $driftedReadmeLines[$readmeGovernanceCapabilityEntryIndex] = $readmePanelCapabilityEntryLineText
     $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($readmePath, $driftedReadmeContent, $utf8NoBom)
 
@@ -599,14 +603,14 @@ finally {
 
 try {
     $driftedReadmeLines = @($readmeLines)
-    $driftedReadmeLines[$readmeGovernanceCapabilityEntryIndex] = $readmeConfigCapabilityEntryLineText
-    $driftedReadmeLines[$readmeConfigCapabilityEntryIndex] = $readmeGovernanceCapabilityEntryLineText
+    $driftedReadmeLines[$readmePanelCapabilityEntryIndex] = $readmeGovernanceCapabilityEntryLineText
+    $driftedReadmeLines[$readmeGovernanceCapabilityEntryIndex] = $readmePanelCapabilityEntryLineText
     $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($readmePath, $driftedReadmeContent, $utf8NoBom)
 
     $driftedDocsReadmeLines = @($docsReadmeLines)
-    $driftedDocsReadmeLines[$docsReadmeGovernanceCapabilityEntryIndex] = $docsReadmeConfigCapabilityEntryLineText
-    $driftedDocsReadmeLines[$docsReadmeConfigCapabilityEntryIndex] = $docsReadmeGovernanceCapabilityEntryLineText
+    $driftedDocsReadmeLines[$docsReadmePanelCapabilityEntryIndex] = $docsReadmeGovernanceCapabilityEntryLineText
+    $driftedDocsReadmeLines[$docsReadmeGovernanceCapabilityEntryIndex] = $docsReadmePanelCapabilityEntryLineText
     $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
 
@@ -639,23 +643,44 @@ finally {
     [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
 }
 
+$removedMaintenanceGuidePanelSourceLineText = '- 文档：`docs/40-执行/03-面板入口验收.md`'
+
+if ($maintenanceGuideLines -notcontains $removedMaintenanceGuidePanelSourceLineText) {
+    throw "测试前置条件不满足：$maintenanceGuidePath 中缺少 $removedMaintenanceGuidePanelSourceLineText"
+}
+
+try {
+    $driftedMaintenanceGuideLines = @(
+        $maintenanceGuideLines | Where-Object { $_ -ne $removedMaintenanceGuidePanelSourceLineText }
+    )
+    $driftedMaintenanceGuideContent = ($driftedMaintenanceGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 1 -TestName 'block-maintenance-capability-panel-entry-source-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
+}
+
+$maintenanceGuidePanelCapabilityLineText = '- 文档：`docs/40-执行/03-面板入口验收.md`'
 $maintenanceGuideGovernanceCapabilityLineText = '- 文档：`docs/30-方案/08-V4-治理审计候选规范.md`'
 $maintenanceGuideConfigCapabilityLineText = '- 文档：`docs/40-执行/21-关键配置来源与漂移复核模板.md`'
+$maintenanceGuidePanelCapabilityIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuidePanelCapabilityLineText)
 $maintenanceGuideGovernanceCapabilityIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuideGovernanceCapabilityLineText)
 $maintenanceGuideConfigCapabilityIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuideConfigCapabilityLineText)
 
-if ($maintenanceGuideGovernanceCapabilityIndex -lt 0 -or $maintenanceGuideConfigCapabilityIndex -lt 0) {
+if ($maintenanceGuidePanelCapabilityIndex -lt 0 -or $maintenanceGuideGovernanceCapabilityIndex -lt 0 -or $maintenanceGuideConfigCapabilityIndex -lt 0) {
     throw "测试前置条件不满足：$maintenanceGuidePath 中缺少维护层能力顺序测试行。"
 }
 
-if ($maintenanceGuideGovernanceCapabilityIndex -gt $maintenanceGuideConfigCapabilityIndex) {
+if ($maintenanceGuidePanelCapabilityIndex -gt $maintenanceGuideGovernanceCapabilityIndex -or $maintenanceGuideGovernanceCapabilityIndex -gt $maintenanceGuideConfigCapabilityIndex) {
     throw "测试前置条件不满足：$maintenanceGuidePath 中维护层能力顺序已不是当前现状。"
 }
 
 try {
     $driftedMaintenanceGuideLines = @($maintenanceGuideLines)
-    $driftedMaintenanceGuideLines[$maintenanceGuideGovernanceCapabilityIndex] = $maintenanceGuideConfigCapabilityLineText
-    $driftedMaintenanceGuideLines[$maintenanceGuideConfigCapabilityIndex] = $maintenanceGuideGovernanceCapabilityLineText
+    $driftedMaintenanceGuideLines[$maintenanceGuidePanelCapabilityIndex] = $maintenanceGuideGovernanceCapabilityLineText
+    $driftedMaintenanceGuideLines[$maintenanceGuideGovernanceCapabilityIndex] = $maintenanceGuidePanelCapabilityLineText
     $driftedMaintenanceGuideContent = ($driftedMaintenanceGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
 
