@@ -162,6 +162,32 @@ finally {
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
 }
 
+$restartDecisionEntryLineText = '- 重启决策：`docs/20-决策/01-V4-重启ADR.md`'
+$restartAssetEntryLineText = '- 必需资产清单：`docs/10-输入材料/01-旧仓必需资产清单.md`'
+$restartDecisionEntryIndex = [Array]::IndexOf($readmeLines, $restartDecisionEntryLineText)
+$restartAssetEntryIndex = [Array]::IndexOf($readmeLines, $restartAssetEntryLineText)
+
+if ($restartDecisionEntryIndex -lt 0 -or $restartAssetEntryIndex -lt 0) {
+    throw "测试前置条件不满足：$readmePath 中缺少启动阶段入口顺序测试行。"
+}
+
+if ($restartDecisionEntryIndex -gt $restartAssetEntryIndex) {
+    throw "测试前置条件不满足：$readmePath 中启动阶段入口顺序已不是当前现状。"
+}
+
+try {
+    $driftedReadmeLines = @($readmeLines)
+    $driftedReadmeLines[$restartDecisionEntryIndex] = $restartAssetEntryLineText
+    $driftedReadmeLines[$restartAssetEntryIndex] = $restartDecisionEntryLineText
+    $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($readmePath, $driftedReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('README.md') -ExpectedExitCode 1 -TestName 'block-startup-phase-entry-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
+}
+
 $removedMaintenanceEntryLineText = '- `40-执行/16-拍板包半自动模板.md`'
 
 if ($docsReadmeLines -notcontains $removedMaintenanceEntryLineText) {

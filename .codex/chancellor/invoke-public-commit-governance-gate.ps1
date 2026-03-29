@@ -497,6 +497,29 @@ $publicRestartGuideEntryChecks = @(
         PathPrefix = 'docs/'
     }
 )
+$criticalStartupPhaseEntryPaths = @(
+    'docs/00-导航/02-现行标准件总览.md',
+    'docs/00-导航/01-V4-重启导读.md',
+    'docs/20-决策/01-V4-重启ADR.md',
+    'docs/10-输入材料/01-旧仓必需资产清单.md',
+    'docs/30-方案/01-V4-最小目录蓝图.md',
+    'docs/30-方案/02-V4-目录锁定清单.md',
+    'docs/30-方案/03-V4-MVP边界清单.md'
+)
+$publicStartupPhaseEntryChecks = @(
+    @{
+        Path = 'README.md'
+        Label = 'README 启动阶段入口'
+        RegexPattern = '`(docs/(?:00-导航|10-输入材料|20-决策|30-方案)/[^`]+\.md)`'
+        PathPrefix = ''
+    },
+    @{
+        Path = 'docs/README.md'
+        Label = 'docs/README 启动阶段入口'
+        RegexPattern = '`((?:00-导航|10-输入材料|20-决策|30-方案)/[^`]+\.md)`'
+        PathPrefix = 'docs/'
+    }
+)
 
 $changedPathList = Get-NormalizedChangedPaths
 if ($changedPathList.Count -eq 0) {
@@ -616,6 +639,9 @@ foreach ($restartGuideEntryCheck in $publicRestartGuideEntryChecks) {
     if ($missingRestartGuideEntryPaths.Count -gt 0) {
         $violationMessages.Add("$($restartGuideEntryCheck.Label) 缺少重启导读核心入口：$($missingRestartGuideEntryPaths -join '、')")
     }
+}
+foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicStartupPhaseEntryChecks -CriticalEntryPaths $criticalStartupPhaseEntryPaths -MissingFileLabel '启动阶段入口文件' -MissingEntryLabel '启动阶段关键入口' -OrderDriftLabel '启动阶段入口顺序漂移')) {
+    $violationMessages.Add($entryViolationMessage)
 }
 
 foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicTargetEntryChecks -CriticalEntryPaths $criticalTargetLifecycleEntryPaths -MissingFileLabel 'Target 主线入口文件' -MissingEntryLabel '关键主线入口' -OrderDriftLabel '关键主线入口顺序漂移')) {
