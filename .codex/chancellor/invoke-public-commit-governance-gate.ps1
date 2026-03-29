@@ -497,15 +497,23 @@ $publicRestartGuideEntryChecks = @(
         PathPrefix = 'docs/'
     }
 )
-$criticalStartupPhaseEntryPaths = @(
-    'docs/00-导航/02-现行标准件总览.md',
-    'docs/00-导航/01-V4-重启导读.md',
-    'docs/20-决策/01-V4-重启ADR.md',
-    'docs/10-输入材料/01-旧仓必需资产清单.md',
-    'docs/30-方案/01-V4-最小目录蓝图.md',
-    'docs/30-方案/02-V4-目录锁定清单.md',
-    'docs/30-方案/03-V4-MVP边界清单.md'
-)
+$startupPhaseBoundaryPath = 'docs/30-方案/03-V4-MVP边界清单.md'
+$criticalStartupPhaseEntryPaths = New-Object System.Collections.Generic.List[string]
+$criticalStartupPhaseEntryPaths.Add('docs/00-导航/02-现行标准件总览.md')
+$criticalStartupPhaseEntryPaths.Add('docs/00-导航/01-V4-重启导读.md')
+foreach ($restartGuideEntryPath in $restartGuideCanonicalEntryPaths) {
+    if ($restartGuideEntryPath -eq 'docs/00-导航/02-现行标准件总览.md') {
+        continue
+    }
+
+    if ($restartGuideEntryPath -notin $criticalStartupPhaseEntryPaths) {
+        $criticalStartupPhaseEntryPaths.Add($restartGuideEntryPath)
+    }
+
+    if ($restartGuideEntryPath -eq $startupPhaseBoundaryPath) {
+        break
+    }
+}
 $publicStartupPhaseEntryChecks = @(
     @{
         Path = 'README.md'

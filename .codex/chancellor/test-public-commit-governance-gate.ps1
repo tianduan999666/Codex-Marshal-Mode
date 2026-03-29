@@ -188,6 +188,35 @@ finally {
     [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
 }
 
+$restartGuidePath = Join-Path $repoRootPath 'docs/00-导航/01-V4-重启导读.md'
+$originalRestartGuideBytes = [System.IO.File]::ReadAllBytes($restartGuidePath)
+$restartGuideLines = Get-Content $restartGuidePath
+$restartGuideDecisionLineText = '2. `docs/20-决策/01-V4-重启ADR.md`'
+$restartGuideAssetLineText = '3. `docs/10-输入材料/01-旧仓必需资产清单.md`'
+$restartGuideDecisionIndex = [Array]::IndexOf($restartGuideLines, $restartGuideDecisionLineText)
+$restartGuideAssetIndex = [Array]::IndexOf($restartGuideLines, $restartGuideAssetLineText)
+
+if ($restartGuideDecisionIndex -lt 0 -or $restartGuideAssetIndex -lt 0) {
+    throw "测试前置条件不满足：$restartGuidePath 中缺少重启导读顺序真源测试行。"
+}
+
+if ($restartGuideDecisionIndex -gt $restartGuideAssetIndex) {
+    throw "测试前置条件不满足：$restartGuidePath 中重启导读顺序已不是当前现状。"
+}
+
+try {
+    $driftedRestartGuideLines = @($restartGuideLines)
+    $driftedRestartGuideLines[$restartGuideDecisionIndex] = $restartGuideAssetLineText
+    $driftedRestartGuideLines[$restartGuideAssetIndex] = $restartGuideDecisionLineText
+    $driftedRestartGuideContent = ($driftedRestartGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($restartGuidePath, $driftedRestartGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/00-导航/01-V4-重启导读.md') -ExpectedExitCode 1 -TestName 'block-restart-guide-source-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($restartGuidePath, $originalRestartGuideBytes)
+}
+
 $removedMaintenanceEntryLineText = '- `40-执行/16-拍板包半自动模板.md`'
 
 if ($docsReadmeLines -notcontains $removedMaintenanceEntryLineText) {
