@@ -265,6 +265,69 @@ finally {
 $navOverviewPath = Join-Path $repoRootPath 'docs/00-导航/02-现行标准件总览.md'
 $originalNavOverviewBytes = [System.IO.File]::ReadAllBytes($navOverviewPath)
 $navOverviewLines = Get-Content $navOverviewPath
+$execReadmeSectionMarkerLineText = '当前现行标准件：'
+
+if ($execReadmeLines -notcontains $execReadmeSectionMarkerLineText) {
+    throw "测试前置条件不满足：$execReadmePath 中缺少 $execReadmeSectionMarkerLineText"
+}
+
+try {
+    $driftedExecReadmeLines = @(
+        $execReadmeLines | Where-Object { $_ -ne $execReadmeSectionMarkerLineText }
+    )
+    $driftedExecReadmeContent = ($driftedExecReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($execReadmePath, $driftedExecReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/README.md') -ExpectedExitCode 1 -TestName 'block-exec-standard-source-section-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($execReadmePath, $originalExecReadmeBytes)
+}
+
+$execReadmeCurrentEntryLineText = '- `11-任务包半自动起包.md`'
+$readmeExecCurrentEntryLineText = '- 任务包半自动起包：`docs/40-执行/11-任务包半自动起包.md`'
+$docsReadmeExecCurrentEntryLineText = '- `40-执行/11-任务包半自动起包.md`'
+$navOverviewCurrentExecEntryLineText = '12. `docs/40-执行/11-任务包半自动起包.md`'
+$navOverviewReadingExecEntryLineText = '12. 需要更快起包时，看 `docs/40-执行/11-任务包半自动起包.md`'
+
+if ($execReadmeLines -notcontains $execReadmeCurrentEntryLineText -or $readmeLines -notcontains $readmeExecCurrentEntryLineText -or $docsReadmeLines -notcontains $docsReadmeExecCurrentEntryLineText -or $navOverviewLines -notcontains $navOverviewCurrentExecEntryLineText -or $navOverviewLines -notcontains $navOverviewReadingExecEntryLineText) {
+    throw '测试前置条件不满足：执行区真源联动测试行缺失。'
+}
+
+try {
+    $driftedExecReadmeLines = @(
+        $execReadmeLines | Where-Object { $_ -ne $execReadmeCurrentEntryLineText }
+    )
+    $driftedExecReadmeContent = ($driftedExecReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($execReadmePath, $driftedExecReadmeContent, $utf8NoBom)
+
+    $driftedReadmeLines = @(
+        $readmeLines | Where-Object { $_ -ne $readmeExecCurrentEntryLineText }
+    )
+    $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($readmePath, $driftedReadmeContent, $utf8NoBom)
+
+    $driftedDocsReadmeLines = @(
+        $docsReadmeLines | Where-Object { $_ -ne $docsReadmeExecCurrentEntryLineText }
+    )
+    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
+
+    $driftedNavOverviewLines = @(
+        $navOverviewLines | Where-Object { $_ -ne $navOverviewCurrentExecEntryLineText -and $_ -ne $navOverviewReadingExecEntryLineText }
+    )
+    $driftedNavOverviewContent = ($driftedNavOverviewLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($navOverviewPath, $driftedNavOverviewContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('README.md', 'docs/README.md', 'docs/00-导航/02-现行标准件总览.md', 'docs/40-执行/README.md') -ExpectedExitCode 0 -TestName 'allow-exec-standard-source-sync'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($execReadmePath, $originalExecReadmeBytes)
+    [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
+    [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
+    [System.IO.File]::WriteAllBytes($navOverviewPath, $originalNavOverviewBytes)
+}
+
 $removedReadingOrderTargetSourceStartLineText = '13. 需要看是否正式进入 Target 时，看 `docs/20-决策/02-V4-Target-进入决议.md`'
 
 if ($navOverviewLines -notcontains $removedReadingOrderTargetSourceStartLineText) {
