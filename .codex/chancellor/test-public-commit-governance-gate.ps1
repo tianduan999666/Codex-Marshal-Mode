@@ -284,6 +284,47 @@ finally {
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
 }
 
+$removedMaintenanceArchiveEntryLineText = '- 归档规则：`docs/90-归档/01-执行区证据稿归档规则.md`'
+
+if ($readmeLines -notcontains $removedMaintenanceArchiveEntryLineText) {
+    throw "测试前置条件不满足：$readmePath 中缺少 $removedMaintenanceArchiveEntryLineText"
+}
+
+try {
+    $driftedReadmeLines = @(
+        $readmeLines | Where-Object { $_ -ne $removedMaintenanceArchiveEntryLineText }
+    )
+    $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($readmePath, $driftedReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('README.md') -ExpectedExitCode 1 -TestName 'block-public-maintenance-capability-entry-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
+}
+
+$maintenanceGuidePath = Join-Path $repoRootPath 'docs/40-执行/13-维护层总入口.md'
+$originalMaintenanceGuideBytes = [System.IO.File]::ReadAllBytes($maintenanceGuidePath)
+$maintenanceGuideLines = Get-Content $maintenanceGuidePath
+$removedMaintenanceGuideArchiveSourceLineText = '- 文档：`docs/90-归档/01-执行区证据稿归档规则.md`'
+
+if ($maintenanceGuideLines -notcontains $removedMaintenanceGuideArchiveSourceLineText) {
+    throw "测试前置条件不满足：$maintenanceGuidePath 中缺少 $removedMaintenanceGuideArchiveSourceLineText"
+}
+
+try {
+    $driftedMaintenanceGuideLines = @(
+        $maintenanceGuideLines | Where-Object { $_ -ne $removedMaintenanceGuideArchiveSourceLineText }
+    )
+    $driftedMaintenanceGuideContent = ($driftedMaintenanceGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 1 -TestName 'block-maintenance-capability-source-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
+}
+
 $maintenanceGateEntryLineText = '- 多 gate 与多异常并存处理规则：`docs/40-执行/19-多 gate 与多异常并存处理规则.md`'
 $maintenanceConcurrentEntryLineText = '- 复杂并存汇报骨架模板：`docs/40-执行/20-复杂并存汇报骨架模板.md`'
 $maintenanceGateEntryIndex = [Array]::IndexOf($readmeLines, $maintenanceGateEntryLineText)
@@ -337,8 +378,9 @@ $readmeExecCurrentEntryLineText = '- 任务包半自动起包：`docs/40-执行/
 $docsReadmeExecCurrentEntryLineText = '- `40-执行/11-任务包半自动起包.md`'
 $navOverviewCurrentExecEntryLineText = '12. `docs/40-执行/11-任务包半自动起包.md`'
 $navOverviewReadingExecEntryLineText = '12. 需要更快起包时，看 `docs/40-执行/11-任务包半自动起包.md`'
+$maintenanceGuideExecEntryLineText = '- 文档：`docs/40-执行/11-任务包半自动起包.md`'
 
-if ($execReadmeLines -notcontains $execReadmeCurrentEntryLineText -or $readmeLines -notcontains $readmeExecCurrentEntryLineText -or $docsReadmeLines -notcontains $docsReadmeExecCurrentEntryLineText -or $navOverviewLines -notcontains $navOverviewCurrentExecEntryLineText -or $navOverviewLines -notcontains $navOverviewReadingExecEntryLineText) {
+if ($execReadmeLines -notcontains $execReadmeCurrentEntryLineText -or $readmeLines -notcontains $readmeExecCurrentEntryLineText -or $docsReadmeLines -notcontains $docsReadmeExecCurrentEntryLineText -or $navOverviewLines -notcontains $navOverviewCurrentExecEntryLineText -or $navOverviewLines -notcontains $navOverviewReadingExecEntryLineText -or $maintenanceGuideLines -notcontains $maintenanceGuideExecEntryLineText) {
     throw '测试前置条件不满足：执行区真源联动测试行缺失。'
 }
 
@@ -367,13 +409,20 @@ try {
     $driftedNavOverviewContent = ($driftedNavOverviewLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($navOverviewPath, $driftedNavOverviewContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('README.md', 'docs/README.md', 'docs/00-导航/02-现行标准件总览.md', 'docs/40-执行/README.md') -ExpectedExitCode 0 -TestName 'allow-exec-standard-source-sync'
+    $driftedMaintenanceGuideLines = @(
+        $maintenanceGuideLines | Where-Object { $_ -ne $maintenanceGuideExecEntryLineText }
+    )
+    $driftedMaintenanceGuideContent = ($driftedMaintenanceGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('README.md', 'docs/README.md', 'docs/00-导航/02-现行标准件总览.md', 'docs/40-执行/README.md', 'docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 0 -TestName 'allow-exec-standard-source-sync'
 }
 finally {
     [System.IO.File]::WriteAllBytes($execReadmePath, $originalExecReadmeBytes)
     [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
     [System.IO.File]::WriteAllBytes($navOverviewPath, $originalNavOverviewBytes)
+    [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
 }
 
 $coreGovernanceRuleSourceLocalSafeFlowLineText = '5. `docs/40-执行/10-本地安全提交流程.md`'
@@ -382,8 +431,9 @@ $readmeLocalSafeFlowLineText = '- 本地安全提交流程：`docs/40-执行/10-
 $docsReadmeLocalSafeFlowLineText = '- `40-执行/10-本地安全提交流程.md`'
 $navOverviewCurrentLocalSafeFlowLineText = '11. `docs/40-执行/10-本地安全提交流程.md`'
 $navOverviewReadingLocalSafeFlowLineText = '11. 需要处理本地提交稳定性时，看 `docs/40-执行/10-本地安全提交流程.md`'
+$maintenanceGuideLocalSafeFlowLineText = '- 文档：`docs/40-执行/10-本地安全提交流程.md`'
 
-if ($localSafeFlowLines -notcontains $coreGovernanceRuleSourceLocalSafeFlowLineText -or $execReadmeLines -notcontains $execReadmeLocalSafeFlowLineText -or $readmeLines -notcontains $readmeLocalSafeFlowLineText -or $docsReadmeLines -notcontains $docsReadmeLocalSafeFlowLineText -or $navOverviewLines -notcontains $navOverviewCurrentLocalSafeFlowLineText -or $navOverviewLines -notcontains $navOverviewReadingLocalSafeFlowLineText) {
+if ($localSafeFlowLines -notcontains $coreGovernanceRuleSourceLocalSafeFlowLineText -or $execReadmeLines -notcontains $execReadmeLocalSafeFlowLineText -or $readmeLines -notcontains $readmeLocalSafeFlowLineText -or $docsReadmeLines -notcontains $docsReadmeLocalSafeFlowLineText -or $navOverviewLines -notcontains $navOverviewCurrentLocalSafeFlowLineText -or $navOverviewLines -notcontains $navOverviewReadingLocalSafeFlowLineText -or $maintenanceGuideLines -notcontains $maintenanceGuideLocalSafeFlowLineText) {
     throw '测试前置条件不满足：核心治理规则真源联动测试行缺失。'
 }
 
@@ -418,7 +468,13 @@ try {
     $driftedNavOverviewContent = ($driftedNavOverviewLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($navOverviewPath, $driftedNavOverviewContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('docs/40-执行/10-本地安全提交流程.md', 'docs/40-执行/README.md', 'README.md', 'docs/README.md', 'docs/00-导航/02-现行标准件总览.md') -ExpectedExitCode 0 -TestName 'allow-core-rule-source-sync'
+    $driftedMaintenanceGuideLines = @(
+        $maintenanceGuideLines | Where-Object { $_ -ne $maintenanceGuideLocalSafeFlowLineText }
+    )
+    $driftedMaintenanceGuideContent = ($driftedMaintenanceGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/10-本地安全提交流程.md', 'docs/40-执行/README.md', 'README.md', 'docs/README.md', 'docs/00-导航/02-现行标准件总览.md', 'docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 0 -TestName 'allow-core-rule-source-sync'
 }
 finally {
     [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
@@ -426,6 +482,7 @@ finally {
     [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
     [System.IO.File]::WriteAllBytes($navOverviewPath, $originalNavOverviewBytes)
+    [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
 }
 
 $removedReadingOrderTargetSourceStartLineText = '13. 需要看是否正式进入 Target 时，看 `docs/20-决策/02-V4-Target-进入决议.md`'
