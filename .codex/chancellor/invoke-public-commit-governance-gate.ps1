@@ -2434,6 +2434,55 @@ function Get-CanonicalConcurrentStatusReportSemiAutoWriteState {
     }
 }
 
+function Get-CanonicalConcurrentStatusReportResultSkeletonState {
+    $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
+    $expectedConcurrentReportResultSkeletonItems = @(
+        [pscustomobject]@{ Name = '主状态'; Description = '写清当前唯一主状态' }
+        [pscustomobject]@{ Name = '主阻塞'; Description = '写清当前最先阻断推进的事项' }
+        [pscustomobject]@{ Name = '主阻塞原因'; Description = '写清为什么当前主阻塞比其他事项更优先' }
+        [pscustomobject]@{ Name = '主规则'; Description = '写明 `docs/40-执行/19-多 gate 与多异常并存处理规则.md`' }
+        [pscustomobject]@{ Name = '骨架模板'; Description = '写明 `docs/40-执行/20-复杂并存汇报骨架模板.md`' }
+        [pscustomobject]@{ Name = '治理复核入口'; Description = '写明 `docs/30-方案/08-V4-治理审计候选规范.md`' }
+        [pscustomobject]@{ Name = '次要待处理项'; Description = '列出仍需保留的次要待处理项' }
+        [pscustomobject]@{ Name = '恢复顺序'; Description = '列出主阻塞解除后的恢复顺序' }
+        [pscustomobject]@{ Name = '下一步'; Description = '写清本轮最小下一步' }
+        [pscustomobject]@{ Name = '治理复核结果'; Description = '写清主状态依据、次要待处理项、口径漂移与治理审计复核状态' }
+    )
+
+    $concurrentReportResultSkeletonSection = Get-FileSectionContent -FilePath $concurrentReportDocPath -SectionStartMarker '## `result.md` 推荐骨架固定槽位' -SectionEndMarker '## `decision-log.md` 推荐骨架'
+    if ([string]::IsNullOrWhiteSpace($concurrentReportResultSkeletonSection)) {
+        throw "复杂并存汇报骨架模板未解析到 result.md 推荐骨架固定槽位：$concurrentReportDocPath"
+    }
+
+    $concurrentReportResultSkeletonRows = @(
+        [regex]::Matches($concurrentReportResultSkeletonSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($concurrentReportResultSkeletonRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConcurrentReportResultSkeletonItems | ForEach-Object { $_.Name }) -Label '复杂并存汇报骨架模板 result.md 推荐骨架固定槽位序列'
+    foreach ($expectedConcurrentReportResultSkeletonItem in $expectedConcurrentReportResultSkeletonItems) {
+        $matchedConcurrentReportResultSkeletonRow = @(
+            $concurrentReportResultSkeletonRows |
+                Where-Object { $_.Name -eq $expectedConcurrentReportResultSkeletonItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConcurrentReportResultSkeletonRow) {
+            throw "复杂并存汇报骨架模板缺少 result.md 推荐骨架固定槽位：$($expectedConcurrentReportResultSkeletonItem.Name)"
+        }
+
+        if ($matchedConcurrentReportResultSkeletonRow.Description -ne $expectedConcurrentReportResultSkeletonItem.Description) {
+            throw "复杂并存汇报骨架模板 result.md 推荐骨架固定槽位漂移：$($expectedConcurrentReportResultSkeletonItem.Name) 期望 $($expectedConcurrentReportResultSkeletonItem.Description)，实际 $($matchedConcurrentReportResultSkeletonRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConcurrentReportResultSkeletonItems = @($expectedConcurrentReportResultSkeletonItems)
+    }
+}
+
 function Get-CanonicalConcurrentStatusReportValueState {
     $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
     $expectedConcurrentReportValueItems = @(
@@ -3361,6 +3410,12 @@ catch {
 }
 try {
     [void](Get-CanonicalConcurrentStatusReportSemiAutoWriteState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalConcurrentStatusReportResultSkeletonState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
