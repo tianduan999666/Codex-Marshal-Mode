@@ -304,7 +304,7 @@ function Get-ApprovedTrackedCodexFilesFromLockList {
 function Get-CanonicalMaintenanceCapabilityDocPaths {
     $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
     $maintenanceCapabilityPaths = Get-OrderedUniqueValues -Values @(
-        Get-OrderedNormalizedDocPathsFromSection -FilePath $maintenanceGuidePath -RegexPattern '`(docs/(?:(?:30-方案/08-[^`]+\.md)|(?:40-执行/(?:10|11|14|15|16|17|18|19|20|21)-[^`]+\.md)|(?:90-归档/01-[^`]+\.md)))`' -PathPrefix '' -SectionStartMarker '## 当前维护层能力' -SectionEndMarker '## 推荐使用顺序'
+        Get-OrderedNormalizedDocPathsFromSection -FilePath $maintenanceGuidePath -RegexPattern '`(docs/(?:(?:30-方案/08-[^`]+\.md)|(?:40-执行/(?:10|11|14|15|16|17|18|19|20|21)-[^`]+\.md)|(?:90-归档/01-[^`]+\.md)))`' -PathPrefix '' -SectionStartMarker '## 当前维护层能力' -SectionEndMarker '## 维护层主线真源'
     )
 
     if ($maintenanceCapabilityPaths.Count -eq 0) {
@@ -312,6 +312,19 @@ function Get-CanonicalMaintenanceCapabilityDocPaths {
     }
 
     return $maintenanceCapabilityPaths
+}
+
+function Get-CanonicalMaintenanceLifecycleEntryPaths {
+    $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
+    $maintenanceLifecyclePaths = Get-OrderedUniqueValues -Values @(
+        Get-OrderedNormalizedDocPathsFromSection -FilePath $maintenanceGuidePath -RegexPattern '(?m)^(docs/40-执行/[0-9]{2}-[^\r\n]+\.md)\s*$' -PathPrefix '' -SectionStartMarker '## 维护层主线真源' -SectionEndMarker '## 推荐使用顺序'
+    )
+
+    if ($maintenanceLifecyclePaths.Count -eq 0) {
+        throw "维护层总入口未解析到维护层主线真源：$maintenanceGuidePath"
+    }
+
+    return $maintenanceLifecyclePaths
 }
 
 function Get-BlockedPathRulesFromLocalSafeFlow {
@@ -599,7 +612,7 @@ $publicTargetEntryChecks = @(
 )
 $criticalMaintenanceLifecycleEntryPaths = @()
 try {
-    $criticalMaintenanceLifecycleEntryPaths = Get-OrderedPathSlice -SourcePaths $navOverviewReadingOrderPaths -StartPath 'docs/40-执行/13-维护层总入口.md' -EndPath 'docs/40-执行/21-关键配置来源与漂移复核模板.md' -SliceLabel '现行总览阅读顺序维护层主线'
+    $criticalMaintenanceLifecycleEntryPaths = Get-CanonicalMaintenanceLifecycleEntryPaths
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

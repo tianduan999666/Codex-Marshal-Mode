@@ -358,6 +358,33 @@ finally {
     [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
 }
 
+$maintenanceGuideMainlineMarkerLineText = '## 维护层主线真源'
+$maintenanceGuideMainlineGateLineText = 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
+$maintenanceGuideMainlineConcurrentLineText = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
+$maintenanceGuideMainlineGateIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuideMainlineGateLineText)
+$maintenanceGuideMainlineConcurrentIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuideMainlineConcurrentLineText)
+
+if ($maintenanceGuideLines -notcontains $maintenanceGuideMainlineMarkerLineText -or $maintenanceGuideMainlineGateIndex -lt 0 -or $maintenanceGuideMainlineConcurrentIndex -lt 0) {
+    throw "测试前置条件不满足：$maintenanceGuidePath 中缺少维护层主线真源测试行。"
+}
+
+if ($maintenanceGuideMainlineGateIndex -gt $maintenanceGuideMainlineConcurrentIndex) {
+    throw "测试前置条件不满足：$maintenanceGuidePath 中维护层主线真源顺序已不是当前现状。"
+}
+
+try {
+    $driftedMaintenanceGuideLines = @($maintenanceGuideLines)
+    $driftedMaintenanceGuideLines[$maintenanceGuideMainlineGateIndex] = $maintenanceGuideMainlineConcurrentLineText
+    $driftedMaintenanceGuideLines[$maintenanceGuideMainlineConcurrentIndex] = $maintenanceGuideMainlineGateLineText
+    $driftedMaintenanceGuideContent = ($driftedMaintenanceGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 1 -TestName 'block-maintenance-mainline-source-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
+}
+
 $maintenanceGateEntryLineText = '- 多 gate 与多异常并存处理规则：`docs/40-执行/19-多 gate 与多异常并存处理规则.md`'
 $maintenanceConcurrentEntryLineText = '- 复杂并存汇报骨架模板：`docs/40-执行/20-复杂并存汇报骨架模板.md`'
 $maintenanceGateEntryIndex = [Array]::IndexOf($readmeLines, $maintenanceGateEntryLineText)
