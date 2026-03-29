@@ -1,0 +1,19 @@
+{
+  "name": "marshal-mode-home-export",
+  "version": "CX-202603292219",
+  "stage": "skeleton",
+  "source_codex_home": "C:/Users/tianduan999/.codex",
+  "included": [
+    "README.md",
+    "VERSION.json",
+    "manifest.json"
+  ],
+  "excluded": [
+    "auth.json",
+    "sessions/",
+    "log/",
+    "tmp/",
+    "state_*.sqlite",
+    "logs_*.sqlite"
+  ]
+}

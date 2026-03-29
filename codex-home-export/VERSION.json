@@ -1,0 +1,15 @@
+{
+  "cx_version": "CX-202603292219",
+  "released_at": "2026-03-29 22:19",
+  "mode": "panel-only",
+  "source_of_truth": "codex-home-export",
+  "panel_commands": [
+    "丞相帮助",
+    "丞相状态",
+    "丞相检查",
+    "丞相修复",
+    "丞相验板",
+    "丞相版本"
+  ],
+  "notes": "当前仅为本机生产母体最小骨架，尚未完成切换、回滚与验板闭环"
+}

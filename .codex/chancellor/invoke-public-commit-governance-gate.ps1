@@ -293,6 +293,7 @@ function Get-ApprovedTopLevelEntriesFromLockList {
         '.codex'
         'logs'
         'temp'
+        'codex-home-export'
         'README.md'
         'AGENTS.md'
         '.gitignore'
