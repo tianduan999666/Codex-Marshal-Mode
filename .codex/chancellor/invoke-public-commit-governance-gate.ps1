@@ -1912,6 +1912,50 @@ function Get-CanonicalMaintenanceValueState {
     }
 }
 
+function Get-CanonicalConcurrentGateRuleCloseoutCheckState {
+    $concurrentRuleDocPath = 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
+    $expectedConcurrentRuleCloseoutCheckItems = @(
+        [pscustomobject]@{ Name = '主状态排他性'; Description = '是否已明确主状态为何不是其他候选状态' }
+        [pscustomobject]@{ Name = '次要事项保留'; Description = '是否已把次要 gate 或异常留在对应文件中，没有被抹掉' }
+        [pscustomobject]@{ Name = 'result.md 完整性'; Description = '是否已在 `result.md` 中写明主阻塞与次要待处理项' }
+        [pscustomobject]@{ Name = 'decision-log.md 留痕'; Description = '是否已在 `decision-log.md` 中记录本轮裁决依据' }
+        [pscustomobject]@{ Name = '恢复后重评'; Description = '是否已在恢复后重新评估主状态，而不是沿用旧状态' }
+    )
+
+    $concurrentRuleCloseoutCheckSection = Get-FileSectionContent -FilePath $concurrentRuleDocPath -SectionStartMarker '## 收口检查固定槽位' -SectionEndMarker '## 与现有模板的关系'
+    if ([string]::IsNullOrWhiteSpace($concurrentRuleCloseoutCheckSection)) {
+        throw "多 gate 与多异常并存处理规则未解析到收口检查固定槽位：$concurrentRuleDocPath"
+    }
+
+    $concurrentRuleCloseoutCheckRows = @(
+        [regex]::Matches($concurrentRuleCloseoutCheckSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($concurrentRuleCloseoutCheckRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConcurrentRuleCloseoutCheckItems | ForEach-Object { $_.Name }) -Label '多 gate 与多异常并存处理规则收口检查固定槽位序列'
+    foreach ($expectedConcurrentRuleCloseoutCheckItem in $expectedConcurrentRuleCloseoutCheckItems) {
+        $matchedConcurrentRuleCloseoutCheckRow = @(
+            $concurrentRuleCloseoutCheckRows |
+                Where-Object { $_.Name -eq $expectedConcurrentRuleCloseoutCheckItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConcurrentRuleCloseoutCheckRow) {
+            throw "多 gate 与多异常并存处理规则缺少收口检查固定槽位：$($expectedConcurrentRuleCloseoutCheckItem.Name)"
+        }
+
+        if ($matchedConcurrentRuleCloseoutCheckRow.Description -ne $expectedConcurrentRuleCloseoutCheckItem.Description) {
+            throw "多 gate 与多异常并存处理规则收口检查固定槽位漂移：$($expectedConcurrentRuleCloseoutCheckItem.Name) 期望 $($expectedConcurrentRuleCloseoutCheckItem.Description)，实际 $($matchedConcurrentRuleCloseoutCheckRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConcurrentRuleCloseoutCheckItems = @($expectedConcurrentRuleCloseoutCheckItems)
+    }
+}
+
 function Get-CanonicalConcurrentGateRuleDocumentSplitState {
     $concurrentRuleDocPath = 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
     $expectedConcurrentRuleDocumentSplitItems = @(
@@ -2980,6 +3024,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceValueState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalConcurrentGateRuleCloseoutCheckState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
