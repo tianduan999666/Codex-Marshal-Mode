@@ -99,9 +99,12 @@ $agentsPath = Join-Path $repoRootPath 'AGENTS.md'
 $originalAgentsBytes = [System.IO.File]::ReadAllBytes($agentsPath)
 $agentsLines = Get-Content $agentsPath
 $agentsRuleGuideLineText = '- 反屎山总纲：`docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`'
+$agentsLockListLineText = '- 目录锁定清单：`docs/30-方案/02-V4-目录锁定清单.md`'
+$agentsRuleGuideIndex = [Array]::IndexOf($agentsLines, $agentsRuleGuideLineText)
+$agentsLockListIndex = [Array]::IndexOf($agentsLines, $agentsLockListLineText)
 
-if ($agentsLines -notcontains $agentsRuleGuideLineText) {
-    throw "测试前置条件不满足：$agentsPath 中缺少 $agentsRuleGuideLineText"
+if ($agentsRuleGuideIndex -lt 0 -or $agentsLockListIndex -lt 0) {
+    throw "测试前置条件不满足：$agentsPath 中缺少 AGENTS 核心约束测试行。"
 }
 
 try {
@@ -112,6 +115,23 @@ try {
     [System.IO.File]::WriteAllText($agentsPath, $driftedAgentsContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('AGENTS.md') -ExpectedExitCode 1 -TestName 'block-agents-core-rule-entry-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($agentsPath, $originalAgentsBytes)
+}
+
+if ($agentsRuleGuideIndex -gt $agentsLockListIndex) {
+    throw "测试前置条件不满足：$agentsPath 中 AGENTS 核心约束顺序已不是当前现状。"
+}
+
+try {
+    $driftedAgentsLines = @($agentsLines)
+    $driftedAgentsLines[$agentsRuleGuideIndex] = $agentsLockListLineText
+    $driftedAgentsLines[$agentsLockListIndex] = $agentsRuleGuideLineText
+    $driftedAgentsContent = ($driftedAgentsLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($agentsPath, $driftedAgentsContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('AGENTS.md') -ExpectedExitCode 1 -TestName 'block-agents-core-rule-entry-order-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($agentsPath, $originalAgentsBytes)
