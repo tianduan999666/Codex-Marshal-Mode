@@ -766,6 +766,19 @@ if ($planningEntryIndex -gt $governanceEntryIndex -or $docsReadmePlanningEntryIn
 }
 
 try {
+    $driftedTargetPlanLines = @($targetPlanLines)
+    $driftedTargetPlanLines[$targetPlanPlanningEntryIndex] = $targetPlanGovernanceEntryLineText
+    $driftedTargetPlanLines[$targetPlanGovernanceEntryIndex] = $targetPlanPlanningEntryLineText
+    $driftedTargetPlanContent = ($driftedTargetPlanLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($targetPlanPath, $driftedTargetPlanContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/12-V4-Target-实施计划.md') -ExpectedExitCode 1 -TestName 'block-target-mainline-source-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($targetPlanPath, $originalTargetPlanBytes)
+}
+
+try {
     $driftedReadmeLines = @($readmeLines)
     $driftedReadmeLines[$planningEntryIndex] = $governanceEntryLineText
     $driftedReadmeLines[$governanceEntryIndex] = $planningEntryLineText
