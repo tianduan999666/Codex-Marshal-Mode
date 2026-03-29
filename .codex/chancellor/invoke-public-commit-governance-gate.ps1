@@ -81,6 +81,38 @@ function Test-PathStartsWithAnyPrefix {
     return $false
 }
 
+function Get-CanonicalExecStandardDocNames {
+    $execDocPaths = @(
+        @(git -c core.quotepath=false ls-files -- 'docs/40-执行/*.md') |
+            ForEach-Object { ConvertTo-NormalizedPath $_ } |
+            Where-Object { $_ -match '^docs/40-执行/[0-9]{2}-.+\.md$' }
+    )
+
+    return @(
+        $execDocPaths |
+            ForEach-Object { Split-Path $_ -Leaf } |
+            Sort-Object -Unique
+    )
+}
+
+function Get-MatchedExecStandardDocNamesFromFile {
+    param(
+        [string]$FilePath,
+        [string]$RegexPattern
+    )
+
+    if (-not (Test-Path $FilePath)) {
+        return @()
+    }
+
+    $fileContent = Get-Content $FilePath -Raw
+    return @(
+        [regex]::Matches($fileContent, $RegexPattern) |
+            ForEach-Object { $_.Groups[1].Value } |
+            Sort-Object -Unique
+    )
+}
+
 $requiredPolicyFiles = @(
     'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md',
     'docs/reference/02-仓库卫生与命名规范.md',
@@ -125,6 +157,28 @@ $blockedPrefixes = @(
 $blockedPrefixExceptions = @(
     'logs/README.md',
     'temp/generated/README.md'
+)
+$publicExecEntryChecks = @(
+    @{
+        Path = 'README.md'
+        Label = 'README 公开入口'
+        RegexPattern = 'docs/40-执行/([0-9]{2}-[^`]+\.md)'
+    },
+    @{
+        Path = 'docs/README.md'
+        Label = 'docs/README 公开入口'
+        RegexPattern = '40-执行/([0-9]{2}-[^`]+\.md)'
+    },
+    @{
+        Path = 'docs/00-导航/02-现行标准件总览.md'
+        Label = '现行标准件总览'
+        RegexPattern = 'docs/40-执行/([0-9]{2}-[^`]+\.md)'
+    },
+    @{
+        Path = 'docs/40-执行/README.md'
+        Label = '执行区 README'
+        RegexPattern = '(?m)^- `([0-9]{2}-[^`]+\.md)`\r?$'
+    }
 )
 
 $changedPathList = Get-NormalizedChangedPaths
@@ -186,6 +240,32 @@ $unexpectedTrackedCodexFiles = @(
 )
 foreach ($unexpectedTrackedCodexFile in $unexpectedTrackedCodexFiles) {
     $violationMessages.Add("发现未列入白名单的 .codex 跟踪文件：$unexpectedTrackedCodexFile")
+}
+
+$canonicalExecStandardDocNames = Get-CanonicalExecStandardDocNames
+foreach ($entryCheck in $publicExecEntryChecks) {
+    if (-not (Test-Path $entryCheck.Path)) {
+        $violationMessages.Add("缺少公开入口文件：$($entryCheck.Path)")
+        continue
+    }
+
+    $actualExecDocNames = Get-MatchedExecStandardDocNamesFromFile -FilePath $entryCheck.Path -RegexPattern $entryCheck.RegexPattern
+    $missingExecDocNames = @(
+        $canonicalExecStandardDocNames |
+            Where-Object { $_ -notin $actualExecDocNames }
+    )
+    $extraExecDocNames = @(
+        $actualExecDocNames |
+            Where-Object { $_ -notin $canonicalExecStandardDocNames }
+    )
+
+    if ($missingExecDocNames.Count -gt 0) {
+        $violationMessages.Add("$($entryCheck.Label) 缺少执行区现行标准件入口：$($missingExecDocNames -join '、')")
+    }
+
+    if ($extraExecDocNames.Count -gt 0) {
+        $violationMessages.Add("$($entryCheck.Label) 存在未受控的执行区入口：$($extraExecDocNames -join '、')")
+    }
 }
 
 if ($violationMessages.Count -gt 0) {
