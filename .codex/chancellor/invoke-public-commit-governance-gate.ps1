@@ -526,6 +526,13 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '任务一致'; Description = '若存在激活任务，入口口径与本地任务状态不冲突' }
         [pscustomobject]@{ Name = '复验闭环'; Description = '入口相关改动后，可通过新开会话与首句验板完成复验' }
     )
+    $expectedAcceptanceFailItems = @(
+        [pscustomobject]@{ Name = '模式失稳'; Description = '首句未进入丞相模式，或固定开头丢失、语气回退' }
+        [pscustomobject]@{ Name = '帮助缺项'; Description = '帮助输出未覆盖固定结构或固定子项模板' }
+        [pscustomobject]@{ Name = '命令漂移'; Description = '版本、检查、状态或维护边界口径出现缺失或漂移' }
+        [pscustomobject]@{ Name = '任务冲突'; Description = '入口回复与本地激活任务状态明显冲突' }
+        [pscustomobject]@{ Name = '复验失败'; Description = '重新执行必要同步动作后，仍无法通过新开会话与首句验板完成复验' }
+    )
     $expectedChecklistPassItems = @(
         [pscustomobject]@{ Name = '命令有效'; Description = '版本、检查、状态命令可用且口径完整' }
         [pscustomobject]@{ Name = '边界稳定'; Description = '修复与验板边界说明完整' }
@@ -938,6 +945,35 @@ function Get-CanonicalPanelCommandState {
 
         if ($matchedAcceptancePassRow.Description -ne $expectedAcceptancePassItem.Description) {
             throw "面板入口验收通过标准固定子项漂移：$($expectedAcceptancePassItem.Name) 期望 $($expectedAcceptancePassItem.Description)，实际 $($matchedAcceptancePassRow.Description)"
+        }
+    }
+
+    $acceptanceFailItemSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 失败信号固定子项' -SectionEndMarker '## 失败后的处置动作'
+    if ([string]::IsNullOrWhiteSpace($acceptanceFailItemSection)) {
+        throw "面板入口验收未解析到失败信号固定子项：$acceptanceDocPath"
+    }
+
+    $acceptanceFailItemRows = @(
+        [regex]::Matches($acceptanceFailItemSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($acceptanceFailItemRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedAcceptanceFailItems | ForEach-Object { $_.Name }) -Label '面板入口验收失败信号固定子项序列'
+    foreach ($expectedAcceptanceFailItem in $expectedAcceptanceFailItems) {
+        $matchedAcceptanceFailItemRow = @(
+            $acceptanceFailItemRows |
+                Where-Object { $_.Name -eq $expectedAcceptanceFailItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedAcceptanceFailItemRow) {
+            throw "面板入口验收缺少失败信号固定子项：$($expectedAcceptanceFailItem.Name)"
+        }
+
+        if ($matchedAcceptanceFailItemRow.Description -ne $expectedAcceptanceFailItem.Description) {
+            throw "面板入口验收失败信号固定子项漂移：$($expectedAcceptanceFailItem.Name) 期望 $($expectedAcceptanceFailItem.Description)，实际 $($matchedAcceptanceFailItemRow.Description)"
         }
     }
 
