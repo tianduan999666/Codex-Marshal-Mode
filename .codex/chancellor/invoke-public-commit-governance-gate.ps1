@@ -1777,6 +1777,48 @@ function Get-CanonicalMaintenanceGovernanceAuditState {
     }
 }
 
+function Get-CanonicalMaintenancePublicBoundaryState {
+    $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
+    $expectedMaintenancePublicBoundaryItems = @(
+        [pscustomobject]@{ Name = '公开范围'; Description = '公开仓只放正式文档、现行标准件、必要脚本与安全配置' }
+        [pscustomobject]@{ Name = '本地运行态'; Description = '`.codex/chancellor/tasks/`、`.codex/chancellor/active-task.txt`、`logs/` 继续作为本地运行态与留痕区，不进入公开仓' }
+        [pscustomobject]@{ Name = '依赖约束'; Description = '如未来新增维护层脚本，应优先复用当前仓目录，不引入仓外依赖' }
+    )
+
+    $maintenancePublicBoundarySection = Get-FileSectionContent -FilePath $maintenanceMatrixPath -SectionStartMarker '## 公开仓边界提醒固定槽位' -SectionEndMarker '## 推荐搭配关系'
+    if ([string]::IsNullOrWhiteSpace($maintenancePublicBoundarySection)) {
+        throw "维护层动作矩阵未解析到公开仓边界提醒固定槽位：$maintenanceMatrixPath"
+    }
+
+    $maintenancePublicBoundaryRows = @(
+        [regex]::Matches($maintenancePublicBoundarySection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($maintenancePublicBoundaryRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedMaintenancePublicBoundaryItems | ForEach-Object { $_.Name }) -Label '维护层动作矩阵公开仓边界提醒固定槽位序列'
+    foreach ($expectedMaintenancePublicBoundaryItem in $expectedMaintenancePublicBoundaryItems) {
+        $matchedMaintenancePublicBoundaryRow = @(
+            $maintenancePublicBoundaryRows |
+                Where-Object { $_.Name -eq $expectedMaintenancePublicBoundaryItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedMaintenancePublicBoundaryRow) {
+            throw "维护层动作矩阵缺少公开仓边界提醒固定槽位：$($expectedMaintenancePublicBoundaryItem.Name)"
+        }
+
+        if ($matchedMaintenancePublicBoundaryRow.Description -ne $expectedMaintenancePublicBoundaryItem.Description) {
+            throw "维护层动作矩阵公开仓边界提醒固定槽位漂移：$($expectedMaintenancePublicBoundaryItem.Name) 期望 $($expectedMaintenancePublicBoundaryItem.Description)，实际 $($matchedMaintenancePublicBoundaryRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        MaintenancePublicBoundaryItems = @($expectedMaintenancePublicBoundaryItems)
+    }
+}
+
 function Get-CanonicalMaintenanceCapabilityDocPaths {
     $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
     $maintenanceCapabilityPaths = Get-OrderedUniqueValues -Values @(
@@ -2227,6 +2269,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceGovernanceAuditState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalMaintenancePublicBoundaryState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
