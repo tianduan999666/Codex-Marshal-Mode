@@ -413,6 +413,36 @@ finally {
     [System.IO.File]::WriteAllBytes($restartGuidePath, $originalRestartGuideBytes)
 }
 
+$startupPhaseSourceInputLineText = 'docs/10-输入材料/01-旧仓必需资产清单.md'
+$startupPhaseSourceInputIndex = -1
+for ($lineIndex = $startupPhaseSourceMarkerIndex + 1; $lineIndex -lt $restartGuideLines.Count; $lineIndex++) {
+    if ($restartGuideLines[$lineIndex] -like '## *') {
+        break
+    }
+
+    if ($restartGuideLines[$lineIndex] -eq $startupPhaseSourceInputLineText) {
+        $startupPhaseSourceInputIndex = $lineIndex
+        break
+    }
+}
+
+if ($startupPhaseSourceDecisionIndex -gt $startupPhaseSourceInputIndex -or $startupPhaseSourceInputIndex -lt 0) {
+    throw "测试前置条件不满足：$restartGuidePath 中启动阶段真源顺序已不是当前现状。"
+}
+
+try {
+    $driftedRestartGuideLines = @($restartGuideLines)
+    $driftedRestartGuideLines[$startupPhaseSourceDecisionIndex] = $startupPhaseSourceInputLineText
+    $driftedRestartGuideLines[$startupPhaseSourceInputIndex] = $startupPhaseSourceDecisionLineText
+    $driftedRestartGuideContent = ($driftedRestartGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($restartGuidePath, $driftedRestartGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/00-导航/01-V4-重启导读.md') -ExpectedExitCode 1 -TestName 'block-startup-phase-source-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($restartGuidePath, $originalRestartGuideBytes)
+}
+
 $removedMaintenanceEntryLineText = '- `40-执行/16-拍板包半自动模板.md`'
 
 if ($docsReadmeLines -notcontains $removedMaintenanceEntryLineText) {
