@@ -178,6 +178,32 @@ finally {
     [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
 }
 
+$coreGovernanceRuleSourceGuideLineText = '1. `docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`'
+$coreGovernanceRuleSourceNamingLineText = '2. `docs/reference/02-仓库卫生与命名规范.md`'
+$coreGovernanceRuleSourceGuideIndex = [Array]::IndexOf($localSafeFlowLines, $coreGovernanceRuleSourceGuideLineText)
+$coreGovernanceRuleSourceNamingIndex = [Array]::IndexOf($localSafeFlowLines, $coreGovernanceRuleSourceNamingLineText)
+
+if ($coreGovernanceRuleSourceGuideIndex -lt 0 -or $coreGovernanceRuleSourceNamingIndex -lt 0) {
+    throw '测试前置条件不满足：核心治理规则入口真源顺序测试行缺失。'
+}
+
+if ($coreGovernanceRuleSourceGuideIndex -gt $coreGovernanceRuleSourceNamingIndex) {
+    throw '测试前置条件不满足：核心治理规则入口真源顺序已不是当前现状。'
+}
+
+try {
+    $driftedLocalSafeFlowLines = @($localSafeFlowLines)
+    $driftedLocalSafeFlowLines[$coreGovernanceRuleSourceGuideIndex] = $coreGovernanceRuleSourceNamingLineText
+    $driftedLocalSafeFlowLines[$coreGovernanceRuleSourceNamingIndex] = $coreGovernanceRuleSourceGuideLineText
+    $driftedLocalSafeFlowContent = ($driftedLocalSafeFlowLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($localSafeFlowPath, $driftedLocalSafeFlowContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/10-本地安全提交流程.md') -ExpectedExitCode 1 -TestName 'block-core-rule-source-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
+}
+
 $blockedLogsPrefixSourceLineText = 'prefix:logs/'
 $blockedLogsReadmeExceptionSourceLineText = 'except:logs/README.md'
 

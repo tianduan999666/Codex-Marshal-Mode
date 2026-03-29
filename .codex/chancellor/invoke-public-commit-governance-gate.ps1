@@ -719,6 +719,24 @@ $criticalRuleOrderPaths = @(
     'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md'
     'docs/reference/02-仓库卫生与命名规范.md'
 )
+$criticalCoreGovernanceRuleSourceOrderPaths = @(
+    'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md'
+    'docs/reference/02-仓库卫生与命名规范.md'
+    'docs/30-方案/02-V4-目录锁定清单.md'
+    'docs/30-方案/08-V4-治理审计候选规范.md'
+    'docs/40-执行/10-本地安全提交流程.md'
+    'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
+)
+$coreGovernanceRuleSourceEntryChecks = @(
+    @{
+        Path = 'docs/40-执行/10-本地安全提交流程.md'
+        Label = '核心治理规则入口真源'
+        RegexPattern = '`(docs/(?:reference|30-方案|40-执行)/[^`]+\.md)`'
+        PathPrefix = ''
+        SectionStartMarker = '## 核心治理规则入口真源'
+        SectionEndMarker = '## 公开提交禁止路径真源'
+    }
+)
 $agentConstraintEntryChecks = @(
     @{
         Path = 'AGENTS.md'
@@ -984,6 +1002,9 @@ foreach ($ruleEntryCheck in $publicRuleEntryChecks) {
     }
 }
 foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $ruleOrderEntryChecks -CriticalEntryPaths $criticalRuleOrderPaths -MissingFileLabel '规则入口文件' -MissingEntryLabel '关键规则入口' -OrderDriftLabel '关键规则入口顺序漂移')) {
+    $violationMessages.Add($entryViolationMessage)
+}
+foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $coreGovernanceRuleSourceEntryChecks -CriticalEntryPaths $criticalCoreGovernanceRuleSourceOrderPaths -MissingFileLabel '核心治理规则真源文件' -MissingEntryLabel '核心治理规则入口' -OrderDriftLabel '核心治理规则入口顺序漂移')) {
     $violationMessages.Add($entryViolationMessage)
 }
 foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $agentConstraintEntryChecks -CriticalEntryPaths $criticalAgentConstraintPaths -MissingFileLabel 'AGENTS 文件' -MissingEntryLabel '核心约束入口' -OrderDriftLabel '核心约束入口顺序漂移')) {
