@@ -539,6 +539,11 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '重新验板'; Description = '重新执行必要同步动作后，新开会话再次验板' }
         [pscustomobject]@{ Name = '缺陷收口'; Description = '若仍失败，记录为入口缺陷，不带着问题进入真实任务试跑' }
     )
+    $expectedAcceptanceTrialGateItems = @(
+        [pscustomobject]@{ Name = '前置门槛'; Description = '本文档是进入真实任务试跑前的固定门槛' }
+        [pscustomobject]@{ Name = '放行条件'; Description = '只有入口验收通过后，才进入后续真实任务闭环验证' }
+        [pscustomobject]@{ Name = '公开边界'; Description = '本文档可进入公开仓；真实运行态与日志继续只留本地' }
+    )
     $expectedChecklistPassItems = @(
         [pscustomobject]@{ Name = '命令有效'; Description = '版本、检查、状态命令可用且口径完整' }
         [pscustomobject]@{ Name = '边界稳定'; Description = '修复与验板边界说明完整' }
@@ -1014,6 +1019,35 @@ function Get-CanonicalPanelCommandState {
 
         if ($matchedAcceptanceRecoveryRow.Description -ne $expectedAcceptanceRecoveryItem.Description) {
             throw "面板入口验收失败后的处置动作固定子项漂移：$($expectedAcceptanceRecoveryItem.Name) 期望 $($expectedAcceptanceRecoveryItem.Description)，实际 $($matchedAcceptanceRecoveryRow.Description)"
+        }
+    }
+
+    $acceptanceTrialGateSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 与试跑阶段的关系固定槽位'
+    if ([string]::IsNullOrWhiteSpace($acceptanceTrialGateSection)) {
+        throw "面板入口验收未解析到与试跑阶段的关系固定槽位：$acceptanceDocPath"
+    }
+
+    $acceptanceTrialGateRows = @(
+        [regex]::Matches($acceptanceTrialGateSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($acceptanceTrialGateRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedAcceptanceTrialGateItems | ForEach-Object { $_.Name }) -Label '面板入口验收与试跑阶段的关系固定槽位序列'
+    foreach ($expectedAcceptanceTrialGateItem in $expectedAcceptanceTrialGateItems) {
+        $matchedAcceptanceTrialGateRow = @(
+            $acceptanceTrialGateRows |
+                Where-Object { $_.Name -eq $expectedAcceptanceTrialGateItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedAcceptanceTrialGateRow) {
+            throw "面板入口验收缺少与试跑阶段的关系固定槽位：$($expectedAcceptanceTrialGateItem.Name)"
+        }
+
+        if ($matchedAcceptanceTrialGateRow.Description -ne $expectedAcceptanceTrialGateItem.Description) {
+            throw "面板入口验收与试跑阶段的关系固定槽位漂移：$($expectedAcceptanceTrialGateItem.Name) 期望 $($expectedAcceptanceTrialGateItem.Description)，实际 $($matchedAcceptanceTrialGateRow.Description)"
         }
     }
 
