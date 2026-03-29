@@ -557,6 +557,43 @@ finally {
     [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
 }
 
+$readmeGovernanceCapabilityEntryLineText = '- V4-治理审计候选规范：`docs/30-方案/08-V4-治理审计候选规范.md`'
+$readmeConfigCapabilityEntryLineText = '- 关键配置来源与漂移复核模板：`docs/40-执行/21-关键配置来源与漂移复核模板.md`'
+$docsReadmeGovernanceCapabilityEntryLineText = '- `30-方案/08-V4-治理审计候选规范.md`'
+$docsReadmeConfigCapabilityEntryLineText = '- `40-执行/21-关键配置来源与漂移复核模板.md`'
+$readmeGovernanceCapabilityEntryIndex = [Array]::IndexOf($readmeLines, $readmeGovernanceCapabilityEntryLineText)
+$readmeConfigCapabilityEntryIndex = [Array]::IndexOf($readmeLines, $readmeConfigCapabilityEntryLineText)
+$docsReadmeGovernanceCapabilityEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeGovernanceCapabilityEntryLineText)
+$docsReadmeConfigCapabilityEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeConfigCapabilityEntryLineText)
+
+if ($readmeGovernanceCapabilityEntryIndex -lt 0 -or $readmeConfigCapabilityEntryIndex -lt 0 -or $docsReadmeGovernanceCapabilityEntryIndex -lt 0 -or $docsReadmeConfigCapabilityEntryIndex -lt 0) {
+    throw '测试前置条件不满足：维护层补充入口顺序测试行缺失。'
+}
+
+if ($readmeGovernanceCapabilityEntryIndex -gt $readmeConfigCapabilityEntryIndex -or $docsReadmeGovernanceCapabilityEntryIndex -gt $docsReadmeConfigCapabilityEntryIndex) {
+    throw '测试前置条件不满足：维护层补充入口顺序已不是当前现状。'
+}
+
+try {
+    $driftedReadmeLines = @($readmeLines)
+    $driftedReadmeLines[$readmeGovernanceCapabilityEntryIndex] = $readmeConfigCapabilityEntryLineText
+    $driftedReadmeLines[$readmeConfigCapabilityEntryIndex] = $readmeGovernanceCapabilityEntryLineText
+    $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($readmePath, $driftedReadmeContent, $utf8NoBom)
+
+    $driftedDocsReadmeLines = @($docsReadmeLines)
+    $driftedDocsReadmeLines[$docsReadmeGovernanceCapabilityEntryIndex] = $docsReadmeConfigCapabilityEntryLineText
+    $driftedDocsReadmeLines[$docsReadmeConfigCapabilityEntryIndex] = $docsReadmeGovernanceCapabilityEntryLineText
+    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('README.md', 'docs/README.md') -ExpectedExitCode 1 -TestName 'block-public-maintenance-capability-entry-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
+    [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
+}
+
 $maintenanceGuidePath = Join-Path $repoRootPath 'docs/40-执行/13-维护层总入口.md'
 $originalMaintenanceGuideBytes = [System.IO.File]::ReadAllBytes($maintenanceGuidePath)
 $maintenanceGuideLines = Get-Content $maintenanceGuidePath
