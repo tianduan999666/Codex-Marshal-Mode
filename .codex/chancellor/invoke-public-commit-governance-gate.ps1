@@ -1912,6 +1912,49 @@ function Get-CanonicalMaintenanceValueState {
     }
 }
 
+function Get-CanonicalConcurrentStatusReportValueState {
+    $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
+    $expectedConcurrentReportValueItems = @(
+        [pscustomobject]@{ Name = '固定骨架'; Description = '把复杂并存场景从口头汇报变成固定骨架' }
+        [pscustomobject]@{ Name = '口径稳定'; Description = '让 `state.yaml`、`result.md`、`decision-log.md` 的口径更稳定' }
+        [pscustomobject]@{ Name = '最小治理复核'; Description = '让复杂裁决结果在提交前也能挂上最小治理复核' }
+        [pscustomobject]@{ Name = '自动化入口'; Description = '为后续更强的复杂裁决自动化保留轻量入口' }
+    )
+
+    $concurrentReportValueSection = Get-FileSectionContent -FilePath $concurrentReportDocPath -SectionStartMarker '## 维护层价值固定槽位'
+    if ([string]::IsNullOrWhiteSpace($concurrentReportValueSection)) {
+        throw "复杂并存汇报骨架模板未解析到维护层价值固定槽位：$concurrentReportDocPath"
+    }
+
+    $concurrentReportValueRows = @(
+        [regex]::Matches($concurrentReportValueSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($concurrentReportValueRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConcurrentReportValueItems | ForEach-Object { $_.Name }) -Label '复杂并存汇报骨架模板维护层价值固定槽位序列'
+    foreach ($expectedConcurrentReportValueItem in $expectedConcurrentReportValueItems) {
+        $matchedConcurrentReportValueRow = @(
+            $concurrentReportValueRows |
+                Where-Object { $_.Name -eq $expectedConcurrentReportValueItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConcurrentReportValueRow) {
+            throw "复杂并存汇报骨架模板缺少维护层价值固定槽位：$($expectedConcurrentReportValueItem.Name)"
+        }
+
+        if ($matchedConcurrentReportValueRow.Description -ne $expectedConcurrentReportValueItem.Description) {
+            throw "复杂并存汇报骨架模板维护层价值固定槽位漂移：$($expectedConcurrentReportValueItem.Name) 期望 $($expectedConcurrentReportValueItem.Description)，实际 $($matchedConcurrentReportValueRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConcurrentReportValueItems = @($expectedConcurrentReportValueItems)
+    }
+}
+
 function Get-CanonicalGovernanceConfigReviewSummaryState {
     $configReviewDocPath = 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
     $expectedConfigReviewSummaryItems = @(
@@ -2724,6 +2767,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceValueState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalConcurrentStatusReportValueState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
