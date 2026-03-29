@@ -705,6 +705,20 @@ $publicRuleEntryChecks = @(
 $navOverviewReadingOrderPaths = Get-OrderedUniqueValues -Values @(
     Get-OrderedNormalizedDocPathsFromSection -FilePath 'docs/00-导航/02-现行标准件总览.md' -RegexPattern '`(docs/(?:20-决策|30-方案|40-执行)/[^`]+\.md)`' -PathPrefix '' -SectionStartMarker '## 阅读顺序建议' -SectionEndMarker '## 什么不是现行标准件'
 )
+$ruleOrderEntryChecks = @(
+    @{
+        Path = 'docs/00-导航/02-现行标准件总览.md'
+        Label = '现行标准件总览规则入口'
+        RegexPattern = '`(docs/reference/[^`]+\.md)`'
+        PathPrefix = ''
+        SectionStartMarker = '### 入口与背景'
+        SectionEndMarker = '## 阅读顺序建议'
+    }
+)
+$criticalRuleOrderPaths = @(
+    'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md'
+    'docs/reference/02-仓库卫生与命名规范.md'
+)
 $criticalTargetLifecycleEntryPaths = @()
 try {
     $criticalTargetLifecycleEntryPaths = Get-CanonicalTargetLifecycleEntryPaths
@@ -956,6 +970,9 @@ foreach ($ruleEntryCheck in $publicRuleEntryChecks) {
     if ($missingRuleEntryPaths.Count -gt 0) {
         $violationMessages.Add("$($ruleEntryCheck.Label) 缺少关键规则入口：$($missingRuleEntryPaths -join '、')")
     }
+}
+foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $ruleOrderEntryChecks -CriticalEntryPaths $criticalRuleOrderPaths -MissingFileLabel '规则入口文件' -MissingEntryLabel '关键规则入口' -OrderDriftLabel '关键规则入口顺序漂移')) {
+    $violationMessages.Add($entryViolationMessage)
 }
 foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicRestartGuideEntryChecks -CriticalEntryPaths $restartGuideCanonicalEntryPaths -MissingFileLabel '重启导读核心入口文件' -MissingEntryLabel '重启导读核心入口' -OrderDriftLabel '重启导读核心入口顺序漂移')) {
     $violationMessages.Add($entryViolationMessage)

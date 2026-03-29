@@ -519,6 +519,32 @@ finally {
     [System.IO.File]::WriteAllBytes($execReadmePath, $originalExecReadmeBytes)
 }
 
+$navOverviewRuleGuideLineText = '4. `docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`'
+$navOverviewRuleHygieneLineText = '5. `docs/reference/02-仓库卫生与命名规范.md`'
+$navOverviewRuleGuideIndex = [Array]::IndexOf($navOverviewLines, $navOverviewRuleGuideLineText)
+$navOverviewRuleHygieneIndex = [Array]::IndexOf($navOverviewLines, $navOverviewRuleHygieneLineText)
+
+if ($navOverviewRuleGuideIndex -lt 0 -or $navOverviewRuleHygieneIndex -lt 0) {
+    throw "测试前置条件不满足：$navOverviewPath 中缺少规则入口顺序测试行。"
+}
+
+if ($navOverviewRuleGuideIndex -gt $navOverviewRuleHygieneIndex) {
+    throw "测试前置条件不满足：$navOverviewPath 中规则入口顺序已不是当前现状。"
+}
+
+try {
+    $driftedNavOverviewLines = @($navOverviewLines)
+    $driftedNavOverviewLines[$navOverviewRuleGuideIndex] = $navOverviewRuleHygieneLineText
+    $driftedNavOverviewLines[$navOverviewRuleHygieneIndex] = $navOverviewRuleGuideLineText
+    $driftedNavOverviewContent = ($driftedNavOverviewLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($navOverviewPath, $driftedNavOverviewContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/00-导航/02-现行标准件总览.md') -ExpectedExitCode 1 -TestName 'block-public-rule-entry-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($navOverviewPath, $originalNavOverviewBytes)
+}
+
 $execReadmeCurrentEntryLineText = '- `11-任务包半自动起包.md`'
 $readmeExecCurrentEntryLineText = '- 任务包半自动起包：`docs/40-执行/11-任务包半自动起包.md`'
 $docsReadmeExecCurrentEntryLineText = '- `40-执行/11-任务包半自动起包.md`'
