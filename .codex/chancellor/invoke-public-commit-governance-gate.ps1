@@ -231,6 +231,76 @@ function Get-OrderedNormalizedDocPathsFromSection {
     )
 }
 
+function Get-CodeBlockContentFromSection {
+    param(
+        [string]$FilePath,
+        [string]$SectionStartMarker,
+        [string]$SectionEndMarker = ''
+    )
+
+    $sectionContent = Get-FileSectionContent -FilePath $FilePath -SectionStartMarker $SectionStartMarker -SectionEndMarker $SectionEndMarker
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        return ''
+    }
+
+    $codeBlockMatch = [regex]::Match($sectionContent, '```(?:text)?\s*(?<body>[\s\S]*?)```')
+    if (-not $codeBlockMatch.Success) {
+        return ''
+    }
+
+    return $codeBlockMatch.Groups['body'].Value
+}
+
+function Get-ApprovedTopLevelEntriesFromLockList {
+    $lockListPath = 'docs/30-方案/02-V4-目录锁定清单.md'
+    $approvedDirectoryBlock = Get-CodeBlockContentFromSection -FilePath $lockListPath -SectionStartMarker '## 顶层批准目录' -SectionEndMarker '## 顶层批准文件'
+    $approvedFileBlock = Get-CodeBlockContentFromSection -FilePath $lockListPath -SectionStartMarker '## 顶层批准文件' -SectionEndMarker '## docs 批准子目录'
+
+    if ([string]::IsNullOrWhiteSpace($approvedDirectoryBlock)) {
+        throw "目录锁定清单缺少顶层批准目录区块：$lockListPath"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($approvedFileBlock)) {
+        throw "目录锁定清单缺少顶层批准文件区块：$lockListPath"
+    }
+
+    $approvedEntries = New-Object System.Collections.Generic.List[string]
+    foreach ($directoryMatch in ([regex]::Matches($approvedDirectoryBlock, '(?m)^[├└]─\s+([^/\r\n]+?)/\s*$'))) {
+        $approvedEntries.Add($directoryMatch.Groups[1].Value)
+    }
+
+    foreach ($fileLine in ($approvedFileBlock -split "`r?`n")) {
+        $trimmedLine = $fileLine.Trim()
+        if ($trimmedLine -eq '') {
+            continue
+        }
+
+        $approvedEntries.Add($trimmedLine)
+    }
+
+    return Get-OrderedUniqueValues -Values @($approvedEntries)
+}
+
+function Get-ApprovedTrackedCodexFilesFromLockList {
+    $lockListPath = 'docs/30-方案/02-V4-目录锁定清单.md'
+    $approvedCodexFileBlock = Get-CodeBlockContentFromSection -FilePath $lockListPath -SectionStartMarker '## 公开仓允许跟踪的运行态文件' -SectionEndMarker '## temp 批准结构'
+    if ([string]::IsNullOrWhiteSpace($approvedCodexFileBlock)) {
+        throw "目录锁定清单缺少公开仓允许跟踪的运行态文件区块：$lockListPath"
+    }
+
+    $approvedCodexFiles = New-Object System.Collections.Generic.List[string]
+    foreach ($fileLine in ($approvedCodexFileBlock -split "`r?`n")) {
+        $trimmedLine = ConvertTo-NormalizedPath $fileLine
+        if ($trimmedLine -eq '') {
+            continue
+        }
+
+        $approvedCodexFiles.Add($trimmedLine)
+    }
+
+    return Get-OrderedUniqueValues -Values @($approvedCodexFiles)
+}
+
 function Get-OrderedUniqueValues {
     param([string[]]$Values)
 
@@ -364,28 +434,26 @@ catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
 }
 $requiredPolicyFiles = @($coreGovernanceRuleSourcePaths)
-$allowedTrackedRootEntries = @(
-    '.codex',
-    'docs',
-    'logs',
-    'temp',
-    'README.md',
-    'AGENTS.md',
-    '.gitignore'
-)
-$allowedTrackedCodexFiles = @(
-    '.codex/chancellor/README.md',
-    '.codex/chancellor/create-gate-package.ps1',
-    '.codex/chancellor/create-task-package.ps1',
-    '.codex/chancellor/install-public-commit-governance-hook.ps1',
-    '.codex/chancellor/invoke-public-commit-governance-gate.ps1',
-    '.codex/chancellor/record-exception-state.ps1',
-    '.codex/chancellor/resolve-gate-package.ps1',
-    '.codex/chancellor/tasks/README.md',
-    '.codex/chancellor/test-public-commit-governance-gate.ps1',
-    '.codex/chancellor/write-concurrent-status-report.ps1',
-    '.codex/chancellor/write-governance-config-review.ps1'
-)
+$allowedTrackedRootEntries = @()
+try {
+    $allowedTrackedRootEntries = Get-ApprovedTopLevelEntriesFromLockList
+    if ($allowedTrackedRootEntries.Count -eq 0) {
+        throw '目录锁定清单未解析到批准顶层项。'
+    }
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+$allowedTrackedCodexFiles = @()
+try {
+    $allowedTrackedCodexFiles = Get-ApprovedTrackedCodexFilesFromLockList
+    if ($allowedTrackedCodexFiles.Count -eq 0) {
+        throw '目录锁定清单未解析到允许跟踪的运行态文件。'
+    }
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
 $blockedExactPaths = @(
     '.codex/chancellor/active-task.txt'
 )
