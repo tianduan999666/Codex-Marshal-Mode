@@ -1956,6 +1956,49 @@ function Get-CanonicalConcurrentStatusReportOutputState {
     }
 }
 
+function Get-CanonicalConcurrentStatusReportScriptEntryState {
+    $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
+    $expectedConcurrentReportScriptEntryItems = @(
+        [pscustomobject]@{ Name = '脚本'; Description = '`.codex/chancellor/write-concurrent-status-report.ps1`' }
+        [pscustomobject]@{ Name = '规则'; Description = '`docs/40-执行/19-多 gate 与多异常并存处理规则.md`' }
+        [pscustomobject]@{ Name = '治理'; Description = '`docs/30-方案/08-V4-治理审计候选规范.md`' }
+        [pscustomobject]@{ Name = '收口'; Description = '`docs/40-执行/14-维护层动作矩阵与收口检查表.md`' }
+    )
+
+    $concurrentReportScriptEntrySection = Get-FileSectionContent -FilePath $concurrentReportDocPath -SectionStartMarker '## 推荐脚本入口固定槽位' -SectionEndMarker '## `result.md` 推荐骨架'
+    if ([string]::IsNullOrWhiteSpace($concurrentReportScriptEntrySection)) {
+        throw "复杂并存汇报骨架模板未解析到推荐脚本入口固定槽位：$concurrentReportDocPath"
+    }
+
+    $concurrentReportScriptEntryRows = @(
+        [regex]::Matches($concurrentReportScriptEntrySection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($concurrentReportScriptEntryRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConcurrentReportScriptEntryItems | ForEach-Object { $_.Name }) -Label '复杂并存汇报骨架模板推荐脚本入口固定槽位序列'
+    foreach ($expectedConcurrentReportScriptEntryItem in $expectedConcurrentReportScriptEntryItems) {
+        $matchedConcurrentReportScriptEntryRow = @(
+            $concurrentReportScriptEntryRows |
+                Where-Object { $_.Name -eq $expectedConcurrentReportScriptEntryItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConcurrentReportScriptEntryRow) {
+            throw "复杂并存汇报骨架模板缺少推荐脚本入口固定槽位：$($expectedConcurrentReportScriptEntryItem.Name)"
+        }
+
+        if ($matchedConcurrentReportScriptEntryRow.Description -ne $expectedConcurrentReportScriptEntryItem.Description) {
+            throw "复杂并存汇报骨架模板推荐脚本入口固定槽位漂移：$($expectedConcurrentReportScriptEntryItem.Name) 期望 $($expectedConcurrentReportScriptEntryItem.Description)，实际 $($matchedConcurrentReportScriptEntryRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConcurrentReportScriptEntryItems = @($expectedConcurrentReportScriptEntryItems)
+    }
+}
+
 function Get-CanonicalConcurrentStatusReportValueState {
     $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
     $expectedConcurrentReportValueItems = @(
@@ -2817,6 +2860,12 @@ catch {
 }
 try {
     [void](Get-CanonicalConcurrentStatusReportOutputState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalConcurrentStatusReportScriptEntryState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
