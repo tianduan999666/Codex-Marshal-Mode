@@ -337,6 +337,112 @@ function Get-ApprovedTrackedCodexFilesFromLockList {
     return $orderedApprovedCodexFiles
 }
 
+function Read-JsonObjectFromFile {
+    param(
+        [string]$Path,
+        [string]$Label = 'JSON 文件'
+    )
+
+    if (-not (Test-Path $Path)) {
+        throw "缺少$Label：$Path"
+    }
+
+    try {
+        return (Get-Content $Path -Raw | ConvertFrom-Json)
+    }
+    catch {
+        throw "$Label 解析失败：$Path"
+    }
+}
+
+function Get-CodexHomeExportConsistencyState {
+    $readmePath = 'codex-home-export/README.md'
+    $versionPath = 'codex-home-export/VERSION.json'
+    $manifestPath = 'codex-home-export/manifest.json'
+
+    $versionInfo = Read-JsonObjectFromFile -Path $versionPath -Label '生产母体版本文件'
+    $manifestInfo = Read-JsonObjectFromFile -Path $manifestPath -Label '生产母体 manifest'
+
+    if ([string]::IsNullOrWhiteSpace($versionInfo.cx_version)) {
+        throw "生产母体版本文件缺少 cx_version：$versionPath"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($versionInfo.source_of_truth)) {
+        throw "生产母体版本文件缺少 source_of_truth：$versionPath"
+    }
+
+    if ($versionInfo.source_of_truth -ne 'codex-home-export') {
+        throw "生产母体版本文件 source_of_truth 不匹配：期望 codex-home-export，实际 $($versionInfo.source_of_truth)"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($manifestInfo.version)) {
+        throw "生产母体 manifest 缺少 version：$manifestPath"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($manifestInfo.stage)) {
+        throw "生产母体 manifest 缺少 stage：$manifestPath"
+    }
+
+    if ($manifestInfo.version -ne $versionInfo.cx_version) {
+        throw "生产母体 manifest.version 与 VERSION.json.cx_version 不一致：期望 $($versionInfo.cx_version)，实际 $($manifestInfo.version)"
+    }
+
+    $manifestIncludedFiles = @(
+        Get-OrderedUniqueValues -Values @($manifestInfo.included)
+    )
+    if ($manifestIncludedFiles.Count -eq 0) {
+        throw "生产母体 manifest.included 为空：$manifestPath"
+    }
+
+    $actualExportFiles = @(
+        Get-OrderedUniqueValues -Values @(
+            @(Get-ChildItem 'codex-home-export' -File | Sort-Object Name | ForEach-Object { $_.Name })
+        )
+    )
+    Assert-RequiredPathsPresent -SourcePaths $manifestIncludedFiles -RequiredPaths $actualExportFiles -Label '生产母体 manifest included'
+
+    $unexpectedManifestIncludedFiles = @(
+        $manifestIncludedFiles |
+            Where-Object { $_ -notin $actualExportFiles }
+    )
+    if ($unexpectedManifestIncludedFiles.Count -gt 0) {
+        throw "生产母体 manifest included 存在未落文件：$($unexpectedManifestIncludedFiles -join '、')"
+    }
+
+    $readmeLandedSection = Get-FileSectionContent -FilePath $readmePath -SectionStartMarker '## 当前已落文件' -SectionEndMarker '## 当前未落文件'
+    $readmeLandedFiles = @(
+        Get-OrderedUniqueValues -Values @(
+            [regex]::Matches($readmeLandedSection, '(?m)^- `([^`]+)`\r?$') |
+                ForEach-Object { $_.Groups[1].Value }
+        )
+    )
+    if ($readmeLandedFiles.Count -eq 0) {
+        throw "生产母体 README 未解析到当前已落文件：$readmePath"
+    }
+    Assert-ExactOrderedValues -SourceValues $readmeLandedFiles -ExpectedValues $manifestIncludedFiles -Label '生产母体 README 当前已落文件'
+
+    $readmeStageSection = Get-FileSectionContent -FilePath $readmePath -SectionStartMarker '## 当前阶段' -SectionEndMarker '## 当前已落文件'
+    $readmeStageValues = @(
+        Get-OrderedUniqueValues -Values @(
+            [regex]::Matches($readmeStageSection, '(?m)^- `stage`：`([^`]+)`\r?$') |
+                ForEach-Object { $_.Groups[1].Value }
+        )
+    )
+    if ($readmeStageValues.Count -ne 1) {
+        throw "生产母体 README 当前阶段未解析到唯一 stage：$readmePath"
+    }
+
+    if ($readmeStageValues[0] -ne $manifestInfo.stage) {
+        throw "生产母体 README stage 与 manifest.stage 不一致：期望 $($manifestInfo.stage)，实际 $($readmeStageValues[0])"
+    }
+
+    return [pscustomobject]@{
+        Version = $versionInfo.cx_version
+        Stage = $manifestInfo.stage
+        IncludedFiles = $manifestIncludedFiles
+    }
+}
+
 function Get-CanonicalMaintenanceCapabilityDocPaths {
     $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
     $maintenanceCapabilityPaths = Get-OrderedUniqueValues -Values @(
@@ -750,6 +856,12 @@ try {
     if ($allowedTrackedCodexFiles.Count -eq 0) {
         throw '目录锁定清单未解析到允许跟踪的运行态文件。'
     }
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CodexHomeExportConsistencyState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

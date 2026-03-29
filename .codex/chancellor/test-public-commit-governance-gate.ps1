@@ -42,6 +42,11 @@ $testCases = @(
         Name = 'block-ide-state'
         Paths = @('.vscode/settings.json')
         ExpectedExitCode = 1
+    },
+    @{
+        Name = 'allow-codex-home-export-consistency'
+        Paths = @('codex-home-export/README.md', 'codex-home-export/manifest.json', 'codex-home-export/VERSION.json')
+        ExpectedExitCode = 0
     }
 )
 
@@ -1230,6 +1235,77 @@ try {
 }
 finally {
     [System.IO.File]::WriteAllBytes($lockListPath, $originalLockListBytes)
+}
+
+$codexHomeExportManifestPath = Join-Path $repoRootPath 'codex-home-export/manifest.json'
+$codexHomeExportVersionPath = Join-Path $repoRootPath 'codex-home-export/VERSION.json'
+$codexHomeExportReadmePath = Join-Path $repoRootPath 'codex-home-export/README.md'
+$originalCodexHomeExportManifestBytes = [System.IO.File]::ReadAllBytes($codexHomeExportManifestPath)
+$originalCodexHomeExportVersionBytes = [System.IO.File]::ReadAllBytes($codexHomeExportVersionPath)
+$originalCodexHomeExportReadmeBytes = [System.IO.File]::ReadAllBytes($codexHomeExportReadmePath)
+$codexHomeExportManifestInfo = Get-Content $codexHomeExportManifestPath -Raw | ConvertFrom-Json
+$codexHomeExportReadmeLines = Get-Content $codexHomeExportReadmePath
+$codexHomeExportStageLineText = @(
+    $codexHomeExportReadmeLines |
+        Where-Object { $_ -match '^- `stage`：`[^`]+`$' }
+) | Select-Object -First 1
+$codexHomeExportManifestIncludedTarget = 'verify-cutover.ps1'
+
+if ($codexHomeExportManifestInfo.included -notcontains $codexHomeExportManifestIncludedTarget) {
+    throw "测试前置条件不满足：$codexHomeExportManifestPath 中缺少 $codexHomeExportManifestIncludedTarget"
+}
+
+if ([string]::IsNullOrWhiteSpace($codexHomeExportStageLineText)) {
+    throw "测试前置条件不满足：$codexHomeExportReadmePath 中缺少 stage 行。"
+}
+
+try {
+    $driftedManifestInfo = Get-Content $codexHomeExportManifestPath -Raw | ConvertFrom-Json
+    $driftedManifestInfo.included = @(
+        $driftedManifestInfo.included | Where-Object { $_ -ne $codexHomeExportManifestIncludedTarget }
+    )
+    $driftedManifestContent = ($driftedManifestInfo | ConvertTo-Json -Depth 10)
+    [System.IO.File]::WriteAllText($codexHomeExportManifestPath, $driftedManifestContent + [Environment]::NewLine, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/manifest.json') -ExpectedExitCode 1 -TestName 'block-codex-home-export-manifest-included-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportManifestPath, $originalCodexHomeExportManifestBytes)
+}
+
+try {
+    $driftedReadmeLines = @($codexHomeExportReadmeLines)
+    $stageLineIndex = [Array]::IndexOf($driftedReadmeLines, $codexHomeExportStageLineText)
+    if ($stageLineIndex -lt 0) {
+        throw '测试前置条件不满足：生产母体 README stage 行索引不存在。'
+    }
+
+    $driftedStageLineText = if ($codexHomeExportStageLineText -eq '- `stage`：`install-ready`') {
+        '- `stage`：`bridge-ready`'
+    }
+    else {
+        '- `stage`：`install-ready`'
+    }
+    $driftedReadmeLines[$stageLineIndex] = $driftedStageLineText
+    $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($codexHomeExportReadmePath, $driftedReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/README.md') -ExpectedExitCode 1 -TestName 'block-codex-home-export-readme-stage-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportReadmePath, $originalCodexHomeExportReadmeBytes)
+}
+
+try {
+    $driftedVersionInfo = Get-Content $codexHomeExportVersionPath -Raw | ConvertFrom-Json
+    $driftedVersionInfo.cx_version = '{0}-drift' -f $driftedVersionInfo.cx_version
+    $driftedVersionContent = ($driftedVersionInfo | ConvertTo-Json -Depth 10)
+    [System.IO.File]::WriteAllText($codexHomeExportVersionPath, $driftedVersionContent + [Environment]::NewLine, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/VERSION.json') -ExpectedExitCode 1 -TestName 'block-codex-home-export-version-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportVersionPath, $originalCodexHomeExportVersionBytes)
 }
 
 Write-Host 'PASS: test-public-commit-governance-gate.ps1'
