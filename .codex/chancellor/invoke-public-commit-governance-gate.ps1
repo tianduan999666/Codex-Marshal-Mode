@@ -314,6 +314,51 @@ function Get-CanonicalMaintenanceCapabilityDocPaths {
     return $maintenanceCapabilityPaths
 }
 
+function Get-BlockedPathRulesFromLocalSafeFlow {
+    $localSafeFlowPath = 'docs/40-执行/10-本地安全提交流程.md'
+    $blockedPathBlock = Get-CodeBlockContentFromSection -FilePath $localSafeFlowPath -SectionStartMarker '## 公开提交禁止路径真源' -SectionEndMarker '## 公开提交硬门禁'
+    if ([string]::IsNullOrWhiteSpace($blockedPathBlock)) {
+        throw "本地安全提交流程缺少公开提交禁止路径真源区块：$localSafeFlowPath"
+    }
+
+    $blockedExactPaths = New-Object System.Collections.Generic.List[string]
+    $blockedPrefixes = New-Object System.Collections.Generic.List[string]
+    $blockedPrefixExceptions = New-Object System.Collections.Generic.List[string]
+    foreach ($ruleLine in ($blockedPathBlock -split "`r?`n")) {
+        $trimmedRuleLine = $ruleLine.Trim()
+        if ($trimmedRuleLine -eq '') {
+            continue
+        }
+
+        if ($trimmedRuleLine.StartsWith('exact:')) {
+            $blockedExactPaths.Add((ConvertTo-NormalizedPath $trimmedRuleLine.Substring(6)))
+            continue
+        }
+
+        if ($trimmedRuleLine.StartsWith('prefix:')) {
+            $blockedPrefixes.Add((ConvertTo-NormalizedPath $trimmedRuleLine.Substring(7)))
+            continue
+        }
+
+        if ($trimmedRuleLine.StartsWith('except:')) {
+            $blockedPrefixExceptions.Add((ConvertTo-NormalizedPath $trimmedRuleLine.Substring(7)))
+            continue
+        }
+
+        throw "公开提交禁止路径真源存在无法解析的规则：$trimmedRuleLine"
+    }
+
+    if (($blockedExactPaths.Count + $blockedPrefixes.Count) -eq 0) {
+        throw "公开提交禁止路径真源未解析到阻断规则：$localSafeFlowPath"
+    }
+
+    return [pscustomobject]@{
+        BlockedExactPaths = (Get-OrderedUniqueValues -Values @($blockedExactPaths))
+        BlockedPrefixes = (Get-OrderedUniqueValues -Values @($blockedPrefixes))
+        BlockedPrefixExceptions = (Get-OrderedUniqueValues -Values @($blockedPrefixExceptions))
+    }
+}
+
 function Get-OrderedUniqueValues {
     param([string[]]$Values)
 
@@ -467,20 +512,18 @@ try {
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
 }
-$blockedExactPaths = @(
-    '.codex/chancellor/active-task.txt'
-)
-$blockedPrefixes = @(
-    '.codex/chancellor/tasks/',
-    'logs/',
-    'temp/generated/',
-    '.vscode/',
-    '.serena/'
-)
-$blockedPrefixExceptions = @(
-    'logs/README.md',
-    'temp/generated/README.md'
-)
+$blockedExactPaths = @()
+$blockedPrefixes = @()
+$blockedPrefixExceptions = @()
+try {
+    $blockedPathRules = Get-BlockedPathRulesFromLocalSafeFlow
+    $blockedExactPaths = @($blockedPathRules.BlockedExactPaths)
+    $blockedPrefixes = @($blockedPathRules.BlockedPrefixes)
+    $blockedPrefixExceptions = @($blockedPathRules.BlockedPrefixExceptions)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
 $publicExecEntryChecks = @(
     @{
         Path = 'README.md'

@@ -117,6 +117,39 @@ finally {
     [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
 }
 
+$blockedLogsPrefixSourceLineText = 'prefix:logs/'
+$blockedLogsReadmeExceptionSourceLineText = 'except:logs/README.md'
+
+if ($localSafeFlowLines -notcontains $blockedLogsPrefixSourceLineText -or $localSafeFlowLines -notcontains $blockedLogsReadmeExceptionSourceLineText) {
+    throw '测试前置条件不满足：公开提交禁止路径真源测试行缺失。'
+}
+
+try {
+    $driftedLocalSafeFlowLines = @(
+        $localSafeFlowLines | Where-Object { $_ -ne $blockedLogsPrefixSourceLineText }
+    )
+    $driftedLocalSafeFlowContent = ($driftedLocalSafeFlowLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($localSafeFlowPath, $driftedLocalSafeFlowContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('logs/probe.md') -ExpectedExitCode 0 -TestName 'allow-blocked-prefix-source-sync'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
+}
+
+try {
+    $driftedLocalSafeFlowLines = @(
+        $localSafeFlowLines | Where-Object { $_ -ne $blockedLogsReadmeExceptionSourceLineText }
+    )
+    $driftedLocalSafeFlowContent = ($driftedLocalSafeFlowLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($localSafeFlowPath, $driftedLocalSafeFlowContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('logs/README.md') -ExpectedExitCode 1 -TestName 'block-blocked-prefix-exception-source-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
+}
+
 $removedTargetEntryLineText = '- `30-方案/04-V4-Target-蓝图.md`'
 
 if ($docsReadmeLines -notcontains $removedTargetEntryLineText) {
