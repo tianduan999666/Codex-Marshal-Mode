@@ -140,6 +140,51 @@ function Get-MatchedNormalizedDocPathsFromFile {
     )
 }
 
+function Get-OrderedNormalizedDocPathsFromFile {
+    param(
+        [string]$FilePath,
+        [string]$RegexPattern,
+        [string]$PathPrefix = ''
+    )
+
+    if (-not (Test-Path $FilePath)) {
+        return @()
+    }
+
+    $fileContent = Get-Content $FilePath -Raw
+    return @(
+        [regex]::Matches($fileContent, $RegexPattern) |
+            ForEach-Object {
+                $capturedPath = ConvertTo-NormalizedPath $_.Groups[1].Value
+                if ($PathPrefix -ne '') {
+                    ConvertTo-NormalizedPath ($PathPrefix + $capturedPath)
+                }
+                else {
+                    $capturedPath
+                }
+            } |
+            Where-Object { $_ -ne '' }
+    )
+}
+
+function Get-OrderedUniqueValues {
+    param([string[]]$Values)
+
+    $seenValues = New-Object 'System.Collections.Generic.HashSet[string]'
+    $orderedUniqueValues = New-Object System.Collections.Generic.List[string]
+    foreach ($value in $Values) {
+        if ([string]::IsNullOrWhiteSpace($value)) {
+            continue
+        }
+
+        if ($seenValues.Add($value)) {
+            $orderedUniqueValues.Add($value)
+        }
+    }
+
+    return @($orderedUniqueValues)
+}
+
 $requiredPolicyFiles = @(
     'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md',
     'docs/reference/02-仓库卫生与命名规范.md',
@@ -233,6 +278,35 @@ $publicRuleEntryChecks = @(
         Path = 'docs/00-导航/02-现行标准件总览.md'
         Label = '现行标准件总览规则入口'
         RegexPattern = '`(docs/(?:reference|30-方案|40-执行)/[^`]+\.md)`'
+        PathPrefix = ''
+    }
+)
+$criticalTargetLifecycleEntryPaths = @(
+    'docs/30-方案/03-V4-MVP边界清单.md',
+    'docs/20-决策/02-V4-Target-进入决议.md',
+    'docs/30-方案/04-V4-Target-蓝图.md',
+    'docs/30-方案/05-V4-Target-冻结清单.md',
+    'docs/30-方案/07-V4-规划策略候选规范.md',
+    'docs/30-方案/08-V4-治理审计候选规范.md',
+    'docs/40-执行/12-V4-Target-实施计划.md'
+)
+$publicTargetEntryChecks = @(
+    @{
+        Path = 'README.md'
+        Label = 'README Target 主线入口'
+        RegexPattern = '`(docs/(?:20-决策|30-方案|40-执行)/[^`]+\.md)`'
+        PathPrefix = ''
+    },
+    @{
+        Path = 'docs/README.md'
+        Label = 'docs/README Target 主线入口'
+        RegexPattern = '`((?:20-决策|30-方案|40-执行)/[^`]+\.md)`'
+        PathPrefix = 'docs/'
+    },
+    @{
+        Path = 'docs/00-导航/02-现行标准件总览.md'
+        Label = '现行标准件总览 Target 主线入口'
+        RegexPattern = '`(docs/(?:20-决策|30-方案|40-执行)/[^`]+\.md)`'
         PathPrefix = ''
     }
 )
@@ -338,6 +412,48 @@ foreach ($ruleEntryCheck in $publicRuleEntryChecks) {
 
     if ($missingRuleEntryPaths.Count -gt 0) {
         $violationMessages.Add("$($ruleEntryCheck.Label) 缺少关键规则入口：$($missingRuleEntryPaths -join '、')")
+    }
+}
+
+$expectedTargetOrderText = @(
+    $criticalTargetLifecycleEntryPaths |
+        ForEach-Object { Split-Path $_ -Leaf }
+) -join ' → '
+foreach ($targetEntryCheck in $publicTargetEntryChecks) {
+    if (-not (Test-Path $targetEntryCheck.Path)) {
+        $violationMessages.Add("缺少 Target 主线入口文件：$($targetEntryCheck.Path)")
+        continue
+    }
+
+    $orderedMatchedTargetPaths = Get-OrderedNormalizedDocPathsFromFile -FilePath $targetEntryCheck.Path -RegexPattern $targetEntryCheck.RegexPattern -PathPrefix $targetEntryCheck.PathPrefix
+    $actualTargetEntryPaths = Get-OrderedUniqueValues -Values @(
+        $orderedMatchedTargetPaths |
+            Where-Object { $_ -in $criticalTargetLifecycleEntryPaths }
+    )
+    $missingTargetEntryPaths = @(
+        $criticalTargetLifecycleEntryPaths |
+            Where-Object { $_ -notin $actualTargetEntryPaths }
+    )
+
+    if ($missingTargetEntryPaths.Count -gt 0) {
+        $violationMessages.Add("$($targetEntryCheck.Label) 缺少关键主线入口：$($missingTargetEntryPaths -join '、')")
+        continue
+    }
+
+    $hasTargetOrderDrift = $false
+    for ($index = 0; $index -lt $criticalTargetLifecycleEntryPaths.Count; $index++) {
+        if ($actualTargetEntryPaths[$index] -ne $criticalTargetLifecycleEntryPaths[$index]) {
+            $hasTargetOrderDrift = $true
+            break
+        }
+    }
+
+    if ($hasTargetOrderDrift) {
+        $actualTargetOrderText = @(
+            $actualTargetEntryPaths |
+                ForEach-Object { Split-Path $_ -Leaf }
+        ) -join ' → '
+        $violationMessages.Add("$($targetEntryCheck.Label) 关键主线入口顺序漂移：期望 $expectedTargetOrderText；实际 $actualTargetOrderText")
     }
 }
 

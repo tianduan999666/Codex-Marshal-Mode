@@ -95,4 +95,52 @@ finally {
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
 }
 
+$removedTargetEntryLineText = '- `30-方案/04-V4-Target-蓝图.md`'
+
+if ($docsReadmeLines -notcontains $removedTargetEntryLineText) {
+    throw "测试前置条件不满足：$docsReadmePath 中缺少 $removedTargetEntryLineText"
+}
+
+try {
+    $driftedDocsReadmeLines = @(
+        $docsReadmeLines | Where-Object { $_ -ne $removedTargetEntryLineText }
+    )
+    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-public-target-entry-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
+}
+
+$readmePath = Join-Path $repoRootPath 'README.md'
+$originalReadmeBytes = [System.IO.File]::ReadAllBytes($readmePath)
+$readmeLines = Get-Content $readmePath
+$planningEntryLineText = '- V4-规划策略候选规范：`docs/30-方案/07-V4-规划策略候选规范.md`'
+$governanceEntryLineText = '- V4-治理审计候选规范：`docs/30-方案/08-V4-治理审计候选规范.md`'
+$planningEntryIndex = [Array]::IndexOf($readmeLines, $planningEntryLineText)
+$governanceEntryIndex = [Array]::IndexOf($readmeLines, $governanceEntryLineText)
+
+if ($planningEntryIndex -lt 0 -or $governanceEntryIndex -lt 0) {
+    throw "测试前置条件不满足：$readmePath 中缺少 Target 主线关键入口测试行。"
+}
+
+if ($planningEntryIndex -gt $governanceEntryIndex) {
+    throw "测试前置条件不满足：$readmePath 中规划与治理入口顺序已不是当前现状。"
+}
+
+try {
+    $driftedReadmeLines = @($readmeLines)
+    $driftedReadmeLines[$planningEntryIndex] = $governanceEntryLineText
+    $driftedReadmeLines[$governanceEntryIndex] = $planningEntryLineText
+    $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($readmePath, $driftedReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('README.md') -ExpectedExitCode 1 -TestName 'block-public-target-entry-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
+}
+
 Write-Host 'PASS: test-public-commit-governance-gate.ps1'
