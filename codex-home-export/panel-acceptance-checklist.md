@@ -3,6 +3,11 @@
 适用场景：完成 `install-to-home.ps1` 与 `verify-cutover.ps1` 后，人工确认本机生产切换是否丝滑。
 当前验板命令口径以 `codex-home-export/VERSION.json` 的 `panel_commands` 为准。
 
+## 相关维护命令边界
+
+- `丞相修复`：在安全边界内尝试自动修复常见问题。
+- `丞相验板`：给出进入官方面板人工验收的固定步骤。
+
 ## 验板步骤
 
 1. 关闭当前 `Codex` 会话。

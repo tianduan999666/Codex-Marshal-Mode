@@ -460,6 +460,10 @@ function Get-CanonicalPanelCommandState {
         '丞相检查'
         '丞相状态'
     )
+    $expectedBoundaryCommands = @(
+        '丞相修复'
+        '丞相验板'
+    )
 
     $agentsSection = Get-FileSectionContent -FilePath $agentsPath -SectionStartMarker '## 面板丞相命令' -SectionEndMarker '## 仓库卫生纪律'
     if ([string]::IsNullOrWhiteSpace($agentsSection)) {
@@ -498,6 +502,22 @@ function Get-CanonicalPanelCommandState {
         }
     }
 
+    $expectedBoundaryRows = @()
+    foreach ($expectedBoundaryCommand in $expectedBoundaryCommands) {
+        $matchedAgentRow = @(
+            $agentPanelCommandRows |
+                Where-Object { $_.Command -eq $expectedBoundaryCommand }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedAgentRow) {
+            throw "AGENTS 面板丞相命令真源缺少命令：$expectedBoundaryCommand"
+        }
+
+        $expectedBoundaryRows += [pscustomobject]@{
+            Command = $matchedAgentRow.Command
+            Description = $matchedAgentRow.Description
+        }
+    }
+
     $versionInfo = Read-JsonObjectFromFile -Path $versionPath -Label '生产母体版本文件'
     $versionPanelCommands = @(
         Get-OrderedUniqueValues -Values @($versionInfo.panel_commands)
@@ -508,6 +528,35 @@ function Get-CanonicalPanelCommandState {
     Assert-ExactOrderedValues -SourceValues $versionPanelCommands -ExpectedValues $expectedPanelCommands -Label '生产母体 panel_commands'
 
     $acceptanceDocPath = 'docs/40-执行/03-面板入口验收.md'
+    $boundarySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 两条维护命令边界' -SectionEndMarker '## 固定人工验收步骤'
+    if ([string]::IsNullOrWhiteSpace($boundarySection)) {
+        throw "面板入口验收未解析到两条维护命令边界：$acceptanceDocPath"
+    }
+
+    $boundaryRows = @(
+        [regex]::Matches($boundarySection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Command = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($boundaryRows | ForEach-Object { $_.Command }) -ExpectedValues $expectedBoundaryCommands -Label '面板入口验收维护命令边界序列'
+    foreach ($expectedBoundaryRow in $expectedBoundaryRows) {
+        $matchedBoundaryRow = @(
+            $boundaryRows |
+                Where-Object { $_.Command -eq $expectedBoundaryRow.Command }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedBoundaryRow) {
+            throw "面板入口验收缺少维护命令边界：$($expectedBoundaryRow.Command)"
+        }
+
+        if ($matchedBoundaryRow.Description -ne $expectedBoundaryRow.Description) {
+            throw "面板入口验收维护命令边界漂移：$($expectedBoundaryRow.Command) 期望 $($expectedBoundaryRow.Description)，实际 $($matchedBoundaryRow.Description)"
+        }
+    }
+
     $acceptanceSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 三条核心命令验收口径' -SectionEndMarker '## 通过标准'
     if ([string]::IsNullOrWhiteSpace($acceptanceSection)) {
         throw "面板入口验收未解析到三条核心命令验收口径：$acceptanceDocPath"
@@ -541,10 +590,43 @@ function Get-CanonicalPanelCommandState {
         throw "缺少面板人工验板清单：$checklistPath"
     }
 
-    $checklistContent = Get-Content $checklistPath -Raw
+    $checklistBoundarySection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 相关维护命令边界' -SectionEndMarker '## 验板步骤'
+    if ([string]::IsNullOrWhiteSpace($checklistBoundarySection)) {
+        throw "面板人工验板清单未解析到相关维护命令边界：$checklistPath"
+    }
+
+    $checklistBoundaryRows = @(
+        [regex]::Matches($checklistBoundarySection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Command = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($checklistBoundaryRows | ForEach-Object { $_.Command }) -ExpectedValues $expectedBoundaryCommands -Label '面板人工验板清单维护命令边界序列'
+    foreach ($expectedBoundaryRow in $expectedBoundaryRows) {
+        $matchedChecklistBoundaryRow = @(
+            $checklistBoundaryRows |
+                Where-Object { $_.Command -eq $expectedBoundaryRow.Command }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedChecklistBoundaryRow) {
+            throw "面板人工验板清单缺少维护命令边界：$($expectedBoundaryRow.Command)"
+        }
+
+        if ($matchedChecklistBoundaryRow.Description -ne $expectedBoundaryRow.Description) {
+            throw "面板人工验板清单维护命令边界漂移：$($expectedBoundaryRow.Command) 期望 $($expectedBoundaryRow.Description)，实际 $($matchedChecklistBoundaryRow.Description)"
+        }
+    }
+
+    $checklistStepsSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 验板步骤' -SectionEndMarker '## 通过标准'
+    if ([string]::IsNullOrWhiteSpace($checklistStepsSection)) {
+        throw "面板人工验板清单未解析到验板步骤区块：$checklistPath"
+    }
+
     $checklistCommands = @(
         Get-OrderedUniqueValues -Values @(
-            [regex]::Matches($checklistContent, '丞相(?:帮助|状态|检查|修复|验板|版本)') |
+            [regex]::Matches($checklistStepsSection, '丞相(?:帮助|状态|检查|修复|验板|版本)') |
                 ForEach-Object { $_.Value }
         )
     )
