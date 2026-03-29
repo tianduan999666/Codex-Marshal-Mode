@@ -1316,9 +1316,11 @@ finally {
 $agentsPanelCommandLineText = '| `丞相验板` | 给出进入官方面板人工验收的固定步骤 |'
 $panelHelpUsageLineText = '- `丞相帮助`：显示当前用法、命令与注意事项。'
 $panelHelpTemplateLineText = '- `注意事项`：最后提示维护层动作、安全边界与人工验板提醒。'
+$panelHelpNoticeItemLineText = '- `新开会话验板提醒`：入口相关改动后，建议新开官方面板会话做人眼验板。'
 $panelRepairBoundaryLineText = '- `丞相修复`：在安全边界内尝试自动修复常见问题。'
 $checklistHelpUsageLineText = '- `丞相帮助`：显示当前用法、命令与注意事项。'
 $checklistHelpTemplateLineText = '- `注意事项`：最后提示维护层动作、安全边界与人工验板提醒。'
+$checklistHelpNoticeItemLineText = '- `新开会话验板提醒`：入口相关改动后，建议新开官方面板会话做人眼验板。'
 $checklistAcceptanceBoundaryLineText = '- `丞相验板`：给出进入官方面板人工验收的固定步骤。'
 $codexHomeExportPanelChecklistPath = Join-Path $repoRootPath 'codex-home-export/panel-acceptance-checklist.md'
 $panelAcceptanceDocPath = Join-Path $repoRootPath 'docs/40-执行/03-面板入口验收.md'
@@ -1338,6 +1340,10 @@ if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelHelpTemplateLineTex
     throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelHelpTemplateLineText"
 }
 
+if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelHelpNoticeItemLineText) {
+    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelHelpNoticeItemLineText"
+}
+
 if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelRepairBoundaryLineText) {
     throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelRepairBoundaryLineText"
 }
@@ -1348,6 +1354,10 @@ if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistHelp
 
 if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistHelpTemplateLineText) {
     throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistHelpTemplateLineText"
+}
+
+if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistHelpNoticeItemLineText) {
+    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistHelpNoticeItemLineText"
 }
 
 if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistAcceptanceBoundaryLineText) {
@@ -1409,6 +1419,16 @@ finally {
 }
 
 try {
+    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelHelpNoticeItemLineText, '- `新开会话验板提醒`：最后再看看情况。')
+    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-help-notice-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
+}
+
+try {
     $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelRepairBoundaryLineText, '- `丞相修复`：尝试自动修复问题。')
     [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
 
@@ -1443,6 +1463,16 @@ try {
     [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-help-template-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
+}
+
+try {
+    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistHelpNoticeItemLineText, '- `新开会话验板提醒`：最后再看看情况。')
+    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-help-notice-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)

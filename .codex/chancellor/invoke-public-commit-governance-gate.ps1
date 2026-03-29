@@ -463,6 +463,11 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '面板命令'; Description = '再列出当前面板丞相命令及其含义' }
         [pscustomobject]@{ Name = '注意事项'; Description = '最后提示维护层动作、安全边界与人工验板提醒' }
     )
+    $expectedHelpNoticeItems = @(
+        [pscustomobject]@{ Name = '安全边界'; Description = '普通用户入口优先留在官方面板，维护层动作不向普通用户外露复杂终端流程' }
+        [pscustomobject]@{ Name = '维护层动作'; Description = '如必须落到脚本层，要明确说明“这是维护层动作”' }
+        [pscustomobject]@{ Name = '新开会话验板提醒'; Description = '入口相关改动后，建议新开官方面板会话做人眼验板' }
+    )
     $expectedChecklistCommands = @(
         '丞相版本'
         '丞相检查'
@@ -581,7 +586,7 @@ function Get-CanonicalPanelCommandState {
         }
     }
 
-    $helpTemplateSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 帮助命令固定结构' -SectionEndMarker '## 两条维护命令边界'
+    $helpTemplateSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 帮助命令固定结构' -SectionEndMarker '## 注意事项固定子项'
     if ([string]::IsNullOrWhiteSpace($helpTemplateSection)) {
         throw "面板入口验收未解析到帮助命令固定结构：$acceptanceDocPath"
     }
@@ -607,6 +612,35 @@ function Get-CanonicalPanelCommandState {
 
         if ($matchedHelpTemplateRow.Description -ne $expectedHelpTemplateItem.Description) {
             throw "面板入口验收帮助命令固定结构漂移：$($expectedHelpTemplateItem.Name) 期望 $($expectedHelpTemplateItem.Description)，实际 $($matchedHelpTemplateRow.Description)"
+        }
+    }
+
+    $helpNoticeSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 注意事项固定子项' -SectionEndMarker '## 两条维护命令边界'
+    if ([string]::IsNullOrWhiteSpace($helpNoticeSection)) {
+        throw "面板入口验收未解析到注意事项固定子项：$acceptanceDocPath"
+    }
+
+    $helpNoticeRows = @(
+        [regex]::Matches($helpNoticeSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($helpNoticeRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedHelpNoticeItems | ForEach-Object { $_.Name }) -Label '面板入口验收注意事项固定子项序列'
+    foreach ($expectedHelpNoticeItem in $expectedHelpNoticeItems) {
+        $matchedHelpNoticeRow = @(
+            $helpNoticeRows |
+                Where-Object { $_.Name -eq $expectedHelpNoticeItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedHelpNoticeRow) {
+            throw "面板入口验收缺少注意事项固定子项：$($expectedHelpNoticeItem.Name)"
+        }
+
+        if ($matchedHelpNoticeRow.Description -ne $expectedHelpNoticeItem.Description) {
+            throw "面板入口验收注意事项固定子项漂移：$($expectedHelpNoticeItem.Name) 期望 $($expectedHelpNoticeItem.Description)，实际 $($matchedHelpNoticeRow.Description)"
         }
     }
 
@@ -701,7 +735,7 @@ function Get-CanonicalPanelCommandState {
         }
     }
 
-    $checklistHelpTemplateSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 帮助命令固定结构' -SectionEndMarker '## 相关维护命令边界'
+    $checklistHelpTemplateSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 帮助命令固定结构' -SectionEndMarker '## 注意事项固定子项'
     if ([string]::IsNullOrWhiteSpace($checklistHelpTemplateSection)) {
         throw "面板人工验板清单未解析到帮助命令固定结构：$checklistPath"
     }
@@ -727,6 +761,35 @@ function Get-CanonicalPanelCommandState {
 
         if ($matchedChecklistHelpTemplateRow.Description -ne $expectedHelpTemplateItem.Description) {
             throw "面板人工验板清单帮助命令固定结构漂移：$($expectedHelpTemplateItem.Name) 期望 $($expectedHelpTemplateItem.Description)，实际 $($matchedChecklistHelpTemplateRow.Description)"
+        }
+    }
+
+    $checklistHelpNoticeSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 注意事项固定子项' -SectionEndMarker '## 相关维护命令边界'
+    if ([string]::IsNullOrWhiteSpace($checklistHelpNoticeSection)) {
+        throw "面板人工验板清单未解析到注意事项固定子项：$checklistPath"
+    }
+
+    $checklistHelpNoticeRows = @(
+        [regex]::Matches($checklistHelpNoticeSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($checklistHelpNoticeRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedHelpNoticeItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单注意事项固定子项序列'
+    foreach ($expectedHelpNoticeItem in $expectedHelpNoticeItems) {
+        $matchedChecklistHelpNoticeRow = @(
+            $checklistHelpNoticeRows |
+                Where-Object { $_.Name -eq $expectedHelpNoticeItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedChecklistHelpNoticeRow) {
+            throw "面板人工验板清单缺少注意事项固定子项：$($expectedHelpNoticeItem.Name)"
+        }
+
+        if ($matchedChecklistHelpNoticeRow.Description -ne $expectedHelpNoticeItem.Description) {
+            throw "面板人工验板清单注意事项固定子项漂移：$($expectedHelpNoticeItem.Name) 期望 $($expectedHelpNoticeItem.Description)，实际 $($matchedChecklistHelpNoticeRow.Description)"
         }
     }
 
