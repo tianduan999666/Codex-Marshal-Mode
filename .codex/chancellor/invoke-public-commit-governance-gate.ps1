@@ -337,6 +337,15 @@ function Get-CanonicalMaintenanceCapabilityDocPaths {
         throw "维护层总入口未解析到维护能力文档：$maintenanceGuidePath"
     }
 
+    $maintenanceCapabilityOrderPaths = @(
+        'docs/30-方案/08-V4-治理审计候选规范.md'
+        'docs/40-执行/21-关键配置来源与漂移复核模板.md'
+    )
+    $maintenanceCapabilityOrderSlice = @(
+        $maintenanceCapabilityPaths |
+            Where-Object { $_ -in $maintenanceCapabilityOrderPaths }
+    )
+    Assert-ExactOrderedValues -SourceValues $maintenanceCapabilityOrderSlice -ExpectedValues $maintenanceCapabilityOrderPaths -Label '维护层补充能力真源'
     return $maintenanceCapabilityPaths
 }
 

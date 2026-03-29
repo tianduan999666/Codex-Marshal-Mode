@@ -529,6 +529,32 @@ finally {
     [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
 }
 
+$maintenanceGuideGovernanceCapabilityLineText = '- 文档：`docs/30-方案/08-V4-治理审计候选规范.md`'
+$maintenanceGuideConfigCapabilityLineText = '- 文档：`docs/40-执行/21-关键配置来源与漂移复核模板.md`'
+$maintenanceGuideGovernanceCapabilityIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuideGovernanceCapabilityLineText)
+$maintenanceGuideConfigCapabilityIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuideConfigCapabilityLineText)
+
+if ($maintenanceGuideGovernanceCapabilityIndex -lt 0 -or $maintenanceGuideConfigCapabilityIndex -lt 0) {
+    throw "测试前置条件不满足：$maintenanceGuidePath 中缺少维护层能力顺序测试行。"
+}
+
+if ($maintenanceGuideGovernanceCapabilityIndex -gt $maintenanceGuideConfigCapabilityIndex) {
+    throw "测试前置条件不满足：$maintenanceGuidePath 中维护层能力顺序已不是当前现状。"
+}
+
+try {
+    $driftedMaintenanceGuideLines = @($maintenanceGuideLines)
+    $driftedMaintenanceGuideLines[$maintenanceGuideGovernanceCapabilityIndex] = $maintenanceGuideConfigCapabilityLineText
+    $driftedMaintenanceGuideLines[$maintenanceGuideConfigCapabilityIndex] = $maintenanceGuideGovernanceCapabilityLineText
+    $driftedMaintenanceGuideContent = ($driftedMaintenanceGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 1 -TestName 'block-maintenance-capability-source-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
+}
+
 $maintenanceGuideMainlineMarkerLineText = '## 维护层主线真源'
 $maintenanceGuideMainlineGateLineText = 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
 $maintenanceGuideMainlineConcurrentLineText = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
