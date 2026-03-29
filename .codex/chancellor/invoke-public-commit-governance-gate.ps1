@@ -1643,6 +1643,52 @@ function Get-CanonicalMaintenanceEntrySyncState {
     }
 }
 
+function Get-CanonicalMaintenanceBasicCloseoutState {
+    $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
+    $expectedMaintenanceBasicCloseoutItems = @(
+        [pscustomobject]@{ Name = '动作归类'; Description = '已经明确本轮动作属于哪一种维护类型' }
+        [pscustomobject]@{ Name = '文档沉淀'; Description = '已经把结果沉淀到当前目录内的现行文档或归档文档' }
+        [pscustomobject]@{ Name = '本地留痕'; Description = '已经生成带时间戳的本地日志，写清动作、结果、理由、下一步' }
+        [pscustomobject]@{ Name = '导航同步'; Description = '若新增或变更现行标准件，已经同步 `README.md`、`docs/README.md`、`docs/00-导航/02-现行标准件总览.md`、`docs/40-执行/README.md`' }
+        [pscustomobject]@{ Name = '提交串行'; Description = '已经按串行流程完成 `commit`、`pull --rebase`、`push`' }
+        [pscustomobject]@{ Name = '门禁通过'; Description = '若当前轮涉及公开推送，已经安装并通过本地 `pre-push` 治理门禁' }
+        [pscustomobject]@{ Name = '下一步说明'; Description = '已经给出下一步建议，并说明是否需要主公拍板' }
+    )
+
+    $maintenanceBasicCloseoutSection = Get-FileSectionContent -FilePath $maintenanceMatrixPath -SectionStartMarker '### 基础收口固定槽位' -SectionEndMarker '### 治理审计补充检查'
+    if ([string]::IsNullOrWhiteSpace($maintenanceBasicCloseoutSection)) {
+        throw "维护层动作矩阵未解析到基础收口固定槽位：$maintenanceMatrixPath"
+    }
+
+    $maintenanceBasicCloseoutRows = @(
+        [regex]::Matches($maintenanceBasicCloseoutSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($maintenanceBasicCloseoutRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedMaintenanceBasicCloseoutItems | ForEach-Object { $_.Name }) -Label '维护层动作矩阵基础收口固定槽位序列'
+    foreach ($expectedMaintenanceBasicCloseoutItem in $expectedMaintenanceBasicCloseoutItems) {
+        $matchedMaintenanceBasicCloseoutRow = @(
+            $maintenanceBasicCloseoutRows |
+                Where-Object { $_.Name -eq $expectedMaintenanceBasicCloseoutItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedMaintenanceBasicCloseoutRow) {
+            throw "维护层动作矩阵缺少基础收口固定槽位：$($expectedMaintenanceBasicCloseoutItem.Name)"
+        }
+
+        if ($matchedMaintenanceBasicCloseoutRow.Description -ne $expectedMaintenanceBasicCloseoutItem.Description) {
+            throw "维护层动作矩阵基础收口固定槽位漂移：$($expectedMaintenanceBasicCloseoutItem.Name) 期望 $($expectedMaintenanceBasicCloseoutItem.Description)，实际 $($matchedMaintenanceBasicCloseoutRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        MaintenanceBasicCloseoutItems = @($expectedMaintenanceBasicCloseoutItems)
+    }
+}
+
 function Get-CanonicalMaintenanceCapabilityDocPaths {
     $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
     $maintenanceCapabilityPaths = Get-OrderedUniqueValues -Values @(
@@ -2075,6 +2121,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceEntrySyncState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalMaintenanceBasicCloseoutState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
