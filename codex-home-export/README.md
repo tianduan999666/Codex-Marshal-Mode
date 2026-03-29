@@ -14,17 +14,17 @@
 - `VERSION.json`
 - `manifest.json`
 - `install-to-home.ps1`
+- `rollback-from-backup.ps1`
 
 ## 当前未落文件
 
-- 回滚脚本
 - 切换后固定验板脚本或清单
 - 完整导出内容（如 `prompts/`、`scripts/`、`skills/`、`agents/` 等）
 
 ## 使用原则
 
-1. 先完善切换与回滚脚本
-2. 再同步 `~/.codex/config/cx-version.json`
+1. 先执行 `install-to-home.ps1` 完成最小骨架同步
+2. 若异常则执行 `rollback-from-backup.ps1` 回退
 3. 再新开会话执行固定验板
 
 ## 说明

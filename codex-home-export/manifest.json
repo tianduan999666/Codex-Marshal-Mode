@@ -7,7 +7,8 @@
     "README.md",
     "VERSION.json",
     "manifest.json",
-    "install-to-home.ps1"
+    "install-to-home.ps1",
+    "rollback-from-backup.ps1"
   ],
   "excluded": [
     "auth.json",

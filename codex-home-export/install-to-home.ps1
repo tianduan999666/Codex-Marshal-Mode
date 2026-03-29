@@ -110,6 +110,12 @@ $installRecord = [ordered]@{
         'config/marshal-mode/manifest.json'
         'config/marshal-mode/README.md'
     )
+    managed_files = @(
+        'config/cx-version.json'
+        'config/marshal-mode/manifest.json'
+        'config/marshal-mode/README.md'
+        'config/marshal-mode/install-record.json'
+    )
 }
 
 Set-Utf8NoBomContent -Path $runtimeInstallRecordPath -Content ($installRecord | ConvertTo-Json -Depth 4)
