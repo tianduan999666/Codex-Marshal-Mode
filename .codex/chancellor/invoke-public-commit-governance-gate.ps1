@@ -1999,6 +1999,49 @@ function Get-CanonicalConcurrentGateRuleDocumentSplitState {
     }
 }
 
+function Get-CanonicalConcurrentGateRuleReportOrderState {
+    $concurrentRuleDocPath = 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
+    $expectedConcurrentRuleReportOrderItems = @(
+        [pscustomobject]@{ Name = '主状态结论'; Description = '先给主状态结论' }
+        [pscustomobject]@{ Name = '主阻塞理由'; Description = '再说明主阻塞是谁、为什么它优先' }
+        [pscustomobject]@{ Name = '次要待处理项'; Description = '再列次要待处理项' }
+        [pscustomobject]@{ Name = '恢复顺序'; Description = '最后说明一旦主阻塞解除，恢复顺序是什么' }
+    )
+
+    $concurrentRuleReportOrderSection = Get-FileSectionContent -FilePath $concurrentRuleDocPath -SectionStartMarker '## 推荐汇报顺序固定槽位' -SectionEndMarker '## 收口检查'
+    if ([string]::IsNullOrWhiteSpace($concurrentRuleReportOrderSection)) {
+        throw "多 gate 与多异常并存处理规则未解析到推荐汇报顺序固定槽位：$concurrentRuleDocPath"
+    }
+
+    $concurrentRuleReportOrderRows = @(
+        [regex]::Matches($concurrentRuleReportOrderSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($concurrentRuleReportOrderRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConcurrentRuleReportOrderItems | ForEach-Object { $_.Name }) -Label '多 gate 与多异常并存处理规则推荐汇报顺序固定槽位序列'
+    foreach ($expectedConcurrentRuleReportOrderItem in $expectedConcurrentRuleReportOrderItems) {
+        $matchedConcurrentRuleReportOrderRow = @(
+            $concurrentRuleReportOrderRows |
+                Where-Object { $_.Name -eq $expectedConcurrentRuleReportOrderItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConcurrentRuleReportOrderRow) {
+            throw "多 gate 与多异常并存处理规则缺少推荐汇报顺序固定槽位：$($expectedConcurrentRuleReportOrderItem.Name)"
+        }
+
+        if ($matchedConcurrentRuleReportOrderRow.Description -ne $expectedConcurrentRuleReportOrderItem.Description) {
+            throw "多 gate 与多异常并存处理规则推荐汇报顺序固定槽位漂移：$($expectedConcurrentRuleReportOrderItem.Name) 期望 $($expectedConcurrentRuleReportOrderItem.Description)，实际 $($matchedConcurrentRuleReportOrderRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConcurrentRuleReportOrderItems = @($expectedConcurrentRuleReportOrderItems)
+    }
+}
+
 function Get-CanonicalConcurrentStatusReportSummaryState {
     $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
     $expectedConcurrentReportSummaryItems = @(
@@ -3036,6 +3079,12 @@ catch {
 }
 try {
     [void](Get-CanonicalConcurrentGateRuleDocumentSplitState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalConcurrentGateRuleReportOrderState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

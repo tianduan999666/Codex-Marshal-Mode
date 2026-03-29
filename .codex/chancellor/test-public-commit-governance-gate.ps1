@@ -752,6 +752,7 @@ $configReviewSourceLineText = '- `冻结边界依据`：`docs/30-方案/05-V4-Ta
 $concurrentRuleDocPath = Join-Path $repoRootPath 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
 $originalConcurrentRuleDocBytes = [System.IO.File]::ReadAllBytes($concurrentRuleDocPath)
 $concurrentRuleDocumentSplitLineText = '- `result.md`：写清“主阻塞”“次要待处理项”“恢复顺序”。'
+$concurrentRuleReportOrderLineText = '- `恢复顺序`：最后说明一旦主阻塞解除，恢复顺序是什么。'
 $concurrentRuleCloseoutCheckLineText = '- `恢复后重评`：是否已在恢复后重新评估主状态，而不是沿用旧状态。'
 $concurrentReportDocPath = Join-Path $repoRootPath 'docs/40-执行/20-复杂并存汇报骨架模板.md'
 $originalConcurrentReportDocBytes = [System.IO.File]::ReadAllBytes($concurrentReportDocPath)
@@ -823,6 +824,10 @@ if ((Get-Content $configReviewDocPath) -notcontains $configReviewSourceLineText)
 
 if ((Get-Content $concurrentRuleDocPath) -notcontains $concurrentRuleDocumentSplitLineText) {
     throw "测试前置条件不满足：$concurrentRuleDocPath 中缺少 $concurrentRuleDocumentSplitLineText"
+}
+
+if ((Get-Content $concurrentRuleDocPath) -notcontains $concurrentRuleReportOrderLineText) {
+    throw "测试前置条件不满足：$concurrentRuleDocPath 中缺少 $concurrentRuleReportOrderLineText"
 }
 
 if ((Get-Content $concurrentRuleDocPath) -notcontains $concurrentRuleCloseoutCheckLineText) {
@@ -1004,6 +1009,16 @@ try {
     [System.IO.File]::WriteAllText($concurrentRuleDocPath, $driftedConcurrentRuleContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/19-多 gate 与多异常并存处理规则.md') -ExpectedExitCode 1 -TestName 'block-concurrent-rule-document-split-slot-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($concurrentRuleDocPath, $originalConcurrentRuleDocBytes)
+}
+
+try {
+    $driftedConcurrentRuleContent = (Get-Content $concurrentRuleDocPath -Raw).Replace($concurrentRuleReportOrderLineText, '- `恢复顺序`：之后再说。')
+    [System.IO.File]::WriteAllText($concurrentRuleDocPath, $driftedConcurrentRuleContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/19-多 gate 与多异常并存处理规则.md') -ExpectedExitCode 1 -TestName 'block-concurrent-rule-report-order-slot-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($concurrentRuleDocPath, $originalConcurrentRuleDocBytes)
