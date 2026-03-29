@@ -327,6 +327,19 @@ function Get-CanonicalMaintenanceLifecycleEntryPaths {
     return $maintenanceLifecyclePaths
 }
 
+function Get-CanonicalTargetLifecycleEntryPaths {
+    $targetPlanPath = 'docs/40-执行/12-V4-Target-实施计划.md'
+    $targetLifecyclePaths = Get-OrderedUniqueValues -Values @(
+        Get-OrderedNormalizedDocPathsFromSection -FilePath $targetPlanPath -RegexPattern '(?m)^(docs/(?:20-决策|30-方案|40-执行)/[^\r\n]+\.md)\s*$' -PathPrefix '' -SectionStartMarker '## Target 主线真源' -SectionEndMarker '## 推荐推进顺序'
+    )
+
+    if ($targetLifecyclePaths.Count -eq 0) {
+        throw "Target 实施计划未解析到 Target 主线真源：$targetPlanPath"
+    }
+
+    return Get-OrderedPathSlice -SourcePaths $targetLifecyclePaths -StartPath 'docs/20-决策/02-V4-Target-进入决议.md' -EndPath 'docs/40-执行/12-V4-Target-实施计划.md' -SliceLabel 'Target 主线真源'
+}
+
 function Get-BlockedPathRulesFromLocalSafeFlow {
     $localSafeFlowPath = 'docs/40-执行/10-本地安全提交流程.md'
     $blockedPathBlock = Get-CodeBlockContentFromSection -FilePath $localSafeFlowPath -SectionStartMarker '## 公开提交禁止路径真源' -SectionEndMarker '## 公开提交硬门禁'
@@ -585,7 +598,7 @@ $navOverviewReadingOrderPaths = Get-OrderedUniqueValues -Values @(
 )
 $criticalTargetLifecycleEntryPaths = @()
 try {
-    $criticalTargetLifecycleEntryPaths = Get-OrderedPathSlice -SourcePaths $navOverviewReadingOrderPaths -StartPath 'docs/20-决策/02-V4-Target-进入决议.md' -EndPath 'docs/40-执行/12-V4-Target-实施计划.md' -SliceLabel '现行总览阅读顺序 Target 主线'
+    $criticalTargetLifecycleEntryPaths = Get-CanonicalTargetLifecycleEntryPaths
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

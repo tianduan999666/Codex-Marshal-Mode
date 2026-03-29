@@ -545,23 +545,26 @@ finally {
     [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
 }
 
-$removedReadingOrderTargetSourceStartLineText = '13. 需要看是否正式进入 Target 时，看 `docs/20-决策/02-V4-Target-进入决议.md`'
+$targetPlanPath = Join-Path $repoRootPath 'docs/40-执行/12-V4-Target-实施计划.md'
+$originalTargetPlanBytes = [System.IO.File]::ReadAllBytes($targetPlanPath)
+$targetPlanLines = Get-Content $targetPlanPath
+$removedReadingOrderTargetSourceStartLineText = 'docs/20-决策/02-V4-Target-进入决议.md'
 
-if ($navOverviewLines -notcontains $removedReadingOrderTargetSourceStartLineText) {
-    throw "测试前置条件不满足：$navOverviewPath 中缺少 $removedReadingOrderTargetSourceStartLineText"
+if ($targetPlanLines -notcontains $removedReadingOrderTargetSourceStartLineText) {
+    throw "测试前置条件不满足：$targetPlanPath 中缺少 $removedReadingOrderTargetSourceStartLineText"
 }
 
 try {
-    $driftedNavOverviewLines = @(
-        $navOverviewLines | Where-Object { $_ -ne $removedReadingOrderTargetSourceStartLineText }
+    $driftedTargetPlanLines = @(
+        $targetPlanLines | Where-Object { $_ -ne $removedReadingOrderTargetSourceStartLineText }
     )
-    $driftedNavOverviewContent = ($driftedNavOverviewLines -join [Environment]::NewLine) + [Environment]::NewLine
-    [System.IO.File]::WriteAllText($navOverviewPath, $driftedNavOverviewContent, $utf8NoBom)
+    $driftedTargetPlanContent = ($driftedTargetPlanLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($targetPlanPath, $driftedTargetPlanContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('docs/00-导航/02-现行标准件总览.md') -ExpectedExitCode 1 -TestName 'block-reading-order-target-source-boundary-missing'
+    Invoke-GateForTestCase -Paths @('docs/40-执行/12-V4-Target-实施计划.md') -ExpectedExitCode 1 -TestName 'block-reading-order-target-source-boundary-missing'
 }
 finally {
-    [System.IO.File]::WriteAllBytes($navOverviewPath, $originalNavOverviewBytes)
+    [System.IO.File]::WriteAllBytes($targetPlanPath, $originalTargetPlanBytes)
 }
 
 $docsReadmePlanningEntryLineText = '- `30-方案/07-V4-规划策略候选规范.md`'
@@ -576,6 +579,10 @@ $navOverviewReadingOrderPlanningEntryLineText = '17. 需要明确规划层第一
 $navOverviewReadingOrderGovernanceEntryLineText = '18. 需要明确治理层第二条高复利候选时，看 `docs/30-方案/08-V4-治理审计候选规范.md`'
 $navOverviewReadingOrderPlanningEntryIndex = [Array]::IndexOf($navOverviewLines, $navOverviewReadingOrderPlanningEntryLineText)
 $navOverviewReadingOrderGovernanceEntryIndex = [Array]::IndexOf($navOverviewLines, $navOverviewReadingOrderGovernanceEntryLineText)
+$targetPlanPlanningEntryLineText = 'docs/30-方案/07-V4-规划策略候选规范.md'
+$targetPlanGovernanceEntryLineText = 'docs/30-方案/08-V4-治理审计候选规范.md'
+$targetPlanPlanningEntryIndex = [Array]::IndexOf($targetPlanLines, $targetPlanPlanningEntryLineText)
+$targetPlanGovernanceEntryIndex = [Array]::IndexOf($targetPlanLines, $targetPlanGovernanceEntryLineText)
 
 if ($docsReadmePlanningEntryIndex -lt 0 -or $docsReadmeGovernanceEntryIndex -lt 0) {
     throw "测试前置条件不满足：$docsReadmePath 中缺少真源联动测试行。"
@@ -589,7 +596,11 @@ if ($navOverviewReadingOrderPlanningEntryIndex -lt 0 -or $navOverviewReadingOrde
     throw "测试前置条件不满足：$navOverviewPath 中缺少阅读顺序真源联动测试行。"
 }
 
-if ($planningEntryIndex -gt $governanceEntryIndex -or $docsReadmePlanningEntryIndex -gt $docsReadmeGovernanceEntryIndex -or $navOverviewBackgroundPlanningEntryIndex -gt $navOverviewBackgroundGovernanceEntryIndex -or $navOverviewReadingOrderPlanningEntryIndex -gt $navOverviewReadingOrderGovernanceEntryIndex) {
+if ($targetPlanPlanningEntryIndex -lt 0 -or $targetPlanGovernanceEntryIndex -lt 0) {
+    throw "测试前置条件不满足：$targetPlanPath 中缺少 Target 主线真源联动测试行。"
+}
+
+if ($planningEntryIndex -gt $governanceEntryIndex -or $docsReadmePlanningEntryIndex -gt $docsReadmeGovernanceEntryIndex -or $navOverviewBackgroundPlanningEntryIndex -gt $navOverviewBackgroundGovernanceEntryIndex -or $navOverviewReadingOrderPlanningEntryIndex -gt $navOverviewReadingOrderGovernanceEntryIndex -or $targetPlanPlanningEntryIndex -gt $targetPlanGovernanceEntryIndex) {
     throw '测试前置条件不满足：规划与治理入口顺序已不是当前现状。'
 }
 
@@ -614,12 +625,19 @@ try {
     $driftedNavOverviewContent = ($driftedNavOverviewLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($navOverviewPath, $driftedNavOverviewContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('README.md', 'docs/README.md', 'docs/00-导航/02-现行标准件总览.md') -ExpectedExitCode 0 -TestName 'allow-reading-order-source-sync'
+    $driftedTargetPlanLines = @($targetPlanLines)
+    $driftedTargetPlanLines[$targetPlanPlanningEntryIndex] = $targetPlanGovernanceEntryLineText
+    $driftedTargetPlanLines[$targetPlanGovernanceEntryIndex] = $targetPlanPlanningEntryLineText
+    $driftedTargetPlanContent = ($driftedTargetPlanLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($targetPlanPath, $driftedTargetPlanContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('README.md', 'docs/README.md', 'docs/00-导航/02-现行标准件总览.md', 'docs/40-执行/12-V4-Target-实施计划.md') -ExpectedExitCode 0 -TestName 'allow-reading-order-source-sync'
 }
 finally {
     [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
     [System.IO.File]::WriteAllBytes($navOverviewPath, $originalNavOverviewBytes)
+    [System.IO.File]::WriteAllBytes($targetPlanPath, $originalTargetPlanBytes)
 }
 
 $readingOrderGateLineText = '26. 需要裁决多 gate 或多异常的主状态时，看 `docs/40-执行/19-多 gate 与多异常并存处理规则.md`'
