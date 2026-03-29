@@ -478,6 +478,11 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '维护层动作'; Description = '如必须落到脚本层，要明确说明“这是维护层动作”' }
         [pscustomobject]@{ Name = '新开会话验板提醒'; Description = '入口相关改动后，建议新开官方面板会话做人眼验板' }
     )
+    $expectedVersionCommandSlotItems = @(
+        [pscustomobject]@{ Name = '版本号'; Description = '返回当前丞相模式版本号' }
+        [pscustomobject]@{ Name = '版本来源'; Description = '明确当前版本来自哪个版本来源' }
+        [pscustomobject]@{ Name = '真源路径'; Description = '优先说明当前版本真源路径为 `codex-home-export/VERSION.json`' }
+    )
     $expectedCheckCommandSlotItems = @(
         [pscustomobject]@{ Name = '检查范围'; Description = '只做最小必要检查，不扩展成无关大扫除' }
         [pscustomobject]@{ Name = '检查结论'; Description = '用人话汇报当前是否存在明显异常或风险' }
@@ -751,7 +756,7 @@ function Get-CanonicalPanelCommandState {
         }
     }
 
-    $acceptanceSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 三条核心命令验收口径' -SectionEndMarker '## 丞相检查固定槽位'
+    $acceptanceSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 三条核心命令验收口径' -SectionEndMarker '## 丞相版本固定槽位'
     if ([string]::IsNullOrWhiteSpace($acceptanceSection)) {
         throw "面板入口验收未解析到三条核心命令验收口径：$acceptanceDocPath"
     }
@@ -777,6 +782,35 @@ function Get-CanonicalPanelCommandState {
 
         if ($matchedAcceptanceRow.Description -ne $expectedAcceptanceRow.Description) {
             throw "面板入口验收命令口径漂移：$($expectedAcceptanceRow.Command) 期望 $($expectedAcceptanceRow.Description)，实际 $($matchedAcceptanceRow.Description)"
+        }
+    }
+
+    $versionCommandSlotSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 丞相版本固定槽位' -SectionEndMarker '## 丞相检查固定槽位'
+    if ([string]::IsNullOrWhiteSpace($versionCommandSlotSection)) {
+        throw "面板入口验收未解析到丞相版本固定槽位：$acceptanceDocPath"
+    }
+
+    $versionCommandSlotRows = @(
+        [regex]::Matches($versionCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($versionCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedVersionCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板入口验收丞相版本固定槽位序列'
+    foreach ($expectedVersionCommandSlotItem in $expectedVersionCommandSlotItems) {
+        $matchedVersionCommandSlotRow = @(
+            $versionCommandSlotRows |
+                Where-Object { $_.Name -eq $expectedVersionCommandSlotItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedVersionCommandSlotRow) {
+            throw "面板入口验收缺少丞相版本固定槽位：$($expectedVersionCommandSlotItem.Name)"
+        }
+
+        if ($matchedVersionCommandSlotRow.Description -ne $expectedVersionCommandSlotItem.Description) {
+            throw "面板入口验收丞相版本固定槽位漂移：$($expectedVersionCommandSlotItem.Name) 期望 $($expectedVersionCommandSlotItem.Description)，实际 $($matchedVersionCommandSlotRow.Description)"
         }
     }
 
@@ -1031,6 +1065,35 @@ function Get-CanonicalPanelCommandState {
         throw "面板人工验板清单未解析到丞相命令：$checklistPath"
     }
     Assert-ExactOrderedValues -SourceValues $checklistCommands -ExpectedValues $expectedChecklistCommands -Label '面板人工验板清单命令序列'
+
+    $checklistVersionCommandSlotSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 丞相版本固定槽位' -SectionEndMarker '## 丞相检查固定槽位'
+    if ([string]::IsNullOrWhiteSpace($checklistVersionCommandSlotSection)) {
+        throw "面板人工验板清单未解析到丞相版本固定槽位：$checklistPath"
+    }
+
+    $checklistVersionCommandSlotRows = @(
+        [regex]::Matches($checklistVersionCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($checklistVersionCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedVersionCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单丞相版本固定槽位序列'
+    foreach ($expectedVersionCommandSlotItem in $expectedVersionCommandSlotItems) {
+        $matchedChecklistVersionCommandSlotRow = @(
+            $checklistVersionCommandSlotRows |
+                Where-Object { $_.Name -eq $expectedVersionCommandSlotItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedChecklistVersionCommandSlotRow) {
+            throw "面板人工验板清单缺少丞相版本固定槽位：$($expectedVersionCommandSlotItem.Name)"
+        }
+
+        if ($matchedChecklistVersionCommandSlotRow.Description -ne $expectedVersionCommandSlotItem.Description) {
+            throw "面板人工验板清单丞相版本固定槽位漂移：$($expectedVersionCommandSlotItem.Name) 期望 $($expectedVersionCommandSlotItem.Description)，实际 $($matchedChecklistVersionCommandSlotRow.Description)"
+        }
+    }
 
     $checklistCheckCommandSlotSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 丞相检查固定槽位' -SectionEndMarker '## 丞相状态固定槽位'
     if ([string]::IsNullOrWhiteSpace($checklistCheckCommandSlotSection)) {
