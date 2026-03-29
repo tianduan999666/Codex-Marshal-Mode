@@ -88,17 +88,27 @@ function Get-CanonicalExecStandardDocNames {
         throw "执行区 README 现行标准件区块缺失：$execReadmePath"
     }
 
-    $execDocNames = @(
+    $execDocNames = Get-OrderedUniqueValues -Values @(
         [regex]::Matches($sectionContent, '`([0-9]{2}-[^`]+\.md)`') |
             ForEach-Object { $_.Groups[1].Value } |
-            Where-Object { $_ -ne '' } |
-            Sort-Object -Unique
+            Where-Object { $_ -ne '' }
     )
 
     if ($execDocNames.Count -eq 0) {
         throw "执行区 README 现行标准件区块未解析到标准件：$execReadmePath"
     }
 
+    $execStandardOrderDocNames = @(
+        '11-任务包半自动起包.md'
+        '12-V4-Target-实施计划.md'
+    )
+    $execStandardOrderSlice = @(
+        $execDocNames |
+            Where-Object { $_ -in $execStandardOrderDocNames }
+    )
+    if ($execStandardOrderSlice.Count -eq $execStandardOrderDocNames.Count) {
+        Assert-ExactOrderedValues -SourceValues $execStandardOrderSlice -ExpectedValues $execStandardOrderDocNames -Label '执行区现行标准件真源'
+    }
     return $execDocNames
 }
 
@@ -113,10 +123,9 @@ function Get-MatchedExecStandardDocNamesFromFile {
     }
 
     $fileContent = Get-Content $FilePath -Raw
-    return @(
+    return Get-OrderedUniqueValues -Values @(
         [regex]::Matches($fileContent, $RegexPattern) |
-            ForEach-Object { $_.Groups[1].Value } |
-            Sort-Object -Unique
+            ForEach-Object { $_.Groups[1].Value }
     )
 }
 
@@ -750,6 +759,23 @@ $publicExecEntryChecks = @(
         RegexPattern = '(?m)^- `([0-9]{2}-[^`]+\.md)`\r?$'
     }
 )
+$publicExecOrderEntryChecks = @(
+    @{
+        Path = 'README.md'
+        Label = 'README 执行区现行标准件入口'
+        RegexPattern = 'docs/40-执行/([0-9]{2}-[^`]+\.md)'
+    },
+    @{
+        Path = 'docs/README.md'
+        Label = 'docs/README 执行区现行标准件入口'
+        RegexPattern = '40-执行/([0-9]{2}-[^`]+\.md)'
+    },
+    @{
+        Path = 'docs/00-导航/02-现行标准件总览.md'
+        Label = '现行标准件总览执行区现行标准件入口'
+        RegexPattern = 'docs/40-执行/([0-9]{2}-[^`]+\.md)'
+    }
+)
 $criticalPublicRuleEntryPaths = @($coreGovernanceRuleSourcePaths)
 $publicRuleEntryChecks = @(
     @{
@@ -1052,6 +1078,9 @@ if ($canonicalExecStandardDocNames.Count -gt 0) {
             $violationMessages.Add("$($entryCheck.Label) 存在未受控的执行区入口：$($extraExecDocNames -join '、')")
         }
     }
+}
+foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicExecOrderEntryChecks -CriticalEntryPaths $canonicalExecStandardDocNames -MissingFileLabel '执行区现行标准件入口文件' -MissingEntryLabel '执行区现行标准件入口' -OrderDriftLabel '执行区现行标准件入口顺序漂移')) {
+    $violationMessages.Add($entryViolationMessage)
 }
 
 foreach ($ruleEntryCheck in $publicRuleEntryChecks) {
