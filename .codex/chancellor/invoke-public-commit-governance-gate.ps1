@@ -349,15 +349,21 @@ function Get-OrderedEntryViolationMessages {
     return @($entryViolationMessages)
 }
 
-$requiredPolicyFiles = @(
-    'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md',
-    'docs/reference/02-仓库卫生与命名规范.md',
-    'docs/30-方案/02-V4-目录锁定清单.md',
-    'docs/30-方案/08-V4-治理审计候选规范.md',
-    'docs/40-执行/10-本地安全提交流程.md',
-    'docs/40-执行/14-维护层动作矩阵与收口检查表.md',
-    'docs/40-执行/21-关键配置来源与漂移复核模板.md'
-)
+$precomputedViolationMessages = New-Object System.Collections.Generic.List[string]
+$coreGovernanceRuleSourcePaths = @()
+try {
+    $coreGovernanceRuleSourcePaths = Get-OrderedUniqueValues -Values @(
+        Get-OrderedNormalizedDocPathsFromSection -FilePath 'docs/40-执行/10-本地安全提交流程.md' -RegexPattern '`(docs/(?:reference|30-方案|40-执行)/[^`]+\.md)`' -PathPrefix '' -SectionStartMarker '## 核心治理规则入口真源' -SectionEndMarker '## 公开提交硬门禁'
+    )
+
+    if ($coreGovernanceRuleSourcePaths.Count -eq 0) {
+        throw '核心治理规则入口真源区块未解析到规则文档：docs/40-执行/10-本地安全提交流程.md'
+    }
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+$requiredPolicyFiles = @($coreGovernanceRuleSourcePaths)
 $allowedTrackedRootEntries = @(
     '.codex',
     'docs',
@@ -416,15 +422,7 @@ $publicExecEntryChecks = @(
         RegexPattern = '(?m)^- `([0-9]{2}-[^`]+\.md)`\r?$'
     }
 )
-$criticalPublicRuleEntryPaths = @(
-    'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md',
-    'docs/reference/02-仓库卫生与命名规范.md',
-    'docs/30-方案/02-V4-目录锁定清单.md',
-    'docs/30-方案/08-V4-治理审计候选规范.md',
-    'docs/40-执行/10-本地安全提交流程.md',
-    'docs/40-执行/14-维护层动作矩阵与收口检查表.md',
-    'docs/40-执行/21-关键配置来源与漂移复核模板.md'
-)
+$criticalPublicRuleEntryPaths = @($coreGovernanceRuleSourcePaths)
 $publicRuleEntryChecks = @(
     @{
         Path = 'README.md'
@@ -445,7 +443,6 @@ $publicRuleEntryChecks = @(
         PathPrefix = ''
     }
 )
-$precomputedViolationMessages = New-Object System.Collections.Generic.List[string]
 $navOverviewReadingOrderPaths = Get-OrderedUniqueValues -Values @(
     Get-OrderedNormalizedDocPathsFromSection -FilePath 'docs/00-导航/02-现行标准件总览.md' -RegexPattern '`(docs/(?:20-决策|30-方案|40-执行)/[^`]+\.md)`' -PathPrefix '' -SectionStartMarker '## 阅读顺序建议' -SectionEndMarker '## 什么不是现行标准件'
 )

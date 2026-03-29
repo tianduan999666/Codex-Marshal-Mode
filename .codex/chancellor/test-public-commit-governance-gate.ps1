@@ -95,6 +95,28 @@ finally {
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
 }
 
+$localSafeFlowPath = Join-Path $repoRootPath 'docs/40-执行/10-本地安全提交流程.md'
+$originalLocalSafeFlowBytes = [System.IO.File]::ReadAllBytes($localSafeFlowPath)
+$localSafeFlowLines = Get-Content $localSafeFlowPath
+$coreGovernanceRuleSourceMarkerLineText = '## 核心治理规则入口真源'
+
+if ($localSafeFlowLines -notcontains $coreGovernanceRuleSourceMarkerLineText) {
+    throw "测试前置条件不满足：$localSafeFlowPath 中缺少 $coreGovernanceRuleSourceMarkerLineText"
+}
+
+try {
+    $driftedLocalSafeFlowLines = @(
+        $localSafeFlowLines | Where-Object { $_ -ne $coreGovernanceRuleSourceMarkerLineText }
+    )
+    $driftedLocalSafeFlowContent = ($driftedLocalSafeFlowLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($localSafeFlowPath, $driftedLocalSafeFlowContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/10-本地安全提交流程.md') -ExpectedExitCode 1 -TestName 'block-core-rule-source-section-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
+}
+
 $removedTargetEntryLineText = '- `30-方案/04-V4-Target-蓝图.md`'
 
 if ($docsReadmeLines -notcontains $removedTargetEntryLineText) {
@@ -322,6 +344,58 @@ try {
     Invoke-GateForTestCase -Paths @('README.md', 'docs/README.md', 'docs/00-导航/02-现行标准件总览.md', 'docs/40-执行/README.md') -ExpectedExitCode 0 -TestName 'allow-exec-standard-source-sync'
 }
 finally {
+    [System.IO.File]::WriteAllBytes($execReadmePath, $originalExecReadmeBytes)
+    [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
+    [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
+    [System.IO.File]::WriteAllBytes($navOverviewPath, $originalNavOverviewBytes)
+}
+
+$coreGovernanceRuleSourceLocalSafeFlowLineText = '5. `docs/40-执行/10-本地安全提交流程.md`'
+$execReadmeLocalSafeFlowLineText = '- `10-本地安全提交流程.md`'
+$readmeLocalSafeFlowLineText = '- 本地安全提交流程：`docs/40-执行/10-本地安全提交流程.md`'
+$docsReadmeLocalSafeFlowLineText = '- `40-执行/10-本地安全提交流程.md`'
+$navOverviewCurrentLocalSafeFlowLineText = '11. `docs/40-执行/10-本地安全提交流程.md`'
+$navOverviewReadingLocalSafeFlowLineText = '11. 需要处理本地提交稳定性时，看 `docs/40-执行/10-本地安全提交流程.md`'
+
+if ($localSafeFlowLines -notcontains $coreGovernanceRuleSourceLocalSafeFlowLineText -or $execReadmeLines -notcontains $execReadmeLocalSafeFlowLineText -or $readmeLines -notcontains $readmeLocalSafeFlowLineText -or $docsReadmeLines -notcontains $docsReadmeLocalSafeFlowLineText -or $navOverviewLines -notcontains $navOverviewCurrentLocalSafeFlowLineText -or $navOverviewLines -notcontains $navOverviewReadingLocalSafeFlowLineText) {
+    throw '测试前置条件不满足：核心治理规则真源联动测试行缺失。'
+}
+
+try {
+    $driftedLocalSafeFlowLines = @(
+        $localSafeFlowLines | Where-Object { $_ -ne $coreGovernanceRuleSourceLocalSafeFlowLineText }
+    )
+    $driftedLocalSafeFlowContent = ($driftedLocalSafeFlowLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($localSafeFlowPath, $driftedLocalSafeFlowContent, $utf8NoBom)
+
+    $driftedExecReadmeLines = @(
+        $execReadmeLines | Where-Object { $_ -ne $execReadmeLocalSafeFlowLineText }
+    )
+    $driftedExecReadmeContent = ($driftedExecReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($execReadmePath, $driftedExecReadmeContent, $utf8NoBom)
+
+    $driftedReadmeLines = @(
+        $readmeLines | Where-Object { $_ -ne $readmeLocalSafeFlowLineText }
+    )
+    $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($readmePath, $driftedReadmeContent, $utf8NoBom)
+
+    $driftedDocsReadmeLines = @(
+        $docsReadmeLines | Where-Object { $_ -ne $docsReadmeLocalSafeFlowLineText }
+    )
+    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
+
+    $driftedNavOverviewLines = @(
+        $navOverviewLines | Where-Object { $_ -ne $navOverviewCurrentLocalSafeFlowLineText -and $_ -ne $navOverviewReadingLocalSafeFlowLineText }
+    )
+    $driftedNavOverviewContent = ($driftedNavOverviewLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($navOverviewPath, $driftedNavOverviewContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/10-本地安全提交流程.md', 'docs/40-执行/README.md', 'README.md', 'docs/README.md', 'docs/00-导航/02-现行标准件总览.md') -ExpectedExitCode 0 -TestName 'allow-core-rule-source-sync'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
     [System.IO.File]::WriteAllBytes($execReadmePath, $originalExecReadmeBytes)
     [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
