@@ -503,6 +503,22 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '验板动作'; Description = '给出进入官方面板人工验收的固定步骤' }
         [pscustomobject]@{ Name = '验板目标'; Description = '确认版本、模式与入口表现是否稳态' }
     )
+    $expectedAcceptanceStepItems = @(
+        [pscustomobject]@{ Name = '预处理动作'; Description = '如有入口相关改动，先完成必要安装或同步动作' }
+        [pscustomobject]@{ Name = '新开会话'; Description = '新开一个聊天会话，不复用旧会话' }
+        [pscustomobject]@{ Name = '首句验板'; Description = '第一条消息输入：`丞相：测试入口是否稳态`' }
+        [pscustomobject]@{ Name = '开头校验'; Description = '检查回复是否使用固定开头：`丞相亮启奏：谨呈本次事宜。`' }
+        [pscustomobject]@{ Name = '语气校验'; Description = '检查回复语气是否符合丞相模式，不回退为普通口吻' }
+        [pscustomobject]@{ Name = '状态校验'; Description = '输入 `丞相状态`，检查是否能给出当前模式、状态与下一步的人话结论' }
+        [pscustomobject]@{ Name = '任务一致性'; Description = '若本地存在激活任务，检查回复口径是否与当前任务状态一致' }
+    )
+    $expectedChecklistStepItems = @(
+        [pscustomobject]@{ Name = '关闭旧会话'; Description = '关闭当前 `Codex` 会话' }
+        [pscustomobject]@{ Name = '新开官方面板'; Description = '重新打开官方 `Codex` 面板，新开一个全新会话' }
+        [pscustomobject]@{ Name = '版本验证'; Description = '首句输入：`丞相版本`' }
+        [pscustomobject]@{ Name = '检查验证'; Description = '继续输入：`丞相检查`' }
+        [pscustomobject]@{ Name = '状态验证'; Description = '如需再验一层，继续输入：`丞相状态`' }
+    )
     $expectedChecklistCommands = @(
         '丞相版本'
         '丞相检查'
@@ -821,6 +837,35 @@ function Get-CanonicalPanelCommandState {
 
         if ($matchedPanelAcceptanceCommandSlotRow.Description -ne $expectedPanelAcceptanceCommandSlotItem.Description) {
             throw "面板入口验收丞相验板固定槽位漂移：$($expectedPanelAcceptanceCommandSlotItem.Name) 期望 $($expectedPanelAcceptanceCommandSlotItem.Description)，实际 $($matchedPanelAcceptanceCommandSlotRow.Description)"
+        }
+    }
+
+    $acceptanceStepSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 固定人工验收步骤固定子项' -SectionEndMarker '## 三条核心命令验收口径'
+    if ([string]::IsNullOrWhiteSpace($acceptanceStepSection)) {
+        throw "面板入口验收未解析到固定人工验收步骤固定子项：$acceptanceDocPath"
+    }
+
+    $acceptanceStepRows = @(
+        [regex]::Matches($acceptanceStepSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($acceptanceStepRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedAcceptanceStepItems | ForEach-Object { $_.Name }) -Label '面板入口验收固定人工验收步骤固定子项序列'
+    foreach ($expectedAcceptanceStepItem in $expectedAcceptanceStepItems) {
+        $matchedAcceptanceStepRow = @(
+            $acceptanceStepRows |
+                Where-Object { $_.Name -eq $expectedAcceptanceStepItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedAcceptanceStepRow) {
+            throw "面板入口验收缺少固定人工验收步骤固定子项：$($expectedAcceptanceStepItem.Name)"
+        }
+
+        if ($matchedAcceptanceStepRow.Description -ne $expectedAcceptanceStepItem.Description) {
+            throw "面板入口验收固定人工验收步骤固定子项漂移：$($expectedAcceptanceStepItem.Name) 期望 $($expectedAcceptanceStepItem.Description)，实际 $($matchedAcceptanceStepRow.Description)"
         }
     }
 
@@ -1176,7 +1221,7 @@ function Get-CanonicalPanelCommandState {
         }
     }
 
-    $checklistStepsSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 验板步骤' -SectionEndMarker '## 通过标准'
+    $checklistStepsSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 验板步骤' -SectionEndMarker '## 验板步骤固定子项'
     if ([string]::IsNullOrWhiteSpace($checklistStepsSection)) {
         throw "面板人工验板清单未解析到验板步骤区块：$checklistPath"
     }
@@ -1191,6 +1236,35 @@ function Get-CanonicalPanelCommandState {
         throw "面板人工验板清单未解析到丞相命令：$checklistPath"
     }
     Assert-ExactOrderedValues -SourceValues $checklistCommands -ExpectedValues $expectedChecklistCommands -Label '面板人工验板清单命令序列'
+
+    $checklistStepSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 验板步骤固定子项' -SectionEndMarker '## 丞相版本固定槽位'
+    if ([string]::IsNullOrWhiteSpace($checklistStepSection)) {
+        throw "面板人工验板清单未解析到验板步骤固定子项：$checklistPath"
+    }
+
+    $checklistStepRows = @(
+        [regex]::Matches($checklistStepSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($checklistStepRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedChecklistStepItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单验板步骤固定子项序列'
+    foreach ($expectedChecklistStepItem in $expectedChecklistStepItems) {
+        $matchedChecklistStepRow = @(
+            $checklistStepRows |
+                Where-Object { $_.Name -eq $expectedChecklistStepItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedChecklistStepRow) {
+            throw "面板人工验板清单缺少验板步骤固定子项：$($expectedChecklistStepItem.Name)"
+        }
+
+        if ($matchedChecklistStepRow.Description -ne $expectedChecklistStepItem.Description) {
+            throw "面板人工验板清单验板步骤固定子项漂移：$($expectedChecklistStepItem.Name) 期望 $($expectedChecklistStepItem.Description)，实际 $($matchedChecklistStepRow.Description)"
+        }
+    }
 
     $checklistVersionCommandSlotSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 丞相版本固定槽位' -SectionEndMarker '## 丞相检查固定槽位'
     if ([string]::IsNullOrWhiteSpace($checklistVersionCommandSlotSection)) {
