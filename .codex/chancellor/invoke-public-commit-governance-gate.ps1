@@ -1819,6 +1819,57 @@ function Get-CanonicalMaintenancePublicBoundaryState {
     }
 }
 
+function Get-CanonicalMaintenancePairingState {
+    $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
+    $expectedMaintenancePairingItems = @(
+        [pscustomobject]@{ Name = '提交动作'; Description = '先看 `10`，若影响公开口径则先补 `08 + 21`，并确认本地 `pre-push` 治理门禁已安装，做完后按本文收口' }
+        [pscustomobject]@{ Name = '起包动作'; Description = '先看 `11`，脚手架会写入收口提示，做完后仍按本文逐项收口' }
+        [pscustomobject]@{ Name = '归档动作'; Description = '先看 `01-执行区证据稿归档规则.md`，做完后按本文收口' }
+        [pscustomobject]@{ Name = '入口变更'; Description = '先看 `13`，再按本文核对是否同步完全' }
+        [pscustomobject]@{ Name = '拍板包准备'; Description = '先看 `15`，拍板完成后再按本文统一收口' }
+        [pscustomobject]@{ Name = '拍板包半自动起手'; Description = '先看 `16`，生成后仍回到 `15` 与本文完成闭环' }
+        [pscustomobject]@{ Name = '拍板结果回写'; Description = '先看 `17`，回写后按本文完成统一收口' }
+        [pscustomobject]@{ Name = '异常路径或回退记录'; Description = '先看 `18`，记录后按本文完成统一收口' }
+        [pscustomobject]@{ Name = '多 gate / 多异常裁决'; Description = '先看 `19`，先定主状态，再选单项模板落盘' }
+        [pscustomobject]@{ Name = '复杂并存汇报落盘'; Description = '先看 `20`，统一写入 `result.md` 与 `decision-log.md`，必要时同步 `state.yaml`' }
+        [pscustomobject]@{ Name = '关键配置来源与漂移检查落盘'; Description = '先看 `21`，再回到本文完成统一收口' }
+        [pscustomobject]@{ Name = '公开口径变更前'; Description = '追加一次 `08-V4-治理审计候选规范.md` 对应的治理审计复核' }
+    )
+
+    $maintenancePairingSection = Get-FileSectionContent -FilePath $maintenanceMatrixPath -SectionStartMarker '## 推荐搭配关系固定槽位' -SectionEndMarker '## 本文档的价值'
+    if ([string]::IsNullOrWhiteSpace($maintenancePairingSection)) {
+        throw "维护层动作矩阵未解析到推荐搭配关系固定槽位：$maintenanceMatrixPath"
+    }
+
+    $maintenancePairingRows = @(
+        [regex]::Matches($maintenancePairingSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($maintenancePairingRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedMaintenancePairingItems | ForEach-Object { $_.Name }) -Label '维护层动作矩阵推荐搭配关系固定槽位序列'
+    foreach ($expectedMaintenancePairingItem in $expectedMaintenancePairingItems) {
+        $matchedMaintenancePairingRow = @(
+            $maintenancePairingRows |
+                Where-Object { $_.Name -eq $expectedMaintenancePairingItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedMaintenancePairingRow) {
+            throw "维护层动作矩阵缺少推荐搭配关系固定槽位：$($expectedMaintenancePairingItem.Name)"
+        }
+
+        if ($matchedMaintenancePairingRow.Description -ne $expectedMaintenancePairingItem.Description) {
+            throw "维护层动作矩阵推荐搭配关系固定槽位漂移：$($expectedMaintenancePairingItem.Name) 期望 $($expectedMaintenancePairingItem.Description)，实际 $($matchedMaintenancePairingRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        MaintenancePairingItems = @($expectedMaintenancePairingItems)
+    }
+}
+
 function Get-CanonicalMaintenanceCapabilityDocPaths {
     $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
     $maintenanceCapabilityPaths = Get-OrderedUniqueValues -Values @(
@@ -2275,6 +2326,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenancePublicBoundaryState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalMaintenancePairingState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

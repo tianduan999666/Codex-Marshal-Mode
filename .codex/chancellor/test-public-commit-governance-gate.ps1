@@ -737,6 +737,7 @@ $maintenanceMatrixDecisionOrderLineText = '- `结束条件`：只有通过收口
 $maintenanceMatrixBasicCloseoutLineText = '- `下一步说明`：已经给出下一步建议，并说明是否需要主公拍板。'
 $maintenanceMatrixGovernanceAuditLineText = '- `边界复核`：已经复核公开仓边界，确保 `.codex/`、`logs/`、`temp/generated/`、`.vscode/`、`.serena/` 等运行态与本地工具状态不进入公开仓。'
 $maintenanceMatrixPublicBoundaryLineText = '- `本地运行态`：`.codex/chancellor/tasks/`、`.codex/chancellor/active-task.txt`、`logs/` 继续作为本地运行态与留痕区，不进入公开仓。'
+$maintenanceMatrixPairingLineText = '- `公开口径变更前`：追加一次 `08-V4-治理审计候选规范.md` 对应的治理审计复核。'
 
 if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixSyncSlotLineText) {
     throw "测试前置条件不满足：$maintenanceMatrixPath 中缺少 $maintenanceMatrixSyncSlotLineText"
@@ -756,6 +757,10 @@ if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixGovernan
 
 if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixPublicBoundaryLineText) {
     throw "测试前置条件不满足：$maintenanceMatrixPath 中缺少 $maintenanceMatrixPublicBoundaryLineText"
+}
+
+if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixPairingLineText) {
+    throw "测试前置条件不满足：$maintenanceMatrixPath 中缺少 $maintenanceMatrixPairingLineText"
 }
 
 try {
@@ -803,6 +808,16 @@ try {
     [System.IO.File]::WriteAllText($maintenanceMatrixPath, $driftedMaintenanceMatrixContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/14-维护层动作矩阵与收口检查表.md') -ExpectedExitCode 1 -TestName 'block-maintenance-public-boundary-slot-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($maintenanceMatrixPath, $originalMaintenanceMatrixBytes)
+}
+
+try {
+    $driftedMaintenanceMatrixContent = (Get-Content $maintenanceMatrixPath -Raw).Replace($maintenanceMatrixPairingLineText, '- `公开口径变更前`：到时候再看情况。')
+    [System.IO.File]::WriteAllText($maintenanceMatrixPath, $driftedMaintenanceMatrixContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/14-维护层动作矩阵与收口检查表.md') -ExpectedExitCode 1 -TestName 'block-maintenance-pairing-slot-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($maintenanceMatrixPath, $originalMaintenanceMatrixBytes)
