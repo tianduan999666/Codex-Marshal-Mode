@@ -1912,6 +1912,50 @@ function Get-CanonicalMaintenanceValueState {
     }
 }
 
+function Get-CanonicalGovernanceConfigReviewSourceState {
+    $configReviewDocPath = 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
+    $expectedConfigReviewSourceItems = @(
+        [pscustomobject]@{ Name = '公开入口'; Description = '`README.md`' }
+        [pscustomobject]@{ Name = '文档总览入口'; Description = '`docs/README.md`' }
+        [pscustomobject]@{ Name = '现行件导航'; Description = '`docs/00-导航/02-现行标准件总览.md`' }
+        [pscustomobject]@{ Name = '推进顺序依据'; Description = '`docs/40-执行/12-V4-Target-实施计划.md`' }
+        [pscustomobject]@{ Name = '冻结边界依据'; Description = '`docs/30-方案/05-V4-Target-冻结清单.md`' }
+    )
+
+    $configReviewSourceSection = Get-FileSectionContent -FilePath $configReviewDocPath -SectionStartMarker '## 推荐复核来源固定槽位' -SectionEndMarker '## `result.md` 推荐骨架'
+    if ([string]::IsNullOrWhiteSpace($configReviewSourceSection)) {
+        throw "关键配置来源与漂移复核模板未解析到推荐复核来源固定槽位：$configReviewDocPath"
+    }
+
+    $configReviewSourceRows = @(
+        [regex]::Matches($configReviewSourceSection, '(?m)^- `([^`]+)`：(.+?)\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = $_.Groups[2].Value.Trim()
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($configReviewSourceRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConfigReviewSourceItems | ForEach-Object { $_.Name }) -Label '关键配置来源与漂移复核模板推荐复核来源固定槽位序列'
+    foreach ($expectedConfigReviewSourceItem in $expectedConfigReviewSourceItems) {
+        $matchedConfigReviewSourceRow = @(
+            $configReviewSourceRows |
+                Where-Object { $_.Name -eq $expectedConfigReviewSourceItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConfigReviewSourceRow) {
+            throw "关键配置来源与漂移复核模板缺少推荐复核来源固定槽位：$($expectedConfigReviewSourceItem.Name)"
+        }
+
+        if ($matchedConfigReviewSourceRow.Description -ne $expectedConfigReviewSourceItem.Description) {
+            throw "关键配置来源与漂移复核模板推荐复核来源固定槽位漂移：$($expectedConfigReviewSourceItem.Name) 期望 $($expectedConfigReviewSourceItem.Description)，实际 $($matchedConfigReviewSourceRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConfigReviewSourceItems = @($expectedConfigReviewSourceItems)
+    }
+}
+
 function Get-CanonicalMaintenanceCapabilityDocPaths {
     $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
     $maintenanceCapabilityPaths = Get-OrderedUniqueValues -Values @(
@@ -2380,6 +2424,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceValueState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGovernanceConfigReviewSourceState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
