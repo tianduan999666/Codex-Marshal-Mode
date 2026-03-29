@@ -317,6 +317,25 @@ finally {
     [System.IO.File]::WriteAllBytes($restartGuidePath, $originalRestartGuideBytes)
 }
 
+$restartGuideRuleHygieneLineText = '11. `docs/reference/02-仓库卫生与命名规范.md`'
+
+if ($restartGuideLines -notcontains $restartGuideRuleHygieneLineText) {
+    throw "测试前置条件不满足：$restartGuidePath 中缺少 $restartGuideRuleHygieneLineText"
+}
+
+try {
+    $driftedRestartGuideLines = @(
+        $restartGuideLines | Where-Object { $_ -ne $restartGuideRuleHygieneLineText }
+    )
+    $driftedRestartGuideContent = ($driftedRestartGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($restartGuidePath, $driftedRestartGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/00-导航/01-V4-重启导读.md') -ExpectedExitCode 1 -TestName 'block-restart-guide-source-middle-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($restartGuidePath, $originalRestartGuideBytes)
+}
+
 $startupPhaseSourceMarkerLineText = '## 启动阶段真源'
 $startupPhaseSourceDecisionLineText = 'docs/20-决策/01-V4-重启ADR.md'
 $startupPhaseSourceMarkerIndex = [Array]::IndexOf($restartGuideLines, $startupPhaseSourceMarkerLineText)

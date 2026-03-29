@@ -387,6 +387,33 @@ function Get-CanonicalStartupPhaseEntryPaths {
     return $startupPhaseSlice
 }
 
+function Get-CanonicalRestartGuideEntryPaths {
+    $restartGuidePath = 'docs/00-导航/01-V4-重启导读.md'
+    $restartGuideCanonicalEntryPaths = Get-OrderedUniqueValues -Values @(
+        Get-OrderedNormalizedDocPathsFromSection -FilePath $restartGuidePath -RegexPattern '`(docs/[^`]+\.md)`' -PathPrefix '' -SectionStartMarker '## 先看什么' -SectionEndMarker '## '
+    )
+
+    if ($restartGuideCanonicalEntryPaths.Count -eq 0) {
+        throw "重启导读未解析到核心入口真源：$restartGuidePath"
+    }
+
+    $requiredRestartGuideEntryPaths = @(
+        'docs/00-导航/02-现行标准件总览.md'
+        'docs/20-决策/01-V4-重启ADR.md'
+        'docs/10-输入材料/01-旧仓必需资产清单.md'
+        'docs/30-方案/01-V4-最小目录蓝图.md'
+        'docs/30-方案/02-V4-目录锁定清单.md'
+        'docs/30-方案/03-V4-MVP边界清单.md'
+        'docs/40-执行/01-任务包规范.md'
+        'docs/40-执行/02-任务包模板.md'
+        'docs/40-执行/03-面板入口验收.md'
+        'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md'
+        'docs/reference/02-仓库卫生与命名规范.md'
+    )
+    Assert-RequiredPathsPresent -SourcePaths $restartGuideCanonicalEntryPaths -RequiredPaths $requiredRestartGuideEntryPaths -Label '重启导读核心入口真源'
+    return $restartGuideCanonicalEntryPaths
+}
+
 function Get-CanonicalCoreGovernanceRuleSourcePaths {
     $localSafeFlowPath = 'docs/40-执行/10-本地安全提交流程.md'
     $coreGovernanceRuleSourcePaths = Get-OrderedUniqueValues -Values @(
@@ -773,9 +800,13 @@ $readingOrderMaintenanceEntryChecks = @(
         SectionEndMarker = '## 什么不是现行标准件'
     }
 )
-$restartGuideCanonicalEntryPaths = Get-OrderedUniqueValues -Values @(
-    Get-OrderedNormalizedDocPathsFromSection -FilePath 'docs/00-导航/01-V4-重启导读.md' -RegexPattern '`(docs/[^`]+\.md)`' -PathPrefix '' -SectionStartMarker '## 先看什么' -SectionEndMarker '## '
-)
+$restartGuideCanonicalEntryPaths = @()
+try {
+    $restartGuideCanonicalEntryPaths = Get-CanonicalRestartGuideEntryPaths
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
 $publicRestartGuideEntryChecks = @(
     @{
         Path = 'README.md'
