@@ -1912,6 +1912,47 @@ function Get-CanonicalMaintenanceValueState {
     }
 }
 
+function Get-CanonicalConcurrentStatusReportSummaryState {
+    $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
+    $expectedConcurrentReportSummaryItems = @(
+        [pscustomobject]@{ Name = '先选主状态'; Description = '当一个任务同时存在多个 gate、多个异常，或 gate 与异常并存时，先按 `19` 选主状态' }
+        [pscustomobject]@{ Name = '一次性落盘'; Description = '再用本模板把 `result.md` 与 `decision-log.md` 一次性落盘' }
+    )
+
+    $concurrentReportSummarySection = Get-FileSectionContent -FilePath $concurrentReportDocPath -SectionStartMarker '## 一句话结论固定槽位' -SectionEndMarker '## 什么时候用'
+    if ([string]::IsNullOrWhiteSpace($concurrentReportSummarySection)) {
+        throw "复杂并存汇报骨架模板未解析到一句话结论固定槽位：$concurrentReportDocPath"
+    }
+
+    $concurrentReportSummaryRows = @(
+        [regex]::Matches($concurrentReportSummarySection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($concurrentReportSummaryRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConcurrentReportSummaryItems | ForEach-Object { $_.Name }) -Label '复杂并存汇报骨架模板一句话结论固定槽位序列'
+    foreach ($expectedConcurrentReportSummaryItem in $expectedConcurrentReportSummaryItems) {
+        $matchedConcurrentReportSummaryRow = @(
+            $concurrentReportSummaryRows |
+                Where-Object { $_.Name -eq $expectedConcurrentReportSummaryItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConcurrentReportSummaryRow) {
+            throw "复杂并存汇报骨架模板缺少一句话结论固定槽位：$($expectedConcurrentReportSummaryItem.Name)"
+        }
+
+        if ($matchedConcurrentReportSummaryRow.Description -ne $expectedConcurrentReportSummaryItem.Description) {
+            throw "复杂并存汇报骨架模板一句话结论固定槽位漂移：$($expectedConcurrentReportSummaryItem.Name) 期望 $($expectedConcurrentReportSummaryItem.Description)，实际 $($matchedConcurrentReportSummaryRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConcurrentReportSummaryItems = @($expectedConcurrentReportSummaryItems)
+    }
+}
+
 function Get-CanonicalConcurrentStatusReportOutputState {
     $concurrentReportDocPath = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
     $expectedConcurrentReportOutputItems = @(
@@ -2854,6 +2895,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceValueState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalConcurrentStatusReportSummaryState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
