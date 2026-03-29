@@ -1870,6 +1870,48 @@ function Get-CanonicalMaintenancePairingState {
     }
 }
 
+function Get-CanonicalMaintenanceValueState {
+    $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
+    $expectedMaintenanceValueItems = @(
+        [pscustomobject]@{ Name = '固定套路'; Description = '把维护层“怎么选动作、怎么收口”写成固定套路' }
+        [pscustomobject]@{ Name = '降低经验依赖'; Description = '降低维护动作对执行者个人经验的依赖' }
+        [pscustomobject]@{ Name = '保留控制平面'; Description = '为后续更强自动化保留稳定的人类控制平面' }
+    )
+
+    $maintenanceValueSection = Get-FileSectionContent -FilePath $maintenanceMatrixPath -SectionStartMarker '## 本文档的价值固定槽位'
+    if ([string]::IsNullOrWhiteSpace($maintenanceValueSection)) {
+        throw "维护层动作矩阵未解析到本文档的价值固定槽位：$maintenanceMatrixPath"
+    }
+
+    $maintenanceValueRows = @(
+        [regex]::Matches($maintenanceValueSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($maintenanceValueRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedMaintenanceValueItems | ForEach-Object { $_.Name }) -Label '维护层动作矩阵本文档的价值固定槽位序列'
+    foreach ($expectedMaintenanceValueItem in $expectedMaintenanceValueItems) {
+        $matchedMaintenanceValueRow = @(
+            $maintenanceValueRows |
+                Where-Object { $_.Name -eq $expectedMaintenanceValueItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedMaintenanceValueRow) {
+            throw "维护层动作矩阵缺少本文档的价值固定槽位：$($expectedMaintenanceValueItem.Name)"
+        }
+
+        if ($matchedMaintenanceValueRow.Description -ne $expectedMaintenanceValueItem.Description) {
+            throw "维护层动作矩阵本文档的价值固定槽位漂移：$($expectedMaintenanceValueItem.Name) 期望 $($expectedMaintenanceValueItem.Description)，实际 $($matchedMaintenanceValueRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        MaintenanceValueItems = @($expectedMaintenanceValueItems)
+    }
+}
+
 function Get-CanonicalMaintenanceCapabilityDocPaths {
     $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
     $maintenanceCapabilityPaths = Get-OrderedUniqueValues -Values @(
@@ -2332,6 +2374,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenancePairingState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalMaintenanceValueState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
