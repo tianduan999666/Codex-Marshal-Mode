@@ -519,6 +519,20 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '检查验证'; Description = '继续输入：`丞相检查`' }
         [pscustomobject]@{ Name = '状态验证'; Description = '如需再验一层，继续输入：`丞相状态`' }
     )
+    $expectedAcceptancePassItems = @(
+        [pscustomobject]@{ Name = '模式稳定'; Description = '首句进入丞相模式，固定开头不丢失，语气不漂移' }
+        [pscustomobject]@{ Name = '帮助完整'; Description = '帮助输出覆盖结构与子项模板' }
+        [pscustomobject]@{ Name = '命令口径'; Description = '版本、检查、状态与维护边界口径完整' }
+        [pscustomobject]@{ Name = '任务一致'; Description = '若存在激活任务，入口口径与本地任务状态不冲突' }
+        [pscustomobject]@{ Name = '复验闭环'; Description = '入口相关改动后，可通过新开会话与首句验板完成复验' }
+    )
+    $expectedChecklistPassItems = @(
+        [pscustomobject]@{ Name = '命令有效'; Description = '版本、检查、状态命令可用且口径完整' }
+        [pscustomobject]@{ Name = '边界稳定'; Description = '修复与验板边界说明完整' }
+        [pscustomobject]@{ Name = '验板闭环'; Description = '人工验板步骤模板完整' }
+        [pscustomobject]@{ Name = '过程稳定'; Description = '整个过程不出现明显崩溃、失焦或命令失效' }
+        [pscustomobject]@{ Name = '无需手改'; Description = '整个过程无需再手改本地文件' }
+    )
     $expectedChecklistCommands = @(
         '丞相版本'
         '丞相检查'
@@ -895,6 +909,35 @@ function Get-CanonicalPanelCommandState {
 
         if ($matchedAcceptanceRow.Description -ne $expectedAcceptanceRow.Description) {
             throw "面板入口验收命令口径漂移：$($expectedAcceptanceRow.Command) 期望 $($expectedAcceptanceRow.Description)，实际 $($matchedAcceptanceRow.Description)"
+        }
+    }
+
+    $acceptancePassSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 通过标准固定子项' -SectionEndMarker '## 失败信号'
+    if ([string]::IsNullOrWhiteSpace($acceptancePassSection)) {
+        throw "面板入口验收未解析到通过标准固定子项：$acceptanceDocPath"
+    }
+
+    $acceptancePassRows = @(
+        [regex]::Matches($acceptancePassSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($acceptancePassRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedAcceptancePassItems | ForEach-Object { $_.Name }) -Label '面板入口验收通过标准固定子项序列'
+    foreach ($expectedAcceptancePassItem in $expectedAcceptancePassItems) {
+        $matchedAcceptancePassRow = @(
+            $acceptancePassRows |
+                Where-Object { $_.Name -eq $expectedAcceptancePassItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedAcceptancePassRow) {
+            throw "面板入口验收缺少通过标准固定子项：$($expectedAcceptancePassItem.Name)"
+        }
+
+        if ($matchedAcceptancePassRow.Description -ne $expectedAcceptancePassItem.Description) {
+            throw "面板入口验收通过标准固定子项漂移：$($expectedAcceptancePassItem.Name) 期望 $($expectedAcceptancePassItem.Description)，实际 $($matchedAcceptancePassRow.Description)"
         }
     }
 
@@ -1353,7 +1396,7 @@ function Get-CanonicalPanelCommandState {
         }
     }
 
-    $checklistPassSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 通过标准' -SectionEndMarker '## 若不通过'
+    $checklistPassSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 通过标准' -SectionEndMarker '## 通过标准固定子项'
     if ([string]::IsNullOrWhiteSpace($checklistPassSection)) {
         throw "面板人工验板清单未解析到通过标准区块：$checklistPath"
     }
@@ -1379,6 +1422,35 @@ function Get-CanonicalPanelCommandState {
 
         if ($matchedChecklistAcceptanceRow.Description -ne $expectedAcceptanceRow.Description) {
             throw "面板人工验板清单通过标准漂移：$($expectedAcceptanceRow.Command) 期望 $($expectedAcceptanceRow.Description)，实际 $($matchedChecklistAcceptanceRow.Description)"
+        }
+    }
+
+    $checklistPassItemSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 通过标准固定子项' -SectionEndMarker '## 若不通过'
+    if ([string]::IsNullOrWhiteSpace($checklistPassItemSection)) {
+        throw "面板人工验板清单未解析到通过标准固定子项：$checklistPath"
+    }
+
+    $checklistPassItemRows = @(
+        [regex]::Matches($checklistPassItemSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($checklistPassItemRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedChecklistPassItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单通过标准固定子项序列'
+    foreach ($expectedChecklistPassItem in $expectedChecklistPassItems) {
+        $matchedChecklistPassItemRow = @(
+            $checklistPassItemRows |
+                Where-Object { $_.Name -eq $expectedChecklistPassItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedChecklistPassItemRow) {
+            throw "面板人工验板清单缺少通过标准固定子项：$($expectedChecklistPassItem.Name)"
+        }
+
+        if ($matchedChecklistPassItemRow.Description -ne $expectedChecklistPassItem.Description) {
+            throw "面板人工验板清单通过标准固定子项漂移：$($expectedChecklistPassItem.Name) 期望 $($expectedChecklistPassItem.Description)，实际 $($matchedChecklistPassItemRow.Description)"
         }
     }
 
