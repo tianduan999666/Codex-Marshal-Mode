@@ -741,6 +741,7 @@ $maintenanceMatrixPairingLineText = '- `公开口径变更前`：追加一次 `0
 $maintenanceMatrixValueLineText = '- `保留控制平面`：为后续更强自动化保留稳定的人类控制平面。'
 $configReviewDocPath = Join-Path $repoRootPath 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
 $originalConfigReviewDocBytes = [System.IO.File]::ReadAllBytes($configReviewDocPath)
+$configReviewOutputLineText = '- `先修平再提交`：复核后如发现漂移，优先修平口径，再继续提交。'
 $configReviewSourceLineText = '- `冻结边界依据`：`docs/30-方案/05-V4-Target-冻结清单.md`'
 
 if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixSyncSlotLineText) {
@@ -769,6 +770,10 @@ if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixPairingL
 
 if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixValueLineText) {
     throw "测试前置条件不满足：$maintenanceMatrixPath 中缺少 $maintenanceMatrixValueLineText"
+}
+
+if ((Get-Content $configReviewDocPath) -notcontains $configReviewOutputLineText) {
+    throw "测试前置条件不满足：$configReviewDocPath 中缺少 $configReviewOutputLineText"
 }
 
 if ((Get-Content $configReviewDocPath) -notcontains $configReviewSourceLineText) {
@@ -843,6 +848,16 @@ try {
 }
 finally {
     [System.IO.File]::WriteAllBytes($maintenanceMatrixPath, $originalMaintenanceMatrixBytes)
+}
+
+try {
+    $driftedConfigReviewContent = (Get-Content $configReviewDocPath -Raw).Replace($configReviewOutputLineText, '- `先修平再提交`：之后再看。')
+    [System.IO.File]::WriteAllText($configReviewDocPath, $driftedConfigReviewContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/21-关键配置来源与漂移复核模板.md') -ExpectedExitCode 1 -TestName 'block-config-review-output-slot-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($configReviewDocPath, $originalConfigReviewDocBytes)
 }
 
 try {

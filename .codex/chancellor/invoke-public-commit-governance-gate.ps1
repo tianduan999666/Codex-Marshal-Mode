@@ -1912,6 +1912,48 @@ function Get-CanonicalMaintenanceValueState {
     }
 }
 
+function Get-CanonicalGovernanceConfigReviewOutputState {
+    $configReviewDocPath = 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
+    $expectedConfigReviewOutputItems = @(
+        [pscustomobject]@{ Name = '结果落盘'; Description = '`result.md` 写清配置来源、版本与现行依据、漂移检查、复核结论' }
+        [pscustomobject]@{ Name = '决策留痕'; Description = '`decision-log.md` 记录本轮复核依据与影响' }
+        [pscustomobject]@{ Name = '先修平再提交'; Description = '复核后如发现漂移，优先修平口径，再继续提交' }
+    )
+
+    $configReviewOutputSection = Get-FileSectionContent -FilePath $configReviewDocPath -SectionStartMarker '## 最低产出固定槽位' -SectionEndMarker '## 推荐脚本入口'
+    if ([string]::IsNullOrWhiteSpace($configReviewOutputSection)) {
+        throw "关键配置来源与漂移复核模板未解析到最低产出固定槽位：$configReviewDocPath"
+    }
+
+    $configReviewOutputRows = @(
+        [regex]::Matches($configReviewOutputSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($configReviewOutputRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedConfigReviewOutputItems | ForEach-Object { $_.Name }) -Label '关键配置来源与漂移复核模板最低产出固定槽位序列'
+    foreach ($expectedConfigReviewOutputItem in $expectedConfigReviewOutputItems) {
+        $matchedConfigReviewOutputRow = @(
+            $configReviewOutputRows |
+                Where-Object { $_.Name -eq $expectedConfigReviewOutputItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedConfigReviewOutputRow) {
+            throw "关键配置来源与漂移复核模板缺少最低产出固定槽位：$($expectedConfigReviewOutputItem.Name)"
+        }
+
+        if ($matchedConfigReviewOutputRow.Description -ne $expectedConfigReviewOutputItem.Description) {
+            throw "关键配置来源与漂移复核模板最低产出固定槽位漂移：$($expectedConfigReviewOutputItem.Name) 期望 $($expectedConfigReviewOutputItem.Description)，实际 $($matchedConfigReviewOutputRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        ConfigReviewOutputItems = @($expectedConfigReviewOutputItems)
+    }
+}
+
 function Get-CanonicalGovernanceConfigReviewSourceState {
     $configReviewDocPath = 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
     $expectedConfigReviewSourceItems = @(
@@ -2424,6 +2466,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceValueState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGovernanceConfigReviewOutputState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
