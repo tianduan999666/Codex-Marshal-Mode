@@ -730,6 +730,24 @@ finally {
     [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
 }
 
+$maintenanceMatrixPath = Join-Path $repoRootPath 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
+$originalMaintenanceMatrixBytes = [System.IO.File]::ReadAllBytes($maintenanceMatrixPath)
+$maintenanceMatrixSyncSlotLineText = '- `收口要求`：完成同步后，确认 `03-面板入口验收.md` 与 `13-维护层总入口.md` 口径一致，并通过公开提交治理门禁。'
+
+if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixSyncSlotLineText) {
+    throw "测试前置条件不满足：$maintenanceMatrixPath 中缺少 $maintenanceMatrixSyncSlotLineText"
+}
+
+try {
+    $driftedMaintenanceMatrixContent = (Get-Content $maintenanceMatrixPath -Raw).Replace($maintenanceMatrixSyncSlotLineText, '- `收口要求`：同步完成后再看情况。')
+    [System.IO.File]::WriteAllText($maintenanceMatrixPath, $driftedMaintenanceMatrixContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/14-维护层动作矩阵与收口检查表.md') -ExpectedExitCode 1 -TestName 'block-maintenance-entry-sync-slot-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($maintenanceMatrixPath, $originalMaintenanceMatrixBytes)
+}
+
 $maintenanceGateEntryLineText = '- 多 gate 与多异常并存处理规则：`docs/40-执行/19-多 gate 与多异常并存处理规则.md`'
 $maintenanceConcurrentEntryLineText = '- 复杂并存汇报骨架模板：`docs/40-执行/20-复杂并存汇报骨架模板.md`'
 $maintenanceGateEntryIndex = [Array]::IndexOf($readmeLines, $maintenanceGateEntryLineText)

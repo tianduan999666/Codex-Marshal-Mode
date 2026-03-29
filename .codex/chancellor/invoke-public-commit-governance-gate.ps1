@@ -1600,6 +1600,49 @@ function Get-CanonicalPanelCommandState {
     }
 }
 
+function Get-CanonicalMaintenanceEntrySyncState {
+    $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
+    $expectedMaintenanceEntrySyncItems = @(
+        [pscustomobject]@{ Name = '适用边界'; Description = '当面板入口口径、验板闭环或试跑前置门槛变化时，维护入口同步必须覆盖 `docs/40-执行/03-面板入口验收.md`' }
+        [pscustomobject]@{ Name = '主入口真源'; Description = '维护入口同步主入口保持为 `docs/40-执行/13-维护层总入口.md`' }
+        [pscustomobject]@{ Name = '同步范围'; Description = '同步 `README.md`、`docs/README.md`、`docs/00-导航/02-现行标准件总览.md`、`docs/40-执行/README.md`' }
+        [pscustomobject]@{ Name = '收口要求'; Description = '完成同步后，确认 `03-面板入口验收.md` 与 `13-维护层总入口.md` 口径一致，并通过公开提交治理门禁' }
+    )
+
+    $maintenanceEntrySyncSection = Get-FileSectionContent -FilePath $maintenanceMatrixPath -SectionStartMarker '## 维护入口同步固定槽位' -SectionEndMarker '## 默认决策顺序'
+    if ([string]::IsNullOrWhiteSpace($maintenanceEntrySyncSection)) {
+        throw "维护层动作矩阵未解析到维护入口同步固定槽位：$maintenanceMatrixPath"
+    }
+
+    $maintenanceEntrySyncRows = @(
+        [regex]::Matches($maintenanceEntrySyncSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($maintenanceEntrySyncRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedMaintenanceEntrySyncItems | ForEach-Object { $_.Name }) -Label '维护层动作矩阵维护入口同步固定槽位序列'
+    foreach ($expectedMaintenanceEntrySyncItem in $expectedMaintenanceEntrySyncItems) {
+        $matchedMaintenanceEntrySyncRow = @(
+            $maintenanceEntrySyncRows |
+                Where-Object { $_.Name -eq $expectedMaintenanceEntrySyncItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedMaintenanceEntrySyncRow) {
+            throw "维护层动作矩阵缺少维护入口同步固定槽位：$($expectedMaintenanceEntrySyncItem.Name)"
+        }
+
+        if ($matchedMaintenanceEntrySyncRow.Description -ne $expectedMaintenanceEntrySyncItem.Description) {
+            throw "维护层动作矩阵维护入口同步固定槽位漂移：$($expectedMaintenanceEntrySyncItem.Name) 期望 $($expectedMaintenanceEntrySyncItem.Description)，实际 $($matchedMaintenanceEntrySyncRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        MaintenanceEntrySyncItems = @($expectedMaintenanceEntrySyncItems)
+    }
+}
+
 function Get-CanonicalMaintenanceCapabilityDocPaths {
     $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
     $maintenanceCapabilityPaths = Get-OrderedUniqueValues -Values @(
@@ -2026,6 +2069,12 @@ catch {
 }
 try {
     [void](Get-CanonicalPanelCommandState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalMaintenanceEntrySyncState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
