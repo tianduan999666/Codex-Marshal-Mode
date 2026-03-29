@@ -581,6 +581,19 @@ try {
     $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($readmePath, $driftedReadmeContent, $utf8NoBom)
 
+    Invoke-GateForTestCase -Paths @('README.md') -ExpectedExitCode 1 -TestName 'block-public-maintenance-capability-entry-order-drift-readme'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($readmePath, $originalReadmeBytes)
+}
+
+try {
+    $driftedReadmeLines = @($readmeLines)
+    $driftedReadmeLines[$readmeGovernanceCapabilityEntryIndex] = $readmeConfigCapabilityEntryLineText
+    $driftedReadmeLines[$readmeConfigCapabilityEntryIndex] = $readmeGovernanceCapabilityEntryLineText
+    $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($readmePath, $driftedReadmeContent, $utf8NoBom)
+
     $driftedDocsReadmeLines = @($docsReadmeLines)
     $driftedDocsReadmeLines[$docsReadmeGovernanceCapabilityEntryIndex] = $docsReadmeConfigCapabilityEntryLineText
     $driftedDocsReadmeLines[$docsReadmeConfigCapabilityEntryIndex] = $docsReadmeGovernanceCapabilityEntryLineText
