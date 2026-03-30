@@ -1798,6 +1798,7 @@ finally {
 }
 
 $agentsPanelCommandLineText = '| `丞相验板` | 给出进入官方面板人工验收的固定步骤 |'
+$panelAcceptanceExcludedLineText = '- 多 Agent、长期记忆、独立 UI'
 $panelAcceptanceScopeSummaryLineText = '- 入口相关改动后的人工复验步骤'
 $panelAcceptanceScopeLineText = '- `人工复验步骤`：入口相关改动后的人工复验步骤。'
 $panelHelpUsageLineText = '- `丞相帮助`：显示当前用法、命令与注意事项。'
@@ -1838,6 +1839,10 @@ $originalPanelAcceptanceDocBytes = [System.IO.File]::ReadAllBytes($panelAcceptan
 
 if ($agentsLines -notcontains $agentsPanelCommandLineText) {
     throw "测试前置条件不满足：$agentsPath 中缺少 $agentsPanelCommandLineText"
+}
+
+if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelAcceptanceExcludedLineText) {
+    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelAcceptanceExcludedLineText"
 }
 
 if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelAcceptanceScopeSummaryLineText) {
@@ -2000,6 +2005,16 @@ try {
 }
 finally {
     [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
+}
+
+try {
+    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelAcceptanceExcludedLineText, '- 暂时先不细说')
+    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-excluded-summary-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
 }
 
 try {
