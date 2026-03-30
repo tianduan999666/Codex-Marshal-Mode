@@ -112,6 +112,29 @@ function Get-CanonicalExecStandardDocNames {
     return $execDocNames
 }
 
+function Get-CanonicalExecReadmeTopSummaryItems {
+    $execReadmePath = 'docs/40-执行/README.md'
+    $expectedExecReadmeTopSummaryItems = @(
+        '试运行计划'
+        '任务清单'
+        '执行记录'
+        '验收单'
+    )
+
+    $sectionContent = Get-FileSectionContent -FilePath $execReadmePath -SectionStartMarker '这里放：' -SectionEndMarker '当前现行标准件：'
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "执行区 README 顶部用途摘要区块缺失：$execReadmePath"
+    }
+
+    $topSummaryItems = Get-OrderedUniqueValues -Values @(
+        [regex]::Matches($sectionContent, '(?m)^- (.+?)\r?$') |
+            ForEach-Object { $_.Groups[1].Value.Trim() } |
+            Where-Object { $_ -ne '' }
+    )
+    Assert-ExactOrderedValues -SourceValues $topSummaryItems -ExpectedValues $expectedExecReadmeTopSummaryItems -Label '执行区 README 顶部用途摘要序列'
+    return $expectedExecReadmeTopSummaryItems
+}
+
 function Get-CanonicalExecReadmeFooterNoteItems {
     $execReadmePath = 'docs/40-执行/README.md'
     $expectedExecReadmeFooterNoteItems = @(
@@ -4301,6 +4324,13 @@ foreach ($unexpectedTrackedCodexFile in $unexpectedTrackedCodexFiles) {
 $canonicalExecStandardDocNames = @()
 try {
     $canonicalExecStandardDocNames = Get-CanonicalExecStandardDocNames
+}
+catch {
+    $violationMessages.Add($_.Exception.Message)
+}
+$canonicalExecReadmeTopSummaryItems = @()
+try {
+    $canonicalExecReadmeTopSummaryItems = Get-CanonicalExecReadmeTopSummaryItems
 }
 catch {
     $violationMessages.Add($_.Exception.Message)

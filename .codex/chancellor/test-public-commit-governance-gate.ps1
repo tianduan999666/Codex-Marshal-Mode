@@ -1321,6 +1321,11 @@ finally {
 $navOverviewPath = Join-Path $repoRootPath 'docs/00-导航/02-现行标准件总览.md'
 $originalNavOverviewBytes = [System.IO.File]::ReadAllBytes($navOverviewPath)
 $navOverviewLines = Get-Content $navOverviewPath
+$execReadmeTopSummaryMarkerLineText = '这里放：'
+$execReadmeTopSummaryPlanLineText = '- 试运行计划'
+$execReadmeTopSummaryTaskLineText = '- 任务清单'
+$execReadmeTopSummaryRecordLineText = '- 执行记录'
+$execReadmeTopSummaryAcceptanceLineText = '- 验收单'
 $execReadmeSectionMarkerLineText = '当前现行标准件：'
 $execReadmeSourceNoteLineText = '本区块是执行区现行标准件真源；公开入口同步与提交门禁均以此为准。'
 $execReadmeTimestampNoteLineText = '带时间戳的文件默认视为过程稿或证据稿，不自动等同于现行标准件。'
@@ -1339,6 +1344,20 @@ try {
     [System.IO.File]::WriteAllText($execReadmePath, $driftedExecReadmeContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/README.md') -ExpectedExitCode 1 -TestName 'block-exec-standard-source-section-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($execReadmePath, $originalExecReadmeBytes)
+}
+
+if ($execReadmeLines -notcontains $execReadmeTopSummaryMarkerLineText -or $execReadmeLines -notcontains $execReadmeTopSummaryPlanLineText -or $execReadmeLines -notcontains $execReadmeTopSummaryTaskLineText -or $execReadmeLines -notcontains $execReadmeTopSummaryRecordLineText -or $execReadmeLines -notcontains $execReadmeTopSummaryAcceptanceLineText) {
+    throw "测试前置条件不满足：$execReadmePath 中缺少执行区 README 顶部用途摘要测试行。"
+}
+
+try {
+    $driftedExecReadmeContent = (Get-Content $execReadmePath -Raw).Replace($execReadmeTopSummaryAcceptanceLineText, '- 结果看看')
+    [System.IO.File]::WriteAllText($execReadmePath, $driftedExecReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/README.md') -ExpectedExitCode 1 -TestName 'block-exec-readme-top-summary-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($execReadmePath, $originalExecReadmeBytes)
