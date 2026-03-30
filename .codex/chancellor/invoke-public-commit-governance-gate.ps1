@@ -503,6 +503,12 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '验板动作'; Description = '给出进入官方面板人工验收的固定步骤' }
         [pscustomobject]@{ Name = '验板目标'; Description = '确认版本、模式与入口表现是否稳态' }
     )
+    $expectedAcceptanceScopeSummaryItems = @(
+        '`丞相：` 首句入口风格'
+        '面板内置命令的最小响应口径'
+        '入口与 `.codex/chancellor/tasks/` 的衔接关系'
+        '入口相关改动后的人工复验步骤'
+    )
     $expectedAcceptanceScopeItems = @(
         [pscustomobject]@{ Name = '首句入口风格'; Description = '`丞相：` 首句入口风格' }
         [pscustomobject]@{ Name = '最小响应口径'; Description = '面板内置命令的最小响应口径' }
@@ -651,6 +657,22 @@ function Get-CanonicalPanelCommandState {
     Assert-ExactOrderedValues -SourceValues $versionPanelCommands -ExpectedValues $expectedPanelCommands -Label '生产母体 panel_commands'
 
     $acceptanceDocPath = 'docs/40-执行/03-面板入口验收.md'
+    $acceptanceScopeSummarySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 验收范围' -SectionEndMarker '## 验收范围固定槽位'
+    if ([string]::IsNullOrWhiteSpace($acceptanceScopeSummarySection)) {
+        throw "面板入口验收未解析到验收范围摘要：$acceptanceDocPath"
+    }
+
+    $acceptanceScopeSummaryItems = @(
+        [regex]::Matches($acceptanceScopeSummarySection, '(?m)^- (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($acceptanceScopeSummaryItems.Count -eq 0) {
+        throw "面板入口验收未解析到验收范围摘要列点：$acceptanceDocPath"
+    }
+    Assert-ExactOrderedValues -SourceValues $acceptanceScopeSummaryItems -ExpectedValues $expectedAcceptanceScopeSummaryItems -Label '面板入口验收验收范围摘要序列'
+
     $acceptanceScopeSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 验收范围固定槽位' -SectionEndMarker '## 本轮不验收'
     if ([string]::IsNullOrWhiteSpace($acceptanceScopeSection)) {
         throw "面板入口验收未解析到验收范围固定槽位：$acceptanceDocPath"
