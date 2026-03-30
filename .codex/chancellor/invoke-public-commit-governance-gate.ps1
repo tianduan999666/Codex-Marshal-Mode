@@ -569,6 +569,12 @@ function Get-CanonicalPanelCommandState {
         '`丞相验板` 的边界说明未覆盖“触发场景 → 验板动作 → 验板目标”'
         '入口回复与本地激活任务状态明显冲突'
     )
+    $expectedAcceptanceRecoverySummaryItems = @(
+        '先停止继续扩展任务范围'
+        '回看最近入口相关变更是否涉及 `AGENTS.md`、规则文档或安装同步动作'
+        '重新执行必要同步动作后，新开会话再次验板'
+        '若仍失败，记录为入口缺陷，不带着问题进入真实任务试跑'
+    )
     $expectedChecklistStepItems = @(
         [pscustomobject]@{ Name = '关闭旧会话'; Description = '关闭当前 `Codex` 会话' }
         [pscustomobject]@{ Name = '新开官方面板'; Description = '重新打开官方 `Codex` 面板，新开一个全新会话' }
@@ -1155,6 +1161,22 @@ function Get-CanonicalPanelCommandState {
             throw "面板入口验收失败信号固定子项漂移：$($expectedAcceptanceFailItem.Name) 期望 $($expectedAcceptanceFailItem.Description)，实际 $($matchedAcceptanceFailItemRow.Description)"
         }
     }
+
+    $acceptanceRecoverySummarySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 失败后的处置动作' -SectionEndMarker '## 失败后的处置动作固定子项'
+    if ([string]::IsNullOrWhiteSpace($acceptanceRecoverySummarySection)) {
+        throw "面板入口验收未解析到失败后的处置动作摘要：$acceptanceDocPath"
+    }
+
+    $acceptanceRecoverySummaryItems = @(
+        [regex]::Matches($acceptanceRecoverySummarySection, '(?m)^\d+\. (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($acceptanceRecoverySummaryItems.Count -eq 0) {
+        throw "面板入口验收未解析到失败后的处置动作摘要列点：$acceptanceDocPath"
+    }
+    Assert-ExactOrderedValues -SourceValues $acceptanceRecoverySummaryItems -ExpectedValues $expectedAcceptanceRecoverySummaryItems -Label '面板入口验收失败后的处置动作摘要序列'
 
     $acceptanceRecoverySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 失败后的处置动作固定子项' -SectionEndMarker '## 与试跑阶段的关系'
     if ([string]::IsNullOrWhiteSpace($acceptanceRecoverySection)) {

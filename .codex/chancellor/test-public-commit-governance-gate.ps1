@@ -1817,6 +1817,7 @@ $panelPassSummaryLineText = '- 入口相关改动后，能通过“新开会话 
 $panelPassCriterionItemLineText = '- `复验闭环`：入口相关改动后，可通过新开会话与首句验板完成复验。'
 $panelFailSummaryLineText = '- 入口回复与本地激活任务状态明显冲突。'
 $panelFailSignalItemLineText = '- `复验失败`：重新执行必要同步动作后，仍无法通过新开会话与首句验板完成复验。'
+$panelRecoverySummaryLineText = '4. 若仍失败，记录为入口缺陷，不带着问题进入真实任务试跑。'
 $panelRecoveryItemLineText = '- `缺陷收口`：若仍失败，记录为入口缺陷，不带着问题进入真实任务试跑。'
 $panelTrialGateItemLineText = '- `公开边界`：本文档可进入公开仓；真实运行态与日志继续只留本地。'
 $panelRepairBoundaryLineText = '- `丞相修复`：在安全边界内尝试自动修复常见问题。'
@@ -1918,6 +1919,10 @@ if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelFailSummaryLineText
 
 if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelFailSignalItemLineText) {
     throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelFailSignalItemLineText"
+}
+
+if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelRecoverySummaryLineText) {
+    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelRecoverySummaryLineText"
 }
 
 if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelRecoveryItemLineText) {
@@ -2197,6 +2202,16 @@ try {
     [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-fail-summary-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
+}
+
+try {
+    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelRecoverySummaryLineText, '4. 先放一放再说。')
+    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-recovery-summary-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
