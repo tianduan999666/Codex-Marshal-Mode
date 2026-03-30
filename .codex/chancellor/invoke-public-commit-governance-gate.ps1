@@ -530,6 +530,26 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '状态校验'; Description = '输入 `丞相状态`，检查是否能给出当前模式、状态与下一步的人话结论' }
         [pscustomobject]@{ Name = '任务一致性'; Description = '若本地存在激活任务，检查回复口径是否与当前任务状态一致' }
     )
+    $expectedAcceptancePassSummaryItems = @(
+        '`丞相：...` 首句能稳定进入丞相模式'
+        '回复开头使用固定文案，且口吻不漂移'
+        '`丞相帮助` 能显示当前用法、命令与注意事项'
+        '`丞相帮助` 能按“当前用法 → 面板命令 → 注意事项”组织输出'
+        '`丞相帮助` 的当前用法能覆盖“默认入口 → 适用场景 → 维护层说明”'
+        '`丞相帮助` 的面板命令说明能覆盖“命令顺序 → 命令含义 → 公开边界”'
+        '`丞相帮助` 的注意事项能覆盖“安全边界 → 维护层动作 → 新开会话验板提醒”'
+        '`固定人工验收步骤` 能覆盖“预处理动作 → 新开会话 → 首句验板 → 开头校验 → 语气校验 → 状态校验 → 任务一致性”'
+        '`丞相版本` 能返回当前丞相模式版本与版本来源'
+        '`丞相版本` 的输出能覆盖“版本号 → 版本来源 → 真源路径”'
+        '`丞相检查` 能做最小必要检查并返回人话结论'
+        '`丞相检查` 的输出能覆盖“检查范围 → 检查结论 → 建议动作”'
+        '`丞相状态` 能汇报当前模式、是否稳态、下一步'
+        '`丞相状态` 的输出能覆盖“当前模式 → 稳态判断 → 下一步”'
+        '`丞相修复` 的边界说明能覆盖“修复范围 → 处理方式 → 升级条件”'
+        '`丞相验板` 的边界说明能覆盖“触发场景 → 验板动作 → 验板目标”'
+        '若存在激活任务，入口口径与本地任务状态不冲突'
+        '入口相关改动后，能通过“新开会话 + 首句验板”完成复验'
+    )
     $expectedChecklistStepItems = @(
         [pscustomobject]@{ Name = '关闭旧会话'; Description = '关闭当前 `Codex` 会话' }
         [pscustomobject]@{ Name = '新开官方面板'; Description = '重新打开官方 `Codex` 面板，新开一个全新会话' }
@@ -1026,6 +1046,22 @@ function Get-CanonicalPanelCommandState {
             throw "面板入口验收命令口径漂移：$($expectedAcceptanceRow.Command) 期望 $($expectedAcceptanceRow.Description)，实际 $($matchedAcceptanceRow.Description)"
         }
     }
+
+    $acceptancePassSummarySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 通过标准' -SectionEndMarker '## 通过标准固定子项'
+    if ([string]::IsNullOrWhiteSpace($acceptancePassSummarySection)) {
+        throw "面板入口验收未解析到通过标准摘要：$acceptanceDocPath"
+    }
+
+    $acceptancePassSummaryItems = @(
+        [regex]::Matches($acceptancePassSummarySection, '(?m)^- (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($acceptancePassSummaryItems.Count -eq 0) {
+        throw "面板入口验收未解析到通过标准摘要列点：$acceptanceDocPath"
+    }
+    Assert-ExactOrderedValues -SourceValues $acceptancePassSummaryItems -ExpectedValues $expectedAcceptancePassSummaryItems -Label '面板入口验收通过标准摘要序列'
 
     $acceptancePassSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 通过标准固定子项' -SectionEndMarker '## 失败信号'
     if ([string]::IsNullOrWhiteSpace($acceptancePassSection)) {
