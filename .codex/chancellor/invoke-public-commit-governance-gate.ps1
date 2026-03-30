@@ -3317,6 +3317,33 @@ function Get-CanonicalMaintenanceGuideTriggerItems {
     return $expectedMaintenanceGuideTriggerItems
 }
 
+function Get-CanonicalMaintenanceGuideValueItems {
+    $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
+    $expectedMaintenanceGuideValueItems = @(
+        '把零散维护规则收成单一入口'
+        '缩短维护层上手路径'
+        '降低因找错入口而导致的误操作概率'
+    )
+
+    $maintenanceGuideValueSection = Get-FileSectionContent -FilePath $maintenanceGuidePath -SectionStartMarker '## 本文档的价值'
+    if ([string]::IsNullOrWhiteSpace($maintenanceGuideValueSection)) {
+        throw "维护层总入口未解析到本文档的价值：$maintenanceGuidePath"
+    }
+
+    $maintenanceGuideValueItems = @(
+        [regex]::Matches($maintenanceGuideValueSection, '(?m)^- (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($maintenanceGuideValueItems.Count -eq 0) {
+        throw "维护层总入口未解析到本文档的价值列点：$maintenanceGuidePath"
+    }
+
+    Assert-ExactOrderedValues -SourceValues $maintenanceGuideValueItems -ExpectedValues $expectedMaintenanceGuideValueItems -Label '维护层总入口本文档的价值摘要序列'
+    return $expectedMaintenanceGuideValueItems
+}
+
 function Get-CanonicalTargetLifecycleEntryPaths {
     $targetPlanPath = 'docs/40-执行/12-V4-Target-实施计划.md'
     $targetLifecyclePaths = Get-OrderedUniqueValues -Values @(
@@ -4056,6 +4083,13 @@ catch {
 $canonicalMaintenanceGuideTriggerItems = @()
 try {
     $canonicalMaintenanceGuideTriggerItems = Get-CanonicalMaintenanceGuideTriggerItems
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+$canonicalMaintenanceGuideValueItems = @()
+try {
+    $canonicalMaintenanceGuideValueItems = Get-CanonicalMaintenanceGuideValueItems
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
