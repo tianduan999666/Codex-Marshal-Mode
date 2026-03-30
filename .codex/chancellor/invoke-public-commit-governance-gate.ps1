@@ -3290,6 +3290,33 @@ function Get-CanonicalMaintenanceGuideDefaultPrinciplesItems {
     return $expectedMaintenanceGuideDefaultPrinciplesItems
 }
 
+function Get-CanonicalMaintenanceGuideTriggerItems {
+    $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
+    $expectedMaintenanceGuideTriggerItems = @(
+        '不确定该先看哪份维护文档时'
+        '准备开始维护层动作前'
+        '需要交接维护动作给下一位执行者时'
+    )
+
+    $maintenanceGuideTriggerSection = Get-FileSectionContent -FilePath $maintenanceGuidePath -SectionStartMarker '## 什么时候优先看这份入口' -SectionEndMarker '## 本文档的价值'
+    if ([string]::IsNullOrWhiteSpace($maintenanceGuideTriggerSection)) {
+        throw "维护层总入口未解析到什么时候优先看这份入口：$maintenanceGuidePath"
+    }
+
+    $maintenanceGuideTriggerItems = @(
+        [regex]::Matches($maintenanceGuideTriggerSection, '(?m)^- (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($maintenanceGuideTriggerItems.Count -eq 0) {
+        throw "维护层总入口未解析到什么时候优先看这份入口列点：$maintenanceGuidePath"
+    }
+
+    Assert-ExactOrderedValues -SourceValues $maintenanceGuideTriggerItems -ExpectedValues $expectedMaintenanceGuideTriggerItems -Label '维护层总入口什么时候优先看这份入口摘要序列'
+    return $expectedMaintenanceGuideTriggerItems
+}
+
 function Get-CanonicalTargetLifecycleEntryPaths {
     $targetPlanPath = 'docs/40-执行/12-V4-Target-实施计划.md'
     $targetLifecyclePaths = Get-OrderedUniqueValues -Values @(
@@ -4022,6 +4049,13 @@ catch {
 $canonicalMaintenanceGuideDefaultPrinciplesItems = @()
 try {
     $canonicalMaintenanceGuideDefaultPrinciplesItems = Get-CanonicalMaintenanceGuideDefaultPrinciplesItems
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+$canonicalMaintenanceGuideTriggerItems = @()
+try {
+    $canonicalMaintenanceGuideTriggerItems = Get-CanonicalMaintenanceGuideTriggerItems
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

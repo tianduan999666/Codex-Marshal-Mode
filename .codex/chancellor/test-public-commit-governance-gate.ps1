@@ -698,6 +698,9 @@ $maintenanceGuideRecommendedOrderCloseoutLineText = '6. 完成动作后，按收
 $maintenanceGuideDefaultBoundaryLineText = '- 维护层动作继续视为维护层，不对普通面板使用者外露复杂终端流程。'
 $maintenanceGuideDefaultReuseLineText = '- 维护层动作优先复用当前仓已有规则与脚本，不另起外部依赖。'
 $maintenanceGuideDefaultSyncLineText = '- 维护层动作完成后，如影响入口口径，应同步更新总览、首页或 docs 入口。'
+$maintenanceGuideTriggerUnclearLineText = '- 不确定该先看哪份维护文档时'
+$maintenanceGuideTriggerBeforeActionLineText = '- 准备开始维护层动作前'
+$maintenanceGuideTriggerHandoffLineText = '- 需要交接维护动作给下一位执行者时'
 $maintenanceGuideMainlineGateIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuideMainlineGateLineText)
 $maintenanceGuideMainlineConcurrentIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuideMainlineConcurrentLineText)
 
@@ -768,6 +771,20 @@ try {
     [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 1 -TestName 'block-maintenance-guide-defaults-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
+}
+
+if ($maintenanceGuideLines -notcontains $maintenanceGuideTriggerUnclearLineText -or $maintenanceGuideLines -notcontains $maintenanceGuideTriggerBeforeActionLineText -or $maintenanceGuideLines -notcontains $maintenanceGuideTriggerHandoffLineText) {
+    throw "测试前置条件不满足：$maintenanceGuidePath 中缺少什么时候优先看这份入口测试行。"
+}
+
+try {
+    $driftedMaintenanceGuideContent = (Get-Content $maintenanceGuidePath -Raw).Replace($maintenanceGuideTriggerHandoffLineText, '- 最后再看看是否需要交接。')
+    [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 1 -TestName 'block-maintenance-guide-trigger-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
