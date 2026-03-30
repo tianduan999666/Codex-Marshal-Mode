@@ -503,6 +503,7 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '验板动作'; Description = '给出进入官方面板人工验收的固定步骤' }
         [pscustomobject]@{ Name = '验板目标'; Description = '确认版本、模式与入口表现是否稳态' }
     )
+    $expectedAcceptanceGoalText = '确保主公从官方面板进入时，入口语义稳定、任务包衔接明确、改动后有固定人工验收闭环'
     $expectedAcceptanceExcludedItems = @(
         '真实业务任务是否跑通'
         '安装链与发布链是否稳定'
@@ -662,6 +663,19 @@ function Get-CanonicalPanelCommandState {
     Assert-ExactOrderedValues -SourceValues $versionPanelCommands -ExpectedValues $expectedPanelCommands -Label '生产母体 panel_commands'
 
     $acceptanceDocPath = 'docs/40-执行/03-面板入口验收.md'
+    $acceptanceGoalSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 一句话目标' -SectionEndMarker '## 验收范围'
+    if ([string]::IsNullOrWhiteSpace($acceptanceGoalSection)) {
+        throw "面板入口验收未解析到一句话目标：$acceptanceDocPath"
+    }
+
+    $acceptanceGoalText = ($acceptanceGoalSection.Trim() -replace '。$','')
+    if ([string]::IsNullOrWhiteSpace($acceptanceGoalText)) {
+        throw "面板入口验收未解析到一句话目标正文：$acceptanceDocPath"
+    }
+    if ($acceptanceGoalText -ne $expectedAcceptanceGoalText) {
+        throw "面板入口验收一句话目标漂移：期望 $expectedAcceptanceGoalText，实际 $acceptanceGoalText"
+    }
+
     $acceptanceExcludedSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 本轮不验收' -SectionEndMarker '## 帮助命令公开用法'
     if ([string]::IsNullOrWhiteSpace($acceptanceExcludedSection)) {
         throw "面板入口验收未解析到本轮不验收摘要：$acceptanceDocPath"
