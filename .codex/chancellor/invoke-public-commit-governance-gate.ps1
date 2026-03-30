@@ -181,6 +181,29 @@ function Get-CanonicalExecReadmeFooterNoteItems {
     return $expectedExecReadmeFooterNoteItems
 }
 
+function Get-CanonicalExecStandardGuideConclusionLine {
+    $execStandardGuidePath = 'docs/40-执行/04-执行区现行件与证据稿说明.md'
+    $expectedExecStandardGuideConclusionLine = '在 `docs/40-执行/` 下，固定编号文件是现行标准件，带时间戳的文件默认是证据稿或过程稿。'
+
+    $sectionContent = Get-FileSectionContent -FilePath $execStandardGuidePath -SectionStartMarker '## 一句话结论' -SectionEndMarker '## 现行标准件'
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "执行区现行件说明一句话结论区块缺失：$execStandardGuidePath"
+    }
+
+    $summaryLines = @(
+        ($sectionContent -split "`r?`n") |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -ne '' }
+    )
+    if ($summaryLines.Count -eq 0) {
+        throw "执行区现行件说明一句话结论为空：$execStandardGuidePath"
+    }
+
+    $actualExecStandardGuideConclusionLine = $summaryLines[0]
+    Assert-ExactOrderedValues -SourceValues @($actualExecStandardGuideConclusionLine) -ExpectedValues @($expectedExecStandardGuideConclusionLine) -Label '执行区现行件说明一句话结论'
+    return $expectedExecStandardGuideConclusionLine
+}
+
 function Get-MatchedExecStandardDocNamesFromFile {
     param(
         [string]$FilePath,
@@ -4367,6 +4390,13 @@ catch {
 $canonicalExecReadmeFooterNoteItems = @()
 try {
     $canonicalExecReadmeFooterNoteItems = Get-CanonicalExecReadmeFooterNoteItems
+}
+catch {
+    $violationMessages.Add($_.Exception.Message)
+}
+$canonicalExecStandardGuideConclusionLine = ''
+try {
+    $canonicalExecStandardGuideConclusionLine = Get-CanonicalExecStandardGuideConclusionLine
 }
 catch {
     $violationMessages.Add($_.Exception.Message)
