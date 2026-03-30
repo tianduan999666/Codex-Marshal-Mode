@@ -637,6 +637,10 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '自动回退'; Description = '若仍异常，再执行：`codex-home-export/rollback-from-backup.ps1`' }
         [pscustomobject]@{ Name = '重新验板'; Description = '回退后重新打开面板，再次验板' }
     )
+    $expectedChecklistIntroLines = @(
+        '适用场景：完成 `install-to-home.ps1` 与 `verify-cutover.ps1` 后，人工确认本机生产切换是否丝滑。'
+        '当前验板命令口径以 `codex-home-export/VERSION.json` 的 `panel_commands` 为准。'
+    )
     $expectedChecklistStepSummaryItems = @(
         '关闭当前 `Codex` 会话'
         '重新打开官方 `Codex` 面板，新开一个全新会话'
@@ -1351,6 +1355,21 @@ function Get-CanonicalPanelCommandState {
     if (-not (Test-Path $checklistPath)) {
         throw "缺少面板人工验板清单：$checklistPath"
     }
+
+    $checklistIntroSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '# 面板人工验板清单' -SectionEndMarker '## 帮助命令公开用法'
+    if ([string]::IsNullOrWhiteSpace($checklistIntroSection)) {
+        throw "面板人工验板清单未解析到头部引导说明：$checklistPath"
+    }
+
+    $checklistIntroLines = @(
+        ($checklistIntroSection -split "`r?`n") |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -ne '' }
+    )
+    if ($checklistIntroLines.Count -eq 0) {
+        throw "面板人工验板清单未解析到头部引导列点：$checklistPath"
+    }
+    Assert-ExactOrderedValues -SourceValues $checklistIntroLines -ExpectedValues $expectedChecklistIntroLines -Label '面板人工验板清单头部引导序列'
 
     $checklistHelpSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 帮助命令公开用法' -SectionEndMarker '## 帮助命令固定结构'
     if ([string]::IsNullOrWhiteSpace($checklistHelpSection)) {
