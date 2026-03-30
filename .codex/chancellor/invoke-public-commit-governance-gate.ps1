@@ -550,6 +550,25 @@ function Get-CanonicalPanelCommandState {
         '若存在激活任务，入口口径与本地任务状态不冲突'
         '入口相关改动后，能通过“新开会话 + 首句验板”完成复验'
     )
+    $expectedAcceptanceFailSummaryItems = @(
+        '首句未进入丞相模式'
+        '固定开头丢失或风格回退为普通模式'
+        '`丞相帮助` 未显示当前用法、命令与注意事项'
+        '`丞相帮助` 未按“当前用法 → 面板命令 → 注意事项”组织输出'
+        '`丞相帮助` 的当前用法未覆盖“默认入口 → 适用场景 → 维护层说明”'
+        '`丞相帮助` 的面板命令说明未覆盖“命令顺序 → 命令含义 → 公开边界”'
+        '`丞相帮助` 的注意事项未覆盖“安全边界 → 维护层动作 → 新开会话验板提醒”'
+        '`固定人工验收步骤` 未覆盖“预处理动作 → 新开会话 → 首句验板 → 开头校验 → 语气校验 → 状态校验 → 任务一致性”'
+        '`丞相版本` 未返回当前丞相模式版本与版本来源'
+        '`丞相版本` 的输出未覆盖“版本号 → 版本来源 → 真源路径”'
+        '`丞相检查` 未做最小必要检查或未返回人话结论'
+        '`丞相检查` 的输出未覆盖“检查范围 → 检查结论 → 建议动作”'
+        '`丞相状态` 未汇报当前模式、是否稳态、下一步'
+        '`丞相状态` 的输出未覆盖“当前模式 → 稳态判断 → 下一步”'
+        '`丞相修复` 的边界说明未覆盖“修复范围 → 处理方式 → 升级条件”'
+        '`丞相验板` 的边界说明未覆盖“触发场景 → 验板动作 → 验板目标”'
+        '入口回复与本地激活任务状态明显冲突'
+    )
     $expectedChecklistStepItems = @(
         [pscustomobject]@{ Name = '关闭旧会话'; Description = '关闭当前 `Codex` 会话' }
         [pscustomobject]@{ Name = '新开官方面板'; Description = '重新打开官方 `Codex` 面板，新开一个全新会话' }
@@ -1091,6 +1110,22 @@ function Get-CanonicalPanelCommandState {
             throw "面板入口验收通过标准固定子项漂移：$($expectedAcceptancePassItem.Name) 期望 $($expectedAcceptancePassItem.Description)，实际 $($matchedAcceptancePassRow.Description)"
         }
     }
+
+    $acceptanceFailSummarySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 失败信号' -SectionEndMarker '## 失败信号固定子项'
+    if ([string]::IsNullOrWhiteSpace($acceptanceFailSummarySection)) {
+        throw "面板入口验收未解析到失败信号摘要：$acceptanceDocPath"
+    }
+
+    $acceptanceFailSummaryItems = @(
+        [regex]::Matches($acceptanceFailSummarySection, '(?m)^- (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($acceptanceFailSummaryItems.Count -eq 0) {
+        throw "面板入口验收未解析到失败信号摘要列点：$acceptanceDocPath"
+    }
+    Assert-ExactOrderedValues -SourceValues $acceptanceFailSummaryItems -ExpectedValues $expectedAcceptanceFailSummaryItems -Label '面板入口验收失败信号摘要序列'
 
     $acceptanceFailItemSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 失败信号固定子项' -SectionEndMarker '## 失败后的处置动作'
     if ([string]::IsNullOrWhiteSpace($acceptanceFailItemSection)) {
