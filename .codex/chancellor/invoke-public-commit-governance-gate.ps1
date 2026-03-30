@@ -607,6 +607,19 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '放行条件'; Description = '只有入口验收通过后，才进入后续真实任务闭环验证' }
         [pscustomobject]@{ Name = '公开边界'; Description = '本文档可进入公开仓；真实运行态与日志继续只留本地' }
     )
+    $expectedChecklistPassSummaryItems = @(
+        '`丞相版本` 能返回当前丞相模式版本与版本来源'
+        '`丞相版本` 的输出能覆盖“版本号 → 版本来源 → 真源路径”'
+        '`丞相检查` 能做最小必要检查并返回人话结论'
+        '`丞相检查` 的输出能覆盖“检查范围 → 检查结论 → 建议动作”'
+        '`丞相状态` 能汇报当前模式、是否稳态、下一步'
+        '`丞相状态` 的输出能覆盖“当前模式 → 稳态判断 → 下一步”'
+        '`丞相修复` 的边界说明能覆盖“修复范围 → 处理方式 → 升级条件”'
+        '`丞相验板` 的边界说明能覆盖“触发场景 → 验板动作 → 验板目标”'
+        '人工验板步骤能覆盖“关闭旧会话 → 新开官方面板 → 版本验证 → 检查验证 → 状态验证”'
+        '整个过程不出现明显崩溃、失焦或命令失效'
+        '整个过程无需再手改本地文件'
+    )
     $expectedChecklistPassItems = @(
         [pscustomobject]@{ Name = '命令有效'; Description = '版本、检查、状态命令可用且口径完整' }
         [pscustomobject]@{ Name = '边界稳定'; Description = '修复与验板边界说明完整' }
@@ -1700,6 +1713,17 @@ function Get-CanonicalPanelCommandState {
     if ([string]::IsNullOrWhiteSpace($checklistPassSection)) {
         throw "面板人工验板清单未解析到通过标准区块：$checklistPath"
     }
+
+    $checklistPassSummaryItems = @(
+        [regex]::Matches($checklistPassSection, '(?m)^- (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($checklistPassSummaryItems.Count -eq 0) {
+        throw "面板人工验板清单未解析到通过标准摘要列点：$checklistPath"
+    }
+    Assert-ExactOrderedValues -SourceValues $checklistPassSummaryItems -ExpectedValues $expectedChecklistPassSummaryItems -Label '面板人工验板清单通过标准摘要序列'
 
     $checklistAcceptanceRows = @(
         [regex]::Matches($checklistPassSection, '(?m)^- `([^`]+)` 能(.+?)。?\r?$') |
