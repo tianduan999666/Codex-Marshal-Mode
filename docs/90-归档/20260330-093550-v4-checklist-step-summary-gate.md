@@ -8,7 +8,6 @@
 1. 在 `.codex/chancellor/test-public-commit-governance-gate.ps1` 增补 `panel-acceptance-checklist.md` 的 `验板步骤` 摘要列点前置条件与漂移用例。
 2. 在 `.codex/chancellor/invoke-public-commit-governance-gate.ps1` 新增清单 `验板步骤` 摘要列点顺序校验，并挂入现有清单治理链。
 3. 更新 `docs/30-方案/09-V4-本机生产切换最小闭环方案.md`，把本轮治理沉淀回当前现状。
-4. 对齐 `docs/30-方案/02-V4-目录锁定清单.md` 的顶层批准文件顺序，恢复 `allow-public-docs` 基线放行。
 
 ## 理由
 
