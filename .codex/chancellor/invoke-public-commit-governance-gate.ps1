@@ -112,6 +112,28 @@ function Get-CanonicalExecStandardDocNames {
     return $execDocNames
 }
 
+function Get-CanonicalExecReadmeTitleLine {
+    $execReadmePath = 'docs/40-执行/README.md'
+    $expectedExecReadmeTitleLine = '# 40-执行 目录说明'
+
+    if (-not (Test-Path $execReadmePath)) {
+        throw "缺少执行区 README：$execReadmePath"
+    }
+
+    $nonEmptyLines = @(
+        Get-Content $execReadmePath |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -ne '' }
+    )
+    if ($nonEmptyLines.Count -eq 0) {
+        throw "执行区 README 为空：$execReadmePath"
+    }
+
+    $actualExecReadmeTitleLine = $nonEmptyLines[0]
+    Assert-ExactOrderedValues -SourceValues @($actualExecReadmeTitleLine) -ExpectedValues @($expectedExecReadmeTitleLine) -Label '执行区 README 标题'
+    return $expectedExecReadmeTitleLine
+}
+
 function Get-CanonicalExecReadmeTopSummaryItems {
     $execReadmePath = 'docs/40-执行/README.md'
     $expectedExecReadmeTopSummaryItems = @(
@@ -4324,6 +4346,13 @@ foreach ($unexpectedTrackedCodexFile in $unexpectedTrackedCodexFiles) {
 $canonicalExecStandardDocNames = @()
 try {
     $canonicalExecStandardDocNames = Get-CanonicalExecStandardDocNames
+}
+catch {
+    $violationMessages.Add($_.Exception.Message)
+}
+$canonicalExecReadmeTitleLine = ''
+try {
+    $canonicalExecReadmeTitleLine = Get-CanonicalExecReadmeTitleLine
 }
 catch {
     $violationMessages.Add($_.Exception.Message)
