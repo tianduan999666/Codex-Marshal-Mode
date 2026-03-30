@@ -3232,6 +3232,37 @@ function Get-CanonicalMaintenanceLifecycleEntryPaths {
     return $maintenanceLifecyclePaths
 }
 
+function Get-CanonicalMaintenanceGuideRecommendedOrderItems {
+    $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
+    $expectedMaintenanceGuideRecommendedOrderItems = @(
+        '先判断自己是在“提交”“起包”“归档”“入口同步”“拍板准备”还是“治理复核”'
+        '再进入对应的单项规则文档、动作矩阵或拍板规范'
+        '当前轮若影响公开口径或现行标准件，收口前追加一次治理审计复核'
+        '若当前轮还需要说明配置来源、版本依据或漂移检查，继续使用 `21` 追加落盘'
+        '若当前轮准备推送公开改动，确认 `pre-push` 治理门禁已安装并可自动触发'
+        '完成动作后，按收口检查表确认本轮已闭环'
+        '最后再回到现行标准件总览确认入口是否需要同步'
+    )
+
+    $maintenanceGuideRecommendedOrderSection = Get-FileSectionContent -FilePath $maintenanceGuidePath -SectionStartMarker '## 推荐使用顺序' -SectionEndMarker '## 当前默认原则'
+    if ([string]::IsNullOrWhiteSpace($maintenanceGuideRecommendedOrderSection)) {
+        throw "维护层总入口未解析到推荐使用顺序：$maintenanceGuidePath"
+    }
+
+    $maintenanceGuideRecommendedOrderItems = @(
+        [regex]::Matches($maintenanceGuideRecommendedOrderSection, '(?m)^\d+\. (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($maintenanceGuideRecommendedOrderItems.Count -eq 0) {
+        throw "维护层总入口未解析到推荐使用顺序列点：$maintenanceGuidePath"
+    }
+
+    Assert-ExactOrderedValues -SourceValues $maintenanceGuideRecommendedOrderItems -ExpectedValues $expectedMaintenanceGuideRecommendedOrderItems -Label '维护层总入口推荐使用顺序摘要序列'
+    return $expectedMaintenanceGuideRecommendedOrderItems
+}
+
 function Get-CanonicalTargetLifecycleEntryPaths {
     $targetPlanPath = 'docs/40-执行/12-V4-Target-实施计划.md'
     $targetLifecyclePaths = Get-OrderedUniqueValues -Values @(
@@ -3950,6 +3981,13 @@ catch {
 $canonicalMaintenanceCapabilityDocPaths = @()
 try {
     $canonicalMaintenanceCapabilityDocPaths = Get-CanonicalMaintenanceCapabilityDocPaths
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+$canonicalMaintenanceGuideRecommendedOrderItems = @()
+try {
+    $canonicalMaintenanceGuideRecommendedOrderItems = Get-CanonicalMaintenanceGuideRecommendedOrderItems
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

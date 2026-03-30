@@ -693,6 +693,8 @@ finally {
 $maintenanceGuideMainlineMarkerLineText = '## 维护层主线真源'
 $maintenanceGuideMainlineGateLineText = 'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
 $maintenanceGuideMainlineConcurrentLineText = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
+$maintenanceGuideRecommendedOrderPushGateLineText = '5. 若当前轮准备推送公开改动，确认 `pre-push` 治理门禁已安装并可自动触发'
+$maintenanceGuideRecommendedOrderCloseoutLineText = '6. 完成动作后，按收口检查表确认本轮已闭环'
 $maintenanceGuideMainlineGateIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuideMainlineGateLineText)
 $maintenanceGuideMainlineConcurrentIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuideMainlineConcurrentLineText)
 
@@ -725,6 +727,30 @@ try {
     [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 1 -TestName 'block-maintenance-mainline-source-middle-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
+}
+
+$maintenanceGuideRecommendedOrderPushGateIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuideRecommendedOrderPushGateLineText)
+$maintenanceGuideRecommendedOrderCloseoutIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuideRecommendedOrderCloseoutLineText)
+
+if ($maintenanceGuideRecommendedOrderPushGateIndex -lt 0 -or $maintenanceGuideRecommendedOrderCloseoutIndex -lt 0) {
+    throw "测试前置条件不满足：$maintenanceGuidePath 中缺少推荐使用顺序测试行。"
+}
+
+if ($maintenanceGuideRecommendedOrderPushGateIndex -gt $maintenanceGuideRecommendedOrderCloseoutIndex) {
+    throw "测试前置条件不满足：$maintenanceGuidePath 中推荐使用顺序已不是当前现状。"
+}
+
+try {
+    $driftedMaintenanceGuideLines = @($maintenanceGuideLines)
+    $driftedMaintenanceGuideLines[$maintenanceGuideRecommendedOrderPushGateIndex] = $maintenanceGuideRecommendedOrderCloseoutLineText
+    $driftedMaintenanceGuideLines[$maintenanceGuideRecommendedOrderCloseoutIndex] = $maintenanceGuideRecommendedOrderPushGateLineText
+    $driftedMaintenanceGuideContent = ($driftedMaintenanceGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 1 -TestName 'block-maintenance-guide-recommended-order-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
