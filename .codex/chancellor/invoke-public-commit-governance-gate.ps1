@@ -112,6 +112,30 @@ function Get-CanonicalExecStandardDocNames {
     return $execDocNames
 }
 
+function Get-CanonicalExecReadmeFooterNoteItems {
+    $execReadmePath = 'docs/40-执行/README.md'
+    $expectedExecReadmeFooterNoteItems = @(
+        '本区块是执行区现行标准件真源；公开入口同步与提交门禁均以此为准。'
+        '带时间戳的文件默认视为过程稿或证据稿，不自动等同于现行标准件。'
+        '具体区分与使用顺序见：`04-执行区现行件与证据稿说明.md`'
+        '已完成归档规则见：`docs/90-归档/01-执行区证据稿归档规则.md`'
+    )
+
+    $sectionContent = Get-FileSectionContent -FilePath $execReadmePath -SectionStartMarker '本区块是执行区现行标准件真源；公开入口同步与提交门禁均以此为准。'
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "执行区 README 底部真源说明区块缺失：$execReadmePath"
+    }
+
+    $footerNoteItems = @(
+        '本区块是执行区现行标准件真源；公开入口同步与提交门禁均以此为准。'
+        ($sectionContent -split "`r?`n") |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -ne '' }
+    )
+    Assert-ExactOrderedValues -SourceValues $footerNoteItems -ExpectedValues $expectedExecReadmeFooterNoteItems -Label '执行区 README 底部真源说明序列'
+    return $expectedExecReadmeFooterNoteItems
+}
+
 function Get-MatchedExecStandardDocNamesFromFile {
     param(
         [string]$FilePath,
@@ -4277,6 +4301,13 @@ foreach ($unexpectedTrackedCodexFile in $unexpectedTrackedCodexFiles) {
 $canonicalExecStandardDocNames = @()
 try {
     $canonicalExecStandardDocNames = Get-CanonicalExecStandardDocNames
+}
+catch {
+    $violationMessages.Add($_.Exception.Message)
+}
+$canonicalExecReadmeFooterNoteItems = @()
+try {
+    $canonicalExecReadmeFooterNoteItems = Get-CanonicalExecReadmeFooterNoteItems
 }
 catch {
     $violationMessages.Add($_.Exception.Message)

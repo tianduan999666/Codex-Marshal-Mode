@@ -1322,6 +1322,10 @@ $navOverviewPath = Join-Path $repoRootPath 'docs/00-导航/02-现行标准件总
 $originalNavOverviewBytes = [System.IO.File]::ReadAllBytes($navOverviewPath)
 $navOverviewLines = Get-Content $navOverviewPath
 $execReadmeSectionMarkerLineText = '当前现行标准件：'
+$execReadmeSourceNoteLineText = '本区块是执行区现行标准件真源；公开入口同步与提交门禁均以此为准。'
+$execReadmeTimestampNoteLineText = '带时间戳的文件默认视为过程稿或证据稿，不自动等同于现行标准件。'
+$execReadmeUsageGuideLineText = '具体区分与使用顺序见：`04-执行区现行件与证据稿说明.md`'
+$execReadmeArchiveGuideLineText = '已完成归档规则见：`docs/90-归档/01-执行区证据稿归档规则.md`'
 
 if ($execReadmeLines -notcontains $execReadmeSectionMarkerLineText) {
     throw "测试前置条件不满足：$execReadmePath 中缺少 $execReadmeSectionMarkerLineText"
@@ -1335,6 +1339,20 @@ try {
     [System.IO.File]::WriteAllText($execReadmePath, $driftedExecReadmeContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/README.md') -ExpectedExitCode 1 -TestName 'block-exec-standard-source-section-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($execReadmePath, $originalExecReadmeBytes)
+}
+
+if ($execReadmeLines -notcontains $execReadmeSourceNoteLineText -or $execReadmeLines -notcontains $execReadmeTimestampNoteLineText -or $execReadmeLines -notcontains $execReadmeUsageGuideLineText -or $execReadmeLines -notcontains $execReadmeArchiveGuideLineText) {
+    throw "测试前置条件不满足：$execReadmePath 中缺少执行区 README 真源说明测试行。"
+}
+
+try {
+    $driftedExecReadmeContent = (Get-Content $execReadmePath -Raw).Replace($execReadmeArchiveGuideLineText, '已完成归档规则见：`docs/90-归档/README.md`')
+    [System.IO.File]::WriteAllText($execReadmePath, $driftedExecReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/README.md') -ExpectedExitCode 1 -TestName 'block-exec-standard-source-note-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($execReadmePath, $originalExecReadmeBytes)
