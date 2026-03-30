@@ -637,6 +637,13 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '自动回退'; Description = '若仍异常，再执行：`codex-home-export/rollback-from-backup.ps1`' }
         [pscustomobject]@{ Name = '重新验板'; Description = '回退后重新打开面板，再次验板' }
     )
+    $expectedChecklistStepSummaryItems = @(
+        '关闭当前 `Codex` 会话'
+        '重新打开官方 `Codex` 面板，新开一个全新会话'
+        '首句输入：`丞相版本`'
+        '继续输入：`丞相检查`'
+        '如需再验一层，继续输入：`丞相状态`'
+    )
     $expectedChecklistCommands = @(
         '丞相版本'
         '丞相检查'
@@ -1581,6 +1588,17 @@ function Get-CanonicalPanelCommandState {
     if ([string]::IsNullOrWhiteSpace($checklistStepsSection)) {
         throw "面板人工验板清单未解析到验板步骤区块：$checklistPath"
     }
+
+    $checklistStepSummaryItems = @(
+        [regex]::Matches($checklistStepsSection, '(?m)^\d+\. (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($checklistStepSummaryItems.Count -eq 0) {
+        throw "面板人工验板清单未解析到验板步骤摘要列点：$checklistPath"
+    }
+    Assert-ExactOrderedValues -SourceValues $checklistStepSummaryItems -ExpectedValues $expectedChecklistStepSummaryItems -Label '面板人工验板清单验板步骤摘要序列'
 
     $checklistCommands = @(
         Get-OrderedUniqueValues -Values @(
