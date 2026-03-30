@@ -614,6 +614,11 @@ function Get-CanonicalPanelCommandState {
         [pscustomobject]@{ Name = '过程稳定'; Description = '整个过程不出现明显崩溃、失焦或命令失效' }
         [pscustomobject]@{ Name = '无需手改'; Description = '整个过程无需再手改本地文件' }
     )
+    $expectedChecklistRecoverySummaryItems = @(
+        '先执行：`codex-home-export/verify-cutover.ps1`'
+        '若仍异常，再执行：`codex-home-export/rollback-from-backup.ps1`'
+        '回退后重新打开面板，再次验板'
+    )
     $expectedChecklistRecoveryItems = @(
         [pscustomobject]@{ Name = '自动复核'; Description = '先执行：`codex-home-export/verify-cutover.ps1`' }
         [pscustomobject]@{ Name = '自动回退'; Description = '若仍异常，再执行：`codex-home-export/rollback-from-backup.ps1`' }
@@ -1748,6 +1753,22 @@ function Get-CanonicalPanelCommandState {
             throw "面板人工验板清单通过标准固定子项漂移：$($expectedChecklistPassItem.Name) 期望 $($expectedChecklistPassItem.Description)，实际 $($matchedChecklistPassItemRow.Description)"
         }
     }
+
+    $checklistRecoverySummarySection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 若不通过' -SectionEndMarker '## 若不通过固定子项'
+    if ([string]::IsNullOrWhiteSpace($checklistRecoverySummarySection)) {
+        throw "面板人工验板清单未解析到若不通过摘要：$checklistPath"
+    }
+
+    $checklistRecoverySummaryItems = @(
+        [regex]::Matches($checklistRecoverySummarySection, '(?m)^\d+\. (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($checklistRecoverySummaryItems.Count -eq 0) {
+        throw "面板人工验板清单未解析到若不通过摘要列点：$checklistPath"
+    }
+    Assert-ExactOrderedValues -SourceValues $checklistRecoverySummaryItems -ExpectedValues $expectedChecklistRecoverySummaryItems -Label '面板人工验板清单若不通过摘要序列'
 
     $checklistRecoverySection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 若不通过固定子项'
     if ([string]::IsNullOrWhiteSpace($checklistRecoverySection)) {
