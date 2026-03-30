@@ -695,6 +695,9 @@ $maintenanceGuideMainlineGateLineText = 'docs/40-执行/19-多 gate 与多异常
 $maintenanceGuideMainlineConcurrentLineText = 'docs/40-执行/20-复杂并存汇报骨架模板.md'
 $maintenanceGuideRecommendedOrderPushGateLineText = '5. 若当前轮准备推送公开改动，确认 `pre-push` 治理门禁已安装并可自动触发'
 $maintenanceGuideRecommendedOrderCloseoutLineText = '6. 完成动作后，按收口检查表确认本轮已闭环'
+$maintenanceGuideDefaultBoundaryLineText = '- 维护层动作继续视为维护层，不对普通面板使用者外露复杂终端流程。'
+$maintenanceGuideDefaultReuseLineText = '- 维护层动作优先复用当前仓已有规则与脚本，不另起外部依赖。'
+$maintenanceGuideDefaultSyncLineText = '- 维护层动作完成后，如影响入口口径，应同步更新总览、首页或 docs 入口。'
 $maintenanceGuideMainlineGateIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuideMainlineGateLineText)
 $maintenanceGuideMainlineConcurrentIndex = [Array]::IndexOf($maintenanceGuideLines, $maintenanceGuideMainlineConcurrentLineText)
 
@@ -751,6 +754,20 @@ try {
     [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 1 -TestName 'block-maintenance-guide-recommended-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
+}
+
+if ($maintenanceGuideLines -notcontains $maintenanceGuideDefaultBoundaryLineText -or $maintenanceGuideLines -notcontains $maintenanceGuideDefaultReuseLineText -or $maintenanceGuideLines -notcontains $maintenanceGuideDefaultSyncLineText) {
+    throw "测试前置条件不满足：$maintenanceGuidePath 中缺少当前默认原则测试行。"
+}
+
+try {
+    $driftedMaintenanceGuideContent = (Get-Content $maintenanceGuidePath -Raw).Replace($maintenanceGuideDefaultSyncLineText, '- 维护层动作完成后，看情况再决定是否同步入口。')
+    [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 1 -TestName 'block-maintenance-guide-defaults-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)

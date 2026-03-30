@@ -3263,6 +3263,33 @@ function Get-CanonicalMaintenanceGuideRecommendedOrderItems {
     return $expectedMaintenanceGuideRecommendedOrderItems
 }
 
+function Get-CanonicalMaintenanceGuideDefaultPrinciplesItems {
+    $maintenanceGuidePath = 'docs/40-执行/13-维护层总入口.md'
+    $expectedMaintenanceGuideDefaultPrinciplesItems = @(
+        '维护层动作继续视为维护层，不对普通面板使用者外露复杂终端流程'
+        '维护层动作优先复用当前仓已有规则与脚本，不另起外部依赖'
+        '维护层动作完成后，如影响入口口径，应同步更新总览、首页或 docs 入口'
+    )
+
+    $maintenanceGuideDefaultPrinciplesSection = Get-FileSectionContent -FilePath $maintenanceGuidePath -SectionStartMarker '## 当前默认原则' -SectionEndMarker '## 什么时候优先看这份入口'
+    if ([string]::IsNullOrWhiteSpace($maintenanceGuideDefaultPrinciplesSection)) {
+        throw "维护层总入口未解析到当前默认原则：$maintenanceGuidePath"
+    }
+
+    $maintenanceGuideDefaultPrinciplesItems = @(
+        [regex]::Matches($maintenanceGuideDefaultPrinciplesSection, '(?m)^- (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($maintenanceGuideDefaultPrinciplesItems.Count -eq 0) {
+        throw "维护层总入口未解析到当前默认原则列点：$maintenanceGuidePath"
+    }
+
+    Assert-ExactOrderedValues -SourceValues $maintenanceGuideDefaultPrinciplesItems -ExpectedValues $expectedMaintenanceGuideDefaultPrinciplesItems -Label '维护层总入口当前默认原则摘要序列'
+    return $expectedMaintenanceGuideDefaultPrinciplesItems
+}
+
 function Get-CanonicalTargetLifecycleEntryPaths {
     $targetPlanPath = 'docs/40-执行/12-V4-Target-实施计划.md'
     $targetLifecyclePaths = Get-OrderedUniqueValues -Values @(
@@ -3988,6 +4015,13 @@ catch {
 $canonicalMaintenanceGuideRecommendedOrderItems = @()
 try {
     $canonicalMaintenanceGuideRecommendedOrderItems = Get-CanonicalMaintenanceGuideRecommendedOrderItems
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+$canonicalMaintenanceGuideDefaultPrinciplesItems = @()
+try {
+    $canonicalMaintenanceGuideDefaultPrinciplesItems = Get-CanonicalMaintenanceGuideDefaultPrinciplesItems
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
