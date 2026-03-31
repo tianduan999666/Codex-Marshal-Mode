@@ -835,6 +835,11 @@ $originalGatePackageResolveDocBytes = [System.IO.File]::ReadAllBytes($gatePackag
 $gatePackageResolveConclusionLineText = '当主公已经拍板，且任务需要从 `waiting_gate` 恢复推进时，优先使用当前仓内的拍板结果回写模板，而不是手工分别改四个文件。'
 $gatePackageResolveScenarioLineText = '- `gates.yaml` 中已存在 `pending` 状态的待拍板事项。'
 $gatePackageResolveOutputLineText = '- `state.yaml`：恢复为新的真实状态，并更新 `next_action`'
+$exceptionTemplateDocPath = Join-Path $repoRootPath 'docs/40-执行/18-异常路径与回退模板.md'
+$originalExceptionTemplateDocBytes = [System.IO.File]::ReadAllBytes($exceptionTemplateDocPath)
+$exceptionTemplateConclusionLineText = '当任务不能继续按正常链路推进时，优先使用当前仓内的异常路径与回退模板，而不是只在聊天里说明“先停一下”。'
+$exceptionTemplateScenarioLineText = '- 当前动作失败，需暂停并保留恢复点。'
+$exceptionTemplateOutputLineText = '- `state.yaml`：切换到异常后的真实状态，并更新 `next_action`'
 $configReviewDocPath = Join-Path $repoRootPath 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
 $originalConfigReviewDocBytes = [System.IO.File]::ReadAllBytes($configReviewDocPath)
 $configReviewSummaryLineText = '- `统一落盘复核`：再用本模板把配置来源、版本依据与漂移检查统一落进任务包。'
@@ -1009,6 +1014,18 @@ if ((Get-Content $gatePackageResolveDocPath) -notcontains $gatePackageResolveOut
     throw "测试前置条件不满足：$gatePackageResolveDocPath 中缺少拍板结果回写模板输出结果测试行。"
 }
 
+if ((Get-Content $exceptionTemplateDocPath) -notcontains $exceptionTemplateConclusionLineText) {
+    throw "测试前置条件不满足：$exceptionTemplateDocPath 中缺少异常路径与回退模板一句话结论测试行。"
+}
+
+if ((Get-Content $exceptionTemplateDocPath) -notcontains $exceptionTemplateScenarioLineText) {
+    throw "测试前置条件不满足：$exceptionTemplateDocPath 中缺少异常路径与回退模板适用场景测试行。"
+}
+
+if ((Get-Content $exceptionTemplateDocPath) -notcontains $exceptionTemplateOutputLineText) {
+    throw "测试前置条件不满足：$exceptionTemplateDocPath 中缺少异常路径与回退模板输出结果测试行。"
+}
+
 if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixConclusionLineText) {
     throw "测试前置条件不满足：$maintenanceMatrixPath 中缺少维护层动作矩阵一句话结论测试行。"
 }
@@ -1165,6 +1182,36 @@ try {
 }
 finally {
     [System.IO.File]::WriteAllBytes($gatePackageTemplateDocPath, $originalGatePackageTemplateDocBytes)
+}
+
+try {
+    $driftedExceptionTemplateContent = (Get-Content $exceptionTemplateDocPath -Raw).Replace($exceptionTemplateConclusionLineText, '先在聊天里说一下，再看要不要落模板。')
+    [System.IO.File]::WriteAllText($exceptionTemplateDocPath, $driftedExceptionTemplateContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/18-异常路径与回退模板.md') -ExpectedExitCode 1 -TestName 'block-exception-template-conclusion-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($exceptionTemplateDocPath, $originalExceptionTemplateDocBytes)
+}
+
+try {
+    $driftedExceptionTemplateContent = (Get-Content $exceptionTemplateDocPath -Raw).Replace($exceptionTemplateScenarioLineText, '- 看情况决定是否暂停。')
+    [System.IO.File]::WriteAllText($exceptionTemplateDocPath, $driftedExceptionTemplateContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/18-异常路径与回退模板.md') -ExpectedExitCode 1 -TestName 'block-exception-template-scenario-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($exceptionTemplateDocPath, $originalExceptionTemplateDocBytes)
+}
+
+try {
+    $driftedExceptionTemplateContent = (Get-Content $exceptionTemplateDocPath -Raw).Replace($exceptionTemplateOutputLineText, '- `state.yaml`：之后再看看要不要切状态')
+    [System.IO.File]::WriteAllText($exceptionTemplateDocPath, $driftedExceptionTemplateContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/18-异常路径与回退模板.md') -ExpectedExitCode 1 -TestName 'block-exception-template-output-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($exceptionTemplateDocPath, $originalExceptionTemplateDocBytes)
 }
 
 try {
