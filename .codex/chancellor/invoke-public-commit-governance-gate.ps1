@@ -2095,6 +2095,29 @@ function Get-CanonicalPanelCommandState {
     }
 }
 
+function Get-CanonicalMaintenanceMatrixConclusionLine {
+    $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
+    $expectedMaintenanceMatrixConclusionLine = '先用动作矩阵判断该走哪条维护路径，再按收口检查表完成留痕、导航同步、提交与推送。'
+
+    $sectionContent = Get-FileSectionContent -FilePath $maintenanceMatrixPath -SectionStartMarker '## 一句话结论' -SectionEndMarker '## 维护层动作矩阵'
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "维护层动作矩阵未解析到一句话结论：$maintenanceMatrixPath"
+    }
+
+    $summaryLines = @(
+        ($sectionContent -split "`r?`n") |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -ne '' }
+    )
+    if ($summaryLines.Count -eq 0) {
+        throw "维护层动作矩阵一句话结论为空：$maintenanceMatrixPath"
+    }
+
+    $actualMaintenanceMatrixConclusionLine = $summaryLines[0]
+    Assert-ExactOrderedValues -SourceValues @($actualMaintenanceMatrixConclusionLine) -ExpectedValues @($expectedMaintenanceMatrixConclusionLine) -Label '维护层动作矩阵一句话结论'
+    return $expectedMaintenanceMatrixConclusionLine
+}
+
 function Get-CanonicalMaintenanceEntrySyncState {
     $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
     $expectedMaintenanceEntrySyncItems = @(
@@ -3950,6 +3973,12 @@ catch {
 }
 try {
     [void](Get-CanonicalPanelCommandState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalMaintenanceMatrixConclusionLine)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

@@ -809,6 +809,7 @@ finally {
 
 $maintenanceMatrixPath = Join-Path $repoRootPath 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
 $originalMaintenanceMatrixBytes = [System.IO.File]::ReadAllBytes($maintenanceMatrixPath)
+$maintenanceMatrixConclusionLineText = '先用动作矩阵判断该走哪条维护路径，再按收口检查表完成留痕、导航同步、提交与推送。'
 $maintenanceMatrixSyncSlotLineText = '- `收口要求`：完成同步后，确认 `03-面板入口验收.md` 与 `13-维护层总入口.md` 口径一致，并通过公开提交治理门禁。'
 $maintenanceMatrixDecisionOrderLineText = '- `结束条件`：只有通过收口检查，才算本轮维护层动作结束。'
 $maintenanceMatrixBasicCloseoutLineText = '- `下一步说明`：已经给出下一步建议，并说明是否需要主公拍板。'
@@ -964,6 +965,20 @@ if ((Get-Content $concurrentReportDocPath) -notcontains $concurrentReportDecisio
 
 if ((Get-Content $concurrentReportDocPath) -notcontains $concurrentReportValueLineText) {
     throw "测试前置条件不满足：$concurrentReportDocPath 中缺少 $concurrentReportValueLineText"
+}
+
+if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixConclusionLineText) {
+    throw "测试前置条件不满足：$maintenanceMatrixPath 中缺少维护层动作矩阵一句话结论测试行。"
+}
+
+try {
+    $driftedMaintenanceMatrixContent = (Get-Content $maintenanceMatrixPath -Raw).Replace($maintenanceMatrixConclusionLineText, '先看情况再决定走哪条维护路径。')
+    [System.IO.File]::WriteAllText($maintenanceMatrixPath, $driftedMaintenanceMatrixContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/14-维护层动作矩阵与收口检查表.md') -ExpectedExitCode 1 -TestName 'block-maintenance-matrix-conclusion-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($maintenanceMatrixPath, $originalMaintenanceMatrixBytes)
 }
 
 try {
