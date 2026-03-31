@@ -830,6 +830,11 @@ $originalGatePackageTemplateDocBytes = [System.IO.File]::ReadAllBytes($gatePacka
 $gatePackageTemplateConclusionLineText = '当任务已具备待拍板问题、且 `gates.yaml` 仍为空时，优先使用当前仓内的拍板包半自动模板，而不是手工分别改四个文件。'
 $gatePackageTemplateScenarioLineText = '- `gates.yaml` 仍为 `items: []`。'
 $gatePackageTemplateOutputLineText = '- `state.yaml`：切为 `waiting_gate`'
+$gatePackageResolveDocPath = Join-Path $repoRootPath 'docs/40-执行/17-拍板结果回写模板.md'
+$originalGatePackageResolveDocBytes = [System.IO.File]::ReadAllBytes($gatePackageResolveDocPath)
+$gatePackageResolveConclusionLineText = '当主公已经拍板，且任务需要从 `waiting_gate` 恢复推进时，优先使用当前仓内的拍板结果回写模板，而不是手工分别改四个文件。'
+$gatePackageResolveScenarioLineText = '- `gates.yaml` 中已存在 `pending` 状态的待拍板事项。'
+$gatePackageResolveOutputLineText = '- `state.yaml`：恢复为新的真实状态，并更新 `next_action`'
 $configReviewDocPath = Join-Path $repoRootPath 'docs/40-执行/21-关键配置来源与漂移复核模板.md'
 $originalConfigReviewDocBytes = [System.IO.File]::ReadAllBytes($configReviewDocPath)
 $configReviewSummaryLineText = '- `统一落盘复核`：再用本模板把配置来源、版本依据与漂移检查统一落进任务包。'
@@ -992,6 +997,18 @@ if ((Get-Content $gatePackageTemplateDocPath) -notcontains $gatePackageTemplateO
     throw "测试前置条件不满足：$gatePackageTemplateDocPath 中缺少拍板包半自动模板输出结果测试行。"
 }
 
+if ((Get-Content $gatePackageResolveDocPath) -notcontains $gatePackageResolveConclusionLineText) {
+    throw "测试前置条件不满足：$gatePackageResolveDocPath 中缺少拍板结果回写模板一句话结论测试行。"
+}
+
+if ((Get-Content $gatePackageResolveDocPath) -notcontains $gatePackageResolveScenarioLineText) {
+    throw "测试前置条件不满足：$gatePackageResolveDocPath 中缺少拍板结果回写模板适用场景测试行。"
+}
+
+if ((Get-Content $gatePackageResolveDocPath) -notcontains $gatePackageResolveOutputLineText) {
+    throw "测试前置条件不满足：$gatePackageResolveDocPath 中缺少拍板结果回写模板输出结果测试行。"
+}
+
 if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixConclusionLineText) {
     throw "测试前置条件不满足：$maintenanceMatrixPath 中缺少维护层动作矩阵一句话结论测试行。"
 }
@@ -1148,6 +1165,36 @@ try {
 }
 finally {
     [System.IO.File]::WriteAllBytes($gatePackageTemplateDocPath, $originalGatePackageTemplateDocBytes)
+}
+
+try {
+    $driftedGatePackageResolveContent = (Get-Content $gatePackageResolveDocPath -Raw).Replace($gatePackageResolveConclusionLineText, '先手工回写一圈，再看要不要用模板。')
+    [System.IO.File]::WriteAllText($gatePackageResolveDocPath, $driftedGatePackageResolveContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/17-拍板结果回写模板.md') -ExpectedExitCode 1 -TestName 'block-gate-package-resolve-conclusion-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($gatePackageResolveDocPath, $originalGatePackageResolveDocBytes)
+}
+
+try {
+    $driftedGatePackageResolveContent = (Get-Content $gatePackageResolveDocPath -Raw).Replace($gatePackageResolveScenarioLineText, '- 主公大概有个方向时再说。')
+    [System.IO.File]::WriteAllText($gatePackageResolveDocPath, $driftedGatePackageResolveContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/17-拍板结果回写模板.md') -ExpectedExitCode 1 -TestName 'block-gate-package-resolve-scenario-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($gatePackageResolveDocPath, $originalGatePackageResolveDocBytes)
+}
+
+try {
+    $driftedGatePackageResolveContent = (Get-Content $gatePackageResolveDocPath -Raw).Replace($gatePackageResolveOutputLineText, '- `state.yaml`：之后再看要不要恢复状态')
+    [System.IO.File]::WriteAllText($gatePackageResolveDocPath, $driftedGatePackageResolveContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/17-拍板结果回写模板.md') -ExpectedExitCode 1 -TestName 'block-gate-package-resolve-output-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($gatePackageResolveDocPath, $originalGatePackageResolveDocBytes)
 }
 
 try {

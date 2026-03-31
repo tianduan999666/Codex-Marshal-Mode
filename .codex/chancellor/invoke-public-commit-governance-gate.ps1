@@ -2426,6 +2426,94 @@ function Get-CanonicalGatePackageTemplateOutputState {
     }
 }
 
+function Get-CanonicalGatePackageResolveConclusionLine {
+    $gatePackageResolveDocPath = 'docs/40-执行/17-拍板结果回写模板.md'
+    $expectedGatePackageResolveConclusionLine = '当主公已经拍板，且任务需要从 `waiting_gate` 恢复推进时，优先使用当前仓内的拍板结果回写模板，而不是手工分别改四个文件。'
+
+    $sectionContent = Get-FileSectionContent -FilePath $gatePackageResolveDocPath -SectionStartMarker '## 一句话结论' -SectionEndMarker '## 脚本位置'
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "拍板结果回写模板未解析到一句话结论：$gatePackageResolveDocPath"
+    }
+
+    $summaryLines = @(
+        ($sectionContent -split "`r?`n") |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -ne '' }
+    )
+    if ($summaryLines.Count -eq 0) {
+        throw "拍板结果回写模板一句话结论为空：$gatePackageResolveDocPath"
+    }
+
+    $actualGatePackageResolveConclusionLine = $summaryLines[0]
+    Assert-ExactOrderedValues -SourceValues @($actualGatePackageResolveConclusionLine) -ExpectedValues @($expectedGatePackageResolveConclusionLine) -Label '拍板结果回写模板一句话结论'
+    return $expectedGatePackageResolveConclusionLine
+}
+
+function Get-CanonicalGatePackageResolveScenarioItems {
+    $gatePackageResolveDocPath = 'docs/40-执行/17-拍板结果回写模板.md'
+    $expectedGatePackageResolveScenarioItems = @(
+        '`gates.yaml` 中已存在 `pending` 状态的待拍板事项'
+        '主公已给出明确结论'
+        '需要把任务状态从 `waiting_gate` 恢复到 `running`、`ready`、`paused` 或其他真实状态'
+        '需要把拍板结果沉淀进任务包运行态'
+    )
+
+    $scenarioSection = Get-FileSectionContent -FilePath $gatePackageResolveDocPath -SectionStartMarker '## 适用场景' -SectionEndMarker '## 输入项'
+    if ([string]::IsNullOrWhiteSpace($scenarioSection)) {
+        throw "拍板结果回写模板未解析到适用场景：$gatePackageResolveDocPath"
+    }
+
+    $actualGatePackageResolveScenarioItems = @(
+        [regex]::Matches($scenarioSection, '(?m)^- (.+?)。?\r?$') |
+            ForEach-Object { ($_.Groups[1].Value.Trim() -replace '。$','') }
+    )
+    Assert-ExactOrderedValues -SourceValues $actualGatePackageResolveScenarioItems -ExpectedValues $expectedGatePackageResolveScenarioItems -Label '拍板结果回写模板适用场景'
+    return $expectedGatePackageResolveScenarioItems
+}
+
+function Get-CanonicalGatePackageResolveOutputState {
+    $gatePackageResolveDocPath = 'docs/40-执行/17-拍板结果回写模板.md'
+    $expectedGatePackageResolveOutputItems = @(
+        [pscustomobject]@{ Name = 'gates.yaml'; Description = '把目标 gate 从 `pending` 回写为 `decided` 或 `dropped`' }
+        [pscustomobject]@{ Name = 'state.yaml'; Description = '恢复为新的真实状态，并更新 `next_action`' }
+        [pscustomobject]@{ Name = 'decision-log.md'; Description = '追加回写记录与治理提示' }
+        [pscustomobject]@{ Name = 'result.md'; Description = '追加拍板结果摘要与治理复核骨架' }
+    )
+
+    $outputSection = Get-FileSectionContent -FilePath $gatePackageResolveDocPath -SectionStartMarker '## 输出结果' -SectionEndMarker '## 使用方式'
+    if ([string]::IsNullOrWhiteSpace($outputSection)) {
+        throw "拍板结果回写模板未解析到输出结果：$gatePackageResolveDocPath"
+    }
+
+    $outputRows = @(
+        [regex]::Matches($outputSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value.Trim()
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($outputRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedGatePackageResolveOutputItems | ForEach-Object { $_.Name }) -Label '拍板结果回写模板输出结果序列'
+    foreach ($expectedGatePackageResolveOutputItem in $expectedGatePackageResolveOutputItems) {
+        $matchedOutputRow = @(
+            $outputRows |
+                Where-Object { $_.Name -eq $expectedGatePackageResolveOutputItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedOutputRow) {
+            throw "拍板结果回写模板缺少输出结果项：$($expectedGatePackageResolveOutputItem.Name)"
+        }
+
+        if ($matchedOutputRow.Description -ne $expectedGatePackageResolveOutputItem.Description) {
+            throw "拍板结果回写模板输出结果漂移：$($expectedGatePackageResolveOutputItem.Name) 期望 $($expectedGatePackageResolveOutputItem.Description)，实际 $($matchedOutputRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        GatePackageResolveOutputItems = @($expectedGatePackageResolveOutputItems)
+    }
+}
+
 function Get-CanonicalMaintenanceEntrySyncState {
     $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
     $expectedMaintenanceEntrySyncItems = @(
@@ -4371,6 +4459,24 @@ catch {
 }
 try {
     [void](Get-CanonicalGatePackageTemplateOutputState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGatePackageResolveConclusionLine)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGatePackageResolveScenarioItems)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGatePackageResolveOutputState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
