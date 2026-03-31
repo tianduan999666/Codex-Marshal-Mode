@@ -81,6 +81,7 @@ Write-Info "CxVersion=$($runtimeVersionInfo.cx_version)"
 Write-Info "BackupRoot=$($runtimeInstallRecord.backup_root)"
 Write-Ok '切换验板通过。'
 Write-Info '下一步：打开官方 Codex 面板，新开一个全新会话。'
+Write-Info '一键准备：如想把人工验板准备一步做完，可执行 `start-panel-acceptance.ps1`。'
 Write-Info '简版验板卡：先看 `panel-acceptance-three-step-card.md`；需要打勾记录时看 `panel-acceptance-pass-fail-sheet.md`。'
 Write-Info '结果留痕：人工验板结束后，可执行 `new-panel-acceptance-result.ps1` 生成结果稿，再按 `panel-acceptance-result-template.md` 补齐。'
 Write-Info '完整固定口径：如需逐项复核，再看 `panel-acceptance-checklist.md`。'

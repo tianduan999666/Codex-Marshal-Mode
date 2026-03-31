@@ -44,3 +44,4 @@ Write-Info "Template=$templatePath"
 Write-Ok "已生成人工验板结果稿：$outputPath"
 Write-Info '下一步：打开生成的结果稿，按真实人工验板结果补齐“是 / 否 / 备注 / 最终判定”。'
 Write-Info '若本轮验板未通过，先执行 `verify-cutover.ps1`，仍异常再执行 `rollback-from-backup.ps1`。'
+Write-Output $outputPath
