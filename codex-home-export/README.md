@@ -24,6 +24,7 @@
 - `rollback-from-backup.ps1`
 - `verify-cutover.ps1`
 - `panel-acceptance-checklist.md`
+- `panel-acceptance-three-step-card.md`
 
 ## 当前未落文件
 
@@ -35,7 +36,8 @@
 1. 先执行 `install-to-home.ps1` 完成最小骨架同步
 2. 再执行 `verify-cutover.ps1` 完成自动验板
 3. 若异常则执行 `rollback-from-backup.ps1` 回退
-4. 最后按 `panel-acceptance-checklist.md` 做面板人工验板
+4. 需要傻瓜版入口时，先看 `panel-acceptance-three-step-card.md`
+5. 最后按 `panel-acceptance-checklist.md` 做完整面板人工验板
 
 ## 说明
 

@@ -10,7 +10,8 @@
     "install-to-home.ps1",
     "rollback-from-backup.ps1",
     "verify-cutover.ps1",
-    "panel-acceptance-checklist.md"
+    "panel-acceptance-checklist.md",
+    "panel-acceptance-three-step-card.md"
   ],
   "excluded": [
     "auth.json",
