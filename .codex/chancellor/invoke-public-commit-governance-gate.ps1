@@ -2338,6 +2338,94 @@ function Get-CanonicalGatePackageMinimumCompositionState {
         GatePackageMinimumCompositionItems = @($expectedGatePackageMinimumCompositionItems)
     }
 }
+function Get-CanonicalGatePackageTemplateConclusionLine {
+    $gatePackageTemplateDocPath = 'docs/40-执行/16-拍板包半自动模板.md'
+    $expectedGatePackageTemplateConclusionLine = '当任务已具备待拍板问题、且 `gates.yaml` 仍为空时，优先使用当前仓内的拍板包半自动模板，而不是手工分别改四个文件。'
+
+    $sectionContent = Get-FileSectionContent -FilePath $gatePackageTemplateDocPath -SectionStartMarker '## 一句话结论' -SectionEndMarker '## 脚本位置'
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "拍板包半自动模板未解析到一句话结论：$gatePackageTemplateDocPath"
+    }
+
+    $summaryLines = @(
+        ($sectionContent -split "`r?`n") |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -ne '' }
+    )
+    if ($summaryLines.Count -eq 0) {
+        throw "拍板包半自动模板一句话结论为空：$gatePackageTemplateDocPath"
+    }
+
+    $actualGatePackageTemplateConclusionLine = $summaryLines[0]
+    Assert-ExactOrderedValues -SourceValues @($actualGatePackageTemplateConclusionLine) -ExpectedValues @($expectedGatePackageTemplateConclusionLine) -Label '拍板包半自动模板一句话结论'
+    return $expectedGatePackageTemplateConclusionLine
+}
+
+function Get-CanonicalGatePackageTemplateScenarioItems {
+    $gatePackageTemplateDocPath = 'docs/40-执行/16-拍板包半自动模板.md'
+    $expectedGatePackageTemplateScenarioItems = @(
+        '已存在标准任务包 5 件套'
+        '当前需要准备首个待拍板事项'
+        '`gates.yaml` 仍为 `items: []`'
+        '需要把任务状态切到 `waiting_gate`，并补齐拍板留痕'
+    )
+
+    $scenarioSection = Get-FileSectionContent -FilePath $gatePackageTemplateDocPath -SectionStartMarker '## 适用场景' -SectionEndMarker '## 输入项'
+    if ([string]::IsNullOrWhiteSpace($scenarioSection)) {
+        throw "拍板包半自动模板未解析到适用场景：$gatePackageTemplateDocPath"
+    }
+
+    $actualGatePackageTemplateScenarioItems = @(
+        [regex]::Matches($scenarioSection, '(?m)^- (.+?)。?\r?$') |
+            ForEach-Object { ($_.Groups[1].Value.Trim() -replace '。$','') }
+    )
+    Assert-ExactOrderedValues -SourceValues $actualGatePackageTemplateScenarioItems -ExpectedValues $expectedGatePackageTemplateScenarioItems -Label '拍板包半自动模板适用场景'
+    return $expectedGatePackageTemplateScenarioItems
+}
+
+function Get-CanonicalGatePackageTemplateOutputState {
+    $gatePackageTemplateDocPath = 'docs/40-执行/16-拍板包半自动模板.md'
+    $expectedGatePackageTemplateOutputItems = @(
+        [pscustomobject]@{ Name = 'gates.yaml'; Description = '生成首个待拍板事项' }
+        [pscustomobject]@{ Name = 'state.yaml'; Description = '切为 `waiting_gate`' }
+        [pscustomobject]@{ Name = 'decision-log.md'; Description = '追加进入拍板的决策记录与治理提示' }
+        [pscustomobject]@{ Name = 'result.md'; Description = '追加待拍板事项摘要与治理复核骨架' }
+    )
+
+    $outputSection = Get-FileSectionContent -FilePath $gatePackageTemplateDocPath -SectionStartMarker '## 输出结果' -SectionEndMarker '## 使用方式'
+    if ([string]::IsNullOrWhiteSpace($outputSection)) {
+        throw "拍板包半自动模板未解析到输出结果：$gatePackageTemplateDocPath"
+    }
+
+    $outputRows = @(
+        [regex]::Matches($outputSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value.Trim()
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($outputRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedGatePackageTemplateOutputItems | ForEach-Object { $_.Name }) -Label '拍板包半自动模板输出结果序列'
+    foreach ($expectedGatePackageTemplateOutputItem in $expectedGatePackageTemplateOutputItems) {
+        $matchedOutputRow = @(
+            $outputRows |
+                Where-Object { $_.Name -eq $expectedGatePackageTemplateOutputItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedOutputRow) {
+            throw "拍板包半自动模板缺少输出结果项：$($expectedGatePackageTemplateOutputItem.Name)"
+        }
+
+        if ($matchedOutputRow.Description -ne $expectedGatePackageTemplateOutputItem.Description) {
+            throw "拍板包半自动模板输出结果漂移：$($expectedGatePackageTemplateOutputItem.Name) 期望 $($expectedGatePackageTemplateOutputItem.Description)，实际 $($matchedOutputRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        GatePackageTemplateOutputItems = @($expectedGatePackageTemplateOutputItems)
+    }
+}
+
 function Get-CanonicalMaintenanceEntrySyncState {
     $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
     $expectedMaintenanceEntrySyncItems = @(
@@ -4265,6 +4353,24 @@ catch {
 }
 try {
     [void](Get-CanonicalGatePackageMinimumCompositionState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGatePackageTemplateConclusionLine)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGatePackageTemplateScenarioItems)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGatePackageTemplateOutputState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
