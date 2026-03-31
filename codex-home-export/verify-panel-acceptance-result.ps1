@@ -14,6 +14,10 @@ function Write-Ok([string]$Message) {
     Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
+function Write-WarnLine([string]$Message) {
+    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+}
+
 if (-not (Test-Path $resolvedResultPath)) {
     throw "结果稿不存在：$resolvedResultPath"
 }
@@ -21,7 +25,7 @@ if (-not (Test-Path $resolvedResultPath)) {
 $content = [System.IO.File]::ReadAllText($resolvedResultPath)
 
 function Get-BulletValue([string]$Label) {
-    $pattern = '(?m)^- ' + [regex]::Escape($Label) + '：\s*(.*)$'
+    $pattern = '(?m)^- ' + [regex]::Escape($Label) + '：[ \t]*(.*)$'
     $match = [regex]::Match($content, $pattern)
     if (-not $match.Success) {
         throw "结果稿缺少字段：$Label"
@@ -104,4 +108,27 @@ if ($finalResult -eq '不通过' -and [string]::IsNullOrWhiteSpace($minimumGap))
 Write-Info "ResultPath=$resolvedResultPath"
 Write-Info "Executor=$executor"
 Write-Info "AutoVerify=$autoVerifyResult"
-Write-Ok "人工验板结果复核通过：$finalResult"
+Write-Info "FinalResult=$finalResult"
+Write-Info "NeedRollback=$needRollback"
+Write-Info "NeedFollowup=$needFollowup"
+if (-not [string]::IsNullOrWhiteSpace($minimumGap)) {
+    Write-Info "MinimumGap=$minimumGap"
+}
+Write-Info "NextAction=$nextAction"
+
+if ($finalResult -eq '通过') {
+    Write-Ok '结果稿格式复核通过，人工验板结论为：通过'
+    Write-Ok '收口提示：本结果稿已可作为人工验板证据之一。'
+    Write-Info '建议下一步：进入维护层，运行 `audit-local-task-status.ps1`，再统一收口剩余非终态任务。'
+}
+else {
+    Write-Ok '结果稿格式复核通过，人工验板结论为：不通过'
+    Write-WarnLine '收口提示：当前不能按通过态收口，请先按结果稿里的最小缺口补刀。'
+
+    if ($needRollback -eq '是') {
+        Write-WarnLine '建议动作：先执行 `verify-cutover.ps1`，仍异常再执行 `rollback-from-backup.ps1`。'
+    }
+    else {
+        Write-Info '建议动作：先补最小缺口，再重新执行一次人工验板。'
+    }
+}
