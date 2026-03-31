@@ -488,6 +488,27 @@ function Get-CodeBlockContentFromSection {
     return $codeBlockMatch.Groups['body'].Value
 }
 
+function ConvertFrom-MarkdownTableLine {
+    param(
+        [string]$LineText,
+        [string]$Label = 'Markdown 表格行'
+    )
+
+    $normalizedLineText = $LineText.Trim()
+    if ([string]::IsNullOrWhiteSpace($normalizedLineText)) {
+        throw "$Label 为空。"
+    }
+
+    if ((-not $normalizedLineText.StartsWith('|')) -or (-not $normalizedLineText.EndsWith('|'))) {
+        throw "$Label 不是合法的 Markdown 表格行：$normalizedLineText"
+    }
+
+    return @(
+        ($normalizedLineText.Substring(1, $normalizedLineText.Length - 2) -split '\|') |
+            ForEach-Object { $_.Trim() }
+    )
+}
+
 function Get-ApprovedTopLevelEntriesFromLockList {
     $lockListPath = 'docs/30-方案/02-V4-目录锁定清单.md'
     $approvedDirectoryBlock = Get-CodeBlockContentFromSection -FilePath $lockListPath -SectionStartMarker '## 顶层批准目录' -SectionEndMarker '## 顶层批准文件'
@@ -2116,6 +2137,118 @@ function Get-CanonicalMaintenanceMatrixConclusionLine {
     $actualMaintenanceMatrixConclusionLine = $summaryLines[0]
     Assert-ExactOrderedValues -SourceValues @($actualMaintenanceMatrixConclusionLine) -ExpectedValues @($expectedMaintenanceMatrixConclusionLine) -Label '维护层动作矩阵一句话结论'
     return $expectedMaintenanceMatrixConclusionLine
+}
+
+function Get-CanonicalMaintenanceMatrixRows {
+    $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
+    $expectedMaintenanceMatrixHeaders = @(
+        '动作类型'
+        '什么时候用'
+        '主入口'
+        '最低产出'
+        '公开仓边界'
+        '风险级别'
+    )
+    $expectedMaintenanceMatrixRows = @(
+        [pscustomobject]@{ ActionType = '本地安全提交'; WhenToUse = '有公开安全改动需要进入远端时'; PrimaryEntry = '`docs/40-执行/10-本地安全提交流程.md`'; MinimumOutput = '一次串行 `add`/`commit`/`pull --rebase`/`push`'; PublicBoundary = '只提交公开安全文件；禁止带上 `.codex/`、`logs/`'; RiskLevel = '低' }
+        [pscustomobject]@{ ActionType = '任务包半自动起包'; WhenToUse = '需要开始一条新任务并保留本地运行态时'; PrimaryEntry = '`docs/40-执行/11-任务包半自动起包.md`'; MinimumOutput = '任务包 5 件套骨架 + 收口提示'; PublicBoundary = '任务包运行态留在本地；不进入公开仓'; RiskLevel = '低' }
+        [pscustomobject]@{ ActionType = '执行区证据稿归档'; WhenToUse = '执行区出现失去现行职责的时间戳稿时'; PrimaryEntry = '`docs/90-归档/01-执行区证据稿归档规则.md`'; MinimumOutput = '归档结果 + 入口同步'; PublicBoundary = '归档文档可公开；过程运行态仍不公开'; RiskLevel = '低' }
+        [pscustomobject]@{ ActionType = '维护入口同步'; WhenToUse = '新增或变更维护标准件，可能影响入口口径时'; PrimaryEntry = '`docs/40-执行/13-维护层总入口.md`'; MinimumOutput = '首页、总览、执行区索引同步'; PublicBoundary = '只公开标准件与导航；不公开本地日志'; RiskLevel = '低' }
+        [pscustomobject]@{ ActionType = '人工拍板包准备'; WhenToUse = '需要主公判断边界、风险或方案取舍时'; PrimaryEntry = '`docs/40-执行/15-拍板包准备与收口规范.md`'; MinimumOutput = '结论、选项、影响、建议'; PublicBoundary = '拍板材料可公开；敏感运行态不公开'; RiskLevel = '中' }
+        [pscustomobject]@{ ActionType = '拍板包半自动模板'; WhenToUse = '需要从空的 `gates.yaml` 快速生成首个待拍板事项时'; PrimaryEntry = '`docs/40-执行/16-拍板包半自动模板.md`'; MinimumOutput = '首个 gate 项 + 状态同步 + 结果留痕'; PublicBoundary = '真实任务运行态继续只留本地；公开仓只放脚本与说明'; RiskLevel = '低' }
+        [pscustomobject]@{ ActionType = '拍板结果回写模板'; WhenToUse = '主公已拍板，需要把结果回写并恢复推进时'; PrimaryEntry = '`docs/40-执行/17-拍板结果回写模板.md`'; MinimumOutput = 'gate 回写 + 状态恢复 + 决策留痕'; PublicBoundary = '真实任务运行态继续只留本地；公开仓只放脚本与说明'; RiskLevel = '低' }
+        [pscustomobject]@{ ActionType = '异常路径与回退模板'; WhenToUse = '当前链路失败、阻塞或需要回退时'; PrimaryEntry = '`docs/40-执行/18-异常路径与回退模板.md`'; MinimumOutput = '异常状态切换 + 回退说明 + 恢复提示'; PublicBoundary = '真实任务运行态继续只留本地；公开仓只放脚本与说明'; RiskLevel = '低' }
+        [pscustomobject]@{ ActionType = '多 gate 与多异常并存处理规则'; WhenToUse = '需要在多个待处理事项之间裁决主状态时'; PrimaryEntry = '`docs/40-执行/19-多 gate 与多异常并存处理规则.md`'; MinimumOutput = '主阻塞裁决 + 次要事项保留 + 汇报顺序'; PublicBoundary = '真实任务运行态继续只留本地；公开仓只放规则与说明'; RiskLevel = '低' }
+        [pscustomobject]@{ ActionType = '复杂并存汇报骨架模板'; WhenToUse = '已选主状态，需要把复杂裁决结果快速落进任务包时'; PrimaryEntry = '`docs/40-执行/20-复杂并存汇报骨架模板.md`'; MinimumOutput = '`result.md` / `decision-log.md` 骨架 + 可选状态同步'; PublicBoundary = '真实任务运行态继续只留本地；公开仓只放脚本与说明'; RiskLevel = '低' }
+        [pscustomobject]@{ ActionType = '治理审计复核'; WhenToUse = '当前轮变更现行标准件、公开口径、拍板/异常/复杂裁决，或准备推送公开改动时'; PrimaryEntry = '`docs/30-方案/08-V4-治理审计候选规范.md`'; MinimumOutput = '来源说明 + 决策依据 + 漂移检查 + 公开边界复核'; PublicBoundary = '只公开规则与结果；不公开本地运行态与隐私文件'; RiskLevel = '低' }
+        [pscustomobject]@{ ActionType = '关键配置来源与漂移复核'; WhenToUse = '需要把当前关键配置来源、版本依据与漂移检查写入任务包时'; PrimaryEntry = '`docs/40-执行/21-关键配置来源与漂移复核模板.md`'; MinimumOutput = '`result.md` / `decision-log.md` 复核骨架'; PublicBoundary = '真实任务运行态继续只留本地；公开仓只放脚本与说明'; RiskLevel = '低' }
+    )
+
+    $maintenanceMatrixSection = Get-FileSectionContent -FilePath $maintenanceMatrixPath -SectionStartMarker '## 维护层动作矩阵' -SectionEndMarker '## 维护入口同步固定槽位'
+    if ([string]::IsNullOrWhiteSpace($maintenanceMatrixSection)) {
+        throw "维护层动作矩阵未解析到动作矩阵表格：$maintenanceMatrixPath"
+    }
+
+    $maintenanceMatrixTableLines = @(
+        ($maintenanceMatrixSection -split "`r?`n") |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -like '|*|' }
+    )
+    if ($maintenanceMatrixTableLines.Count -lt 3) {
+        throw "维护层动作矩阵表格行数不足：$maintenanceMatrixPath"
+    }
+
+    $actualMaintenanceMatrixHeaders = ConvertFrom-MarkdownTableLine -LineText $maintenanceMatrixTableLines[0] -Label '维护层动作矩阵表头'
+    if ($actualMaintenanceMatrixHeaders.Count -ne $expectedMaintenanceMatrixHeaders.Count) {
+        throw "维护层动作矩阵表头列数漂移：期望 $($expectedMaintenanceMatrixHeaders.Count) 列，实际 $($actualMaintenanceMatrixHeaders.Count) 列"
+    }
+    Assert-ExactOrderedValues -SourceValues $actualMaintenanceMatrixHeaders -ExpectedValues $expectedMaintenanceMatrixHeaders -Label '维护层动作矩阵表头'
+
+    $expectedSeparatorCells = @('---', '---', '---', '---', '---', '---')
+    $actualSeparatorCells = ConvertFrom-MarkdownTableLine -LineText $maintenanceMatrixTableLines[1] -Label '维护层动作矩阵分隔行'
+    if ($actualSeparatorCells.Count -ne $expectedSeparatorCells.Count) {
+        throw "维护层动作矩阵分隔行列数漂移：期望 $($expectedSeparatorCells.Count) 列，实际 $($actualSeparatorCells.Count) 列"
+    }
+
+    for ($separatorIndex = 0; $separatorIndex -lt $expectedSeparatorCells.Count; $separatorIndex++) {
+        if ($actualSeparatorCells[$separatorIndex] -ne $expectedSeparatorCells[$separatorIndex]) {
+            throw "维护层动作矩阵分隔行漂移：第 $($separatorIndex + 1) 列期望 $($expectedSeparatorCells[$separatorIndex])，实际 $($actualSeparatorCells[$separatorIndex])"
+        }
+    }
+
+    $actualMaintenanceMatrixRows = @(
+        $maintenanceMatrixTableLines |
+            Select-Object -Skip 2 |
+            ForEach-Object {
+                $actualRowCells = ConvertFrom-MarkdownTableLine -LineText $_ -Label '维护层动作矩阵数据行'
+                if ($actualRowCells.Count -ne 6) {
+                    throw "维护层动作矩阵数据行列数漂移：$_"
+                }
+
+                [pscustomobject]@{
+                    ActionType = $actualRowCells[0]
+                    WhenToUse = $actualRowCells[1]
+                    PrimaryEntry = $actualRowCells[2]
+                    MinimumOutput = $actualRowCells[3]
+                    PublicBoundary = $actualRowCells[4]
+                    RiskLevel = $actualRowCells[5]
+                }
+            }
+    )
+    if ($actualMaintenanceMatrixRows.Count -ne $expectedMaintenanceMatrixRows.Count) {
+        throw "维护层动作矩阵数据行数量漂移：期望 $($expectedMaintenanceMatrixRows.Count) 行，实际 $($actualMaintenanceMatrixRows.Count) 行"
+    }
+
+    Assert-ExactOrderedValues -SourceValues @($actualMaintenanceMatrixRows | ForEach-Object { $_.ActionType }) -ExpectedValues @($expectedMaintenanceMatrixRows | ForEach-Object { $_.ActionType }) -Label '维护层动作矩阵动作类型序列'
+
+    $maintenanceMatrixColumnLabels = @{
+        WhenToUse = '什么时候用'
+        PrimaryEntry = '主入口'
+        MinimumOutput = '最低产出'
+        PublicBoundary = '公开仓边界'
+        RiskLevel = '风险级别'
+    }
+
+    foreach ($expectedMaintenanceMatrixRow in $expectedMaintenanceMatrixRows) {
+        $matchedMaintenanceMatrixRow = @(
+            $actualMaintenanceMatrixRows |
+                Where-Object { $_.ActionType -eq $expectedMaintenanceMatrixRow.ActionType }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedMaintenanceMatrixRow) {
+            throw "维护层动作矩阵缺少动作类型：$($expectedMaintenanceMatrixRow.ActionType)"
+        }
+
+        foreach ($maintenanceMatrixColumnName in $maintenanceMatrixColumnLabels.Keys) {
+            if ($matchedMaintenanceMatrixRow.$maintenanceMatrixColumnName -ne $expectedMaintenanceMatrixRow.$maintenanceMatrixColumnName) {
+                throw "维护层动作矩阵行漂移：$($expectedMaintenanceMatrixRow.ActionType) 的 $($maintenanceMatrixColumnLabels[$maintenanceMatrixColumnName]) 期望 $($expectedMaintenanceMatrixRow.$maintenanceMatrixColumnName)，实际 $($matchedMaintenanceMatrixRow.$maintenanceMatrixColumnName)"
+            }
+        }
+    }
+
+    return [pscustomobject]@{
+        MaintenanceMatrixHeaders = @($expectedMaintenanceMatrixHeaders)
+        MaintenanceMatrixRows = @($expectedMaintenanceMatrixRows)
+    }
 }
 
 function Get-CanonicalMaintenanceEntrySyncState {
@@ -3979,6 +4112,12 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceMatrixConclusionLine)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalMaintenanceMatrixRows)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)

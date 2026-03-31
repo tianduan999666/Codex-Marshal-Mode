@@ -810,6 +810,9 @@ finally {
 $maintenanceMatrixPath = Join-Path $repoRootPath 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
 $originalMaintenanceMatrixBytes = [System.IO.File]::ReadAllBytes($maintenanceMatrixPath)
 $maintenanceMatrixConclusionLineText = '先用动作矩阵判断该走哪条维护路径，再按收口检查表完成留痕、导航同步、提交与推送。'
+$maintenanceMatrixHeaderLineText = '| 动作类型 | 什么时候用 | 主入口 | 最低产出 | 公开仓边界 | 风险级别 |'
+$maintenanceMatrixLocalSafeCommitRowLineText = '| 本地安全提交 | 有公开安全改动需要进入远端时 | `docs/40-执行/10-本地安全提交流程.md` | 一次串行 `add`/`commit`/`pull --rebase`/`push` | 只提交公开安全文件；禁止带上 `.codex/`、`logs/` | 低 |'
+$maintenanceMatrixTaskPackSemiAutoRowLineText = '| 任务包半自动起包 | 需要开始一条新任务并保留本地运行态时 | `docs/40-执行/11-任务包半自动起包.md` | 任务包 5 件套骨架 + 收口提示 | 任务包运行态留在本地；不进入公开仓 | 低 |'
 $maintenanceMatrixSyncSlotLineText = '- `收口要求`：完成同步后，确认 `03-面板入口验收.md` 与 `13-维护层总入口.md` 口径一致，并通过公开提交治理门禁。'
 $maintenanceMatrixDecisionOrderLineText = '- `结束条件`：只有通过收口检查，才算本轮维护层动作结束。'
 $maintenanceMatrixBasicCloseoutLineText = '- `下一步说明`：已经给出下一步建议，并说明是否需要主公拍板。'
@@ -971,11 +974,43 @@ if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixConclusi
     throw "测试前置条件不满足：$maintenanceMatrixPath 中缺少维护层动作矩阵一句话结论测试行。"
 }
 
+if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixHeaderLineText) {
+    throw "测试前置条件不满足：$maintenanceMatrixPath 中缺少维护层动作矩阵表头测试行。"
+}
+
+if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixLocalSafeCommitRowLineText) {
+    throw "测试前置条件不满足：$maintenanceMatrixPath 中缺少维护层动作矩阵首行测试行。"
+}
+
+if ((Get-Content $maintenanceMatrixPath) -notcontains $maintenanceMatrixTaskPackSemiAutoRowLineText) {
+    throw "测试前置条件不满足：$maintenanceMatrixPath 中缺少维护层动作矩阵第二行测试行。"
+}
+
 try {
     $driftedMaintenanceMatrixContent = (Get-Content $maintenanceMatrixPath -Raw).Replace($maintenanceMatrixConclusionLineText, '先看情况再决定走哪条维护路径。')
     [System.IO.File]::WriteAllText($maintenanceMatrixPath, $driftedMaintenanceMatrixContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/14-维护层动作矩阵与收口检查表.md') -ExpectedExitCode 1 -TestName 'block-maintenance-matrix-conclusion-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($maintenanceMatrixPath, $originalMaintenanceMatrixBytes)
+}
+
+try {
+    $driftedMaintenanceMatrixContent = (Get-Content $maintenanceMatrixPath -Raw).Replace($maintenanceMatrixLocalSafeCommitRowLineText, '| 本地安全提交 | 有公开安全改动需要进入远端时 | `docs/40-执行/10-本地安全提交流程.md` | 一次串行 `add`/`commit`/`pull --rebase`/`push` | 只提交公开安全文件；禁止带上 `.codex/`、`logs/` | 中 |')
+    [System.IO.File]::WriteAllText($maintenanceMatrixPath, $driftedMaintenanceMatrixContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/14-维护层动作矩阵与收口检查表.md') -ExpectedExitCode 1 -TestName 'block-maintenance-matrix-table-risk-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($maintenanceMatrixPath, $originalMaintenanceMatrixBytes)
+}
+
+try {
+    $driftedMaintenanceMatrixContent = (Get-Content $maintenanceMatrixPath -Raw).Replace($maintenanceMatrixLocalSafeCommitRowLineText, '__MAINTENANCE_MATRIX_SWAP_PLACEHOLDER__').Replace($maintenanceMatrixTaskPackSemiAutoRowLineText, $maintenanceMatrixLocalSafeCommitRowLineText).Replace('__MAINTENANCE_MATRIX_SWAP_PLACEHOLDER__', $maintenanceMatrixTaskPackSemiAutoRowLineText)
+    [System.IO.File]::WriteAllText($maintenanceMatrixPath, $driftedMaintenanceMatrixContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/14-维护层动作矩阵与收口检查表.md') -ExpectedExitCode 1 -TestName 'block-maintenance-matrix-table-order-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($maintenanceMatrixPath, $originalMaintenanceMatrixBytes)
