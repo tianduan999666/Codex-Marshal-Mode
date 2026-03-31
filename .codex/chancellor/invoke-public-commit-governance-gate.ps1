@@ -2251,6 +2251,93 @@ function Get-CanonicalMaintenanceMatrixRows {
     }
 }
 
+function Get-CanonicalGatePackageConclusionLine {
+    $gatePackageDocPath = 'docs/40-执行/15-拍板包准备与收口规范.md'
+    $expectedGatePackageConclusionLine = '当任务进入 `waiting_gate` 或存在 `must_gate` 事项时，应先形成标准拍板包，再向主公汇报，不直接把半成品判断抛给主公。'
+
+    $sectionContent = Get-FileSectionContent -FilePath $gatePackageDocPath -SectionStartMarker '## 一句话结论' -SectionEndMarker '## 什么时候必须准备拍板包'
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "拍板包准备与收口规范未解析到一句话结论：$gatePackageDocPath"
+    }
+
+    $summaryLines = @(
+        ($sectionContent -split "`r?`n") |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -ne '' }
+    )
+    if ($summaryLines.Count -eq 0) {
+        throw "拍板包准备与收口规范一句话结论为空：$gatePackageDocPath"
+    }
+
+    $actualGatePackageConclusionLine = $summaryLines[0]
+    Assert-ExactOrderedValues -SourceValues @($actualGatePackageConclusionLine) -ExpectedValues @($expectedGatePackageConclusionLine) -Label '拍板包准备与收口规范一句话结论'
+    return $expectedGatePackageConclusionLine
+}
+
+function Get-CanonicalGatePackageTriggerItems {
+    $gatePackageDocPath = 'docs/40-执行/15-拍板包准备与收口规范.md'
+    $expectedGatePackageTriggerItems = @(
+        '`contract.yaml` 中 `must_gate` 不为空'
+        '`gates.yaml` 中存在待处理事项'
+        '任务已进入 `waiting_gate`'
+        '当前动作会突破边界、改变风险等级、改动现行口径或需要方案取舍'
+    )
+
+    $triggerSection = Get-FileSectionContent -FilePath $gatePackageDocPath -SectionStartMarker '## 什么时候必须准备拍板包' -SectionEndMarker '## 拍板包最低组成'
+    if ([string]::IsNullOrWhiteSpace($triggerSection)) {
+        throw "拍板包准备与收口规范未解析到必须准备拍板包区块：$gatePackageDocPath"
+    }
+
+    $actualGatePackageTriggerItems = @(
+        [regex]::Matches($triggerSection, '(?m)^- (.+?)。?\r?$') |
+            ForEach-Object { ($_.Groups[1].Value.Trim() -replace '。$','') }
+    )
+    Assert-ExactOrderedValues -SourceValues $actualGatePackageTriggerItems -ExpectedValues $expectedGatePackageTriggerItems -Label '拍板包准备与收口规范必须准备条件'
+    return $expectedGatePackageTriggerItems
+}
+
+function Get-CanonicalGatePackageMinimumCompositionState {
+    $gatePackageDocPath = 'docs/40-执行/15-拍板包准备与收口规范.md'
+    $expectedGatePackageMinimumCompositionItems = @(
+        [pscustomobject]@{ Name = '结论'; Description = '一句话说明这次要拍什么' }
+        [pscustomobject]@{ Name = '选项'; Description = '给出可执行选项，数量控制在 2 到 3 个' }
+        [pscustomobject]@{ Name = '影响'; Description = '分别说明每个选项的收益、成本、风险与后续影响' }
+        [pscustomobject]@{ Name = '建议'; Description = '明确推荐项，并说明推荐理由' }
+    )
+
+    $minimumCompositionSection = Get-FileSectionContent -FilePath $gatePackageDocPath -SectionStartMarker '## 拍板包最低组成' -SectionEndMarker '## `gates.yaml` 推荐结构'
+    if ([string]::IsNullOrWhiteSpace($minimumCompositionSection)) {
+        throw "拍板包准备与收口规范未解析到拍板包最低组成：$gatePackageDocPath"
+    }
+
+    $minimumCompositionRows = @(
+        [regex]::Matches($minimumCompositionSection, '(?m)^\d+\. ([^：]+)：(.+?)。?\r?$') |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Name = $_.Groups[1].Value.Trim()
+                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
+                }
+            }
+    )
+    Assert-ExactOrderedValues -SourceValues @($minimumCompositionRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedGatePackageMinimumCompositionItems | ForEach-Object { $_.Name }) -Label '拍板包准备与收口规范最低组成序列'
+    foreach ($expectedGatePackageMinimumCompositionItem in $expectedGatePackageMinimumCompositionItems) {
+        $matchedMinimumCompositionRow = @(
+            $minimumCompositionRows |
+                Where-Object { $_.Name -eq $expectedGatePackageMinimumCompositionItem.Name }
+        ) | Select-Object -First 1
+        if ($null -eq $matchedMinimumCompositionRow) {
+            throw "拍板包准备与收口规范缺少最低组成项：$($expectedGatePackageMinimumCompositionItem.Name)"
+        }
+
+        if ($matchedMinimumCompositionRow.Description -ne $expectedGatePackageMinimumCompositionItem.Description) {
+            throw "拍板包准备与收口规范最低组成漂移：$($expectedGatePackageMinimumCompositionItem.Name) 期望 $($expectedGatePackageMinimumCompositionItem.Description)，实际 $($matchedMinimumCompositionRow.Description)"
+        }
+    }
+
+    return [pscustomobject]@{
+        GatePackageMinimumCompositionItems = @($expectedGatePackageMinimumCompositionItems)
+    }
+}
 function Get-CanonicalMaintenanceEntrySyncState {
     $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
     $expectedMaintenanceEntrySyncItems = @(
@@ -4160,6 +4247,24 @@ catch {
 }
 try {
     [void](Get-CanonicalMaintenanceValueState)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGatePackageConclusionLine)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGatePackageTriggerItems)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalGatePackageMinimumCompositionState)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
