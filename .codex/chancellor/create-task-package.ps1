@@ -9,6 +9,8 @@ param(
     [string]$PlanningHint = 'optional',
     [string]$PlanStep = '按真实情况填写当前最小推进步',
     [string]$VerifySignal = '按真实情况填写当前验证信号',
+    [ValidateSet('drafting', 'running')]
+    [string]$InitialStatus = 'drafting',
     [ValidateSet('low', 'medium', 'high', 'critical')]
     [string]$RiskLevel = 'low',
     [bool]$SetActiveTask = $true
@@ -60,7 +62,7 @@ planning_hint: >-
 "@
 $stateYamlText = @"
 task_id: $TaskId
-status: drafting
+status: $InitialStatus
 risk_level: $RiskLevel
 next_action: $PlanStep
 blocked_by: []

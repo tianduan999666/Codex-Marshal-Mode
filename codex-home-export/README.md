@@ -21,6 +21,7 @@
 - `VERSION.json`
 - `manifest.json`
 - `install-to-home.ps1`
+- `new-task.ps1`
 - `rollback-from-backup.ps1`
 - `verify-cutover.ps1`
 - `start-panel-acceptance.ps1`
@@ -48,6 +49,7 @@
 8. 结果细节按 `panel-acceptance-result-template.md` 留痕
 9. 补齐结果稿后，可执行 `verify-panel-acceptance-result.ps1 -ResultPath <结果稿>` 做结果复核，并直接查看脚本输出的收口提示
 10. 最后按 `panel-acceptance-checklist.md` 做完整面板人工验板
+11. 若需要一条命令创建新任务，可执行 `new-task.ps1 -Title "任务标题"`；这是维护层动作，建完后立即回到官方 Codex 面板继续
 
 ## 说明
 
