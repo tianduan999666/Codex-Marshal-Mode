@@ -204,6 +204,33 @@ function Get-CanonicalExecStandardGuideConclusionLine {
     return $expectedExecStandardGuideConclusionLine
 }
 
+function Get-CanonicalExecStandardGuideEvidenceDraftItems {
+    $execStandardGuidePath = 'docs/40-执行/04-执行区现行件与证据稿说明.md'
+    $expectedExecStandardGuideEvidenceDraftItems = @(
+        '带时间戳的执行文档'
+        '某轮推进中的提炼稿、冻结稿、过程说明稿'
+        '仅用于还原当时判断过程的阶段性文档'
+    )
+
+    $sectionContent = Get-FileSectionContent -FilePath $execStandardGuidePath -SectionStartMarker '## 证据稿与过程稿' -SectionEndMarker '## 使用顺序'
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "执行区现行件说明未解析到证据稿与过程稿：$execStandardGuidePath"
+    }
+
+    $evidenceDraftItems = @(
+        [regex]::Matches($sectionContent, '(?m)^- (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($evidenceDraftItems.Count -eq 0) {
+        throw "执行区现行件说明未解析到证据稿与过程稿列点：$execStandardGuidePath"
+    }
+
+    Assert-ExactOrderedValues -SourceValues $evidenceDraftItems -ExpectedValues $expectedExecStandardGuideEvidenceDraftItems -Label '执行区现行件说明证据稿与过程稿摘要序列'
+    return $expectedExecStandardGuideEvidenceDraftItems
+}
+
 function Get-CanonicalExecStandardGuideUsageOrderItems {
     $execStandardGuidePath = 'docs/40-执行/04-执行区现行件与证据稿说明.md'
     $expectedExecStandardGuideUsageOrderItems = @(
@@ -4452,6 +4479,13 @@ catch {
 $canonicalExecStandardGuideConclusionLine = ''
 try {
     $canonicalExecStandardGuideConclusionLine = Get-CanonicalExecStandardGuideConclusionLine
+}
+catch {
+    $violationMessages.Add($_.Exception.Message)
+}
+$canonicalExecStandardGuideEvidenceDraftItems = @()
+try {
+    $canonicalExecStandardGuideEvidenceDraftItems = Get-CanonicalExecStandardGuideEvidenceDraftItems
 }
 catch {
     $violationMessages.Add($_.Exception.Message)

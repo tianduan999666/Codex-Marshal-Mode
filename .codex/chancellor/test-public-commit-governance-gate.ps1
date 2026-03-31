@@ -1340,6 +1340,9 @@ $execStandardGuideUsageOrderLineText1 = '1. 先读 `01-任务包规范.md`'
 $execStandardGuideUsageOrderLineText2 = '2. 再读 `02-任务包模板.md`'
 $execStandardGuideUsageOrderLineText3 = '3. 进入试跑前读 `03-面板入口验收.md`'
 $execStandardGuideUsageOrderLineText4 = '4. 需要追溯历史判断时，再看时间戳证据稿'
+$execStandardGuideEvidenceDraftLineText1 = '- 带时间戳的执行文档'
+$execStandardGuideEvidenceDraftLineText2 = '- 某轮推进中的提炼稿、冻结稿、过程说明稿'
+$execStandardGuideEvidenceDraftLineText3 = '- 仅用于还原当时判断过程的阶段性文档'
 $execStandardGuideValueLineText1 = '- 降低后续 Trial 留痕越来越多时的检索成本。'
 $execStandardGuideValueLineText2 = '- 避免把过程稿误当成现行标准件继续扩写。'
 $execStandardGuideValueLineText3 = '- 让执行区保持“现行件少而稳，证据稿可追溯”的长期结构。'
@@ -1425,6 +1428,20 @@ try {
     [System.IO.File]::WriteAllText($execStandardGuidePath, $driftedExecStandardGuideContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/04-执行区现行件与证据稿说明.md') -ExpectedExitCode 1 -TestName 'block-exec-standard-guide-usage-order-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($execStandardGuidePath, $originalExecStandardGuideBytes)
+}
+
+if ($execStandardGuideLines -notcontains $execStandardGuideEvidenceDraftLineText1 -or $execStandardGuideLines -notcontains $execStandardGuideEvidenceDraftLineText2 -or $execStandardGuideLines -notcontains $execStandardGuideEvidenceDraftLineText3) {
+    throw "测试前置条件不满足：$execStandardGuidePath 中缺少执行区现行件说明证据稿与过程稿测试行。"
+}
+
+try {
+    $driftedExecStandardGuideContent = (Get-Content $execStandardGuidePath -Raw).Replace($execStandardGuideEvidenceDraftLineText3, '- 仅供参考的阶段性说明')
+    [System.IO.File]::WriteAllText($execStandardGuidePath, $driftedExecStandardGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/04-执行区现行件与证据稿说明.md') -ExpectedExitCode 1 -TestName 'block-exec-standard-guide-evidence-draft-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($execStandardGuidePath, $originalExecStandardGuideBytes)
