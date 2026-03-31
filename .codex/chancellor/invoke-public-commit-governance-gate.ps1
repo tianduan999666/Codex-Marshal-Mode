@@ -579,6 +579,7 @@ function Get-ApprovedTrackedCodexFilesFromLockList {
         '.codex/chancellor/record-exception-state.ps1'
         '.codex/chancellor/resolve-gate-package.ps1'
         '.codex/chancellor/review-panel-acceptance-closeout.ps1'
+        '.codex/chancellor/test-panel-acceptance-closeout-review.ps1'
         '.codex/chancellor/tasks/README.md'
         '.codex/chancellor/test-public-commit-governance-gate.ps1'
         '.codex/chancellor/write-concurrent-status-report.ps1'

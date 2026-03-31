@@ -1,11 +1,14 @@
 param(
     [switch]$AsJson,
-    [int]$StaleAfterDays = 2
+    [int]$StaleAfterDays = 2,
+    [string]$TasksRootPath = '',
+    [string]$ActiveTaskFilePath = '',
+    [string]$AuditReferenceTimeText = ''
 )
 
 $scriptRootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
-$tasksRootPath = Join-Path $scriptRootPath 'tasks'
-$activeTaskFilePath = Join-Path $scriptRootPath 'active-task.txt'
+$defaultTasksRootPath = Join-Path $scriptRootPath 'tasks'
+$defaultActiveTaskFilePath = Join-Path $scriptRootPath 'active-task.txt'
 $canonicalStatuses = @(
     'drafting',
     'ready',
@@ -128,11 +131,31 @@ function Write-TaskSection {
     ($Rows | Select-Object -Property $PropertyNames | Format-Table -AutoSize | Out-String).TrimEnd() | Write-Output
 }
 
+if ([string]::IsNullOrWhiteSpace($TasksRootPath)) {
+    $TasksRootPath = $defaultTasksRootPath
+}
+if ([string]::IsNullOrWhiteSpace($ActiveTaskFilePath)) {
+    $ActiveTaskFilePath = $defaultActiveTaskFilePath
+}
+
+$tasksRootPath = [System.IO.Path]::GetFullPath($TasksRootPath)
+$activeTaskFilePath = [System.IO.Path]::GetFullPath($ActiveTaskFilePath)
+
 if (-not (Test-Path $tasksRootPath)) {
     throw "任务目录不存在：$tasksRootPath"
 }
 
-$script:auditReferenceTime = Get-Date
+if ([string]::IsNullOrWhiteSpace($AuditReferenceTimeText)) {
+    $script:auditReferenceTime = Get-Date
+}
+else {
+    $parsedAuditReferenceTime = ConvertTo-NullableDateTime -Text $AuditReferenceTimeText
+    if (-not $parsedAuditReferenceTime) {
+        throw "AuditReferenceTimeText 解析失败：$AuditReferenceTimeText"
+    }
+
+    $script:auditReferenceTime = $parsedAuditReferenceTime
+}
 
 $activeTaskId = ''
 if (Test-Path $activeTaskFilePath) {

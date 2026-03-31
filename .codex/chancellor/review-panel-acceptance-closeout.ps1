@@ -1,6 +1,9 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string]$ResultPath
+    [string]$ResultPath,
+    [string]$TasksRootPath = '',
+    [string]$ActiveTaskFilePath = '',
+    [string]$AuditReferenceTimeText = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -68,7 +71,20 @@ $needFollowup = Get-BulletValue -Content $resultContent -Label '是否需要补�
 $nextAction = Get-BulletValue -Content $resultContent -Label '下一步'
 $minimumGap = Get-BulletValue -Content $resultContent -Label '若不通过，最小缺口是'
 
-$auditSummary = & $auditScriptPath -AsJson | ConvertFrom-Json
+$auditParameters = @{
+    AsJson = $true
+}
+if (-not [string]::IsNullOrWhiteSpace($TasksRootPath)) {
+    $auditParameters['TasksRootPath'] = $TasksRootPath
+}
+if (-not [string]::IsNullOrWhiteSpace($ActiveTaskFilePath)) {
+    $auditParameters['ActiveTaskFilePath'] = $ActiveTaskFilePath
+}
+if (-not [string]::IsNullOrWhiteSpace($AuditReferenceTimeText)) {
+    $auditParameters['AuditReferenceTimeText'] = $AuditReferenceTimeText
+}
+
+$auditSummary = & $auditScriptPath @auditParameters | ConvertFrom-Json
 $nonTerminalTasks = @($auditSummary.NonTerminalTasks)
 $nonStandardTasks = @($auditSummary.NonStandardTasks)
 $staleTasks = @($auditSummary.StaleTasks)
