@@ -240,9 +240,15 @@ foreach ($taskId in $taskStateMap.Keys) {
 $finalizeOutput = (& $finalizeScriptPath -ResultPath $passResultPath -TaskId 'v4-trial-035-panel-acceptance-closeout' -TasksRootPath $finalizeTasksRootPath -ActiveTaskFilePath $finalizeActiveTaskFilePath -AuditReferenceTimeText $auditReferenceTimeText -NormalizeTrial034ToDone *>&1 | Out-String)
 $finalizeResolvedState = Get-Content (Join-Path $finalizeTasksRootPath 'v4-trial-035-panel-acceptance-closeout/state.yaml') -Raw
 $finalizeTrial034State = Get-Content (Join-Path $finalizeTasksRootPath 'v4-trial-034-public-rule-order-gate/state.yaml') -Raw
+$finalizeActiveTaskContent = Get-Content $finalizeActiveTaskFilePath -Raw
+if ($null -eq $finalizeActiveTaskContent) {
+    $finalizeActiveTaskContent = ''
+}
 Assert-Contains -Content $finalizeOutput -ExpectedText '一键收口已完成：真实人工验板结果已复核并回写到本地任务包。' -Message '一键收口提示校验失败'
 Assert-Contains -Content $finalizeOutput -ExpectedText '已按主公拍板归一化 v4-trial-034：completed -> done' -Message '一键收口未输出 034 归一化提示'
+Assert-Contains -Content $finalizeOutput -ExpectedText '已清空 active-task.txt，避免继续指向已完成任务。' -Message '一键收口未清空 active-task.txt'
 Assert-Contains -Content $finalizeResolvedState -ExpectedText 'status: done' -Message '一键收口后状态应为 done'
 Assert-Contains -Content $finalizeTrial034State -ExpectedText 'status: done' -Message '一键收口后 034 应归一化为 done'
+Assert-Equal -Actual ($finalizeActiveTaskContent.Trim()) -Expected '' -Message '一键收口后 active-task.txt 应清空'
 
 Write-Host 'PASS: test-panel-acceptance-closeout-review.ps1' -ForegroundColor Green

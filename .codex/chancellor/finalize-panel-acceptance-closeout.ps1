@@ -12,6 +12,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $scriptRootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $defaultTasksRootPath = Join-Path $scriptRootPath 'tasks'
+$defaultActiveTaskFilePath = Join-Path $scriptRootPath 'active-task.txt'
 $reviewScriptPath = Join-Path $scriptRootPath 'review-panel-acceptance-closeout.ps1'
 $resolveScriptPath = Join-Path $scriptRootPath 'resolve-panel-acceptance-closeout.ps1'
 $resolvedResultPath = [System.IO.Path]::GetFullPath($ResultPath)
@@ -65,10 +66,28 @@ function Set-YamlField {
     return ($YamlText.TrimEnd() + [Environment]::NewLine + ("{0}: {1}" -f $Key, $ValueLiteral) + [Environment]::NewLine)
 }
 
+function Write-Utf8NoBomFile {
+    param(
+        [string]$Path,
+        [string]$Content
+    )
+
+    $parentPath = Split-Path -Parent $Path
+    if ($parentPath) {
+        New-Item -ItemType Directory -Force -Path $parentPath | Out-Null
+    }
+
+    [System.IO.File]::WriteAllText($Path, $Content, (New-Object System.Text.UTF8Encoding($false)))
+}
+
 if ([string]::IsNullOrWhiteSpace($TasksRootPath)) {
     $TasksRootPath = $defaultTasksRootPath
 }
+if ([string]::IsNullOrWhiteSpace($ActiveTaskFilePath)) {
+    $ActiveTaskFilePath = $defaultActiveTaskFilePath
+}
 $tasksRootPath = [System.IO.Path]::GetFullPath($TasksRootPath)
+$activeTaskFilePath = [System.IO.Path]::GetFullPath($ActiveTaskFilePath)
 
 foreach ($requiredPath in @($reviewScriptPath, $resolveScriptPath, $resolvedResultPath)) {
     if (-not (Test-Path $requiredPath)) {
@@ -175,6 +194,16 @@ if ($NormalizeTrial034ToDone) {
     else {
         throw ("v4-trial-034 当前状态不是 completed/done，无法自动归一化：{0}" -f $trial034CurrentStatus)
     }
+}
+
+$currentActiveTaskId = ''
+if (Test-Path $activeTaskFilePath) {
+    $currentActiveTaskId = ((Get-Content $activeTaskFilePath | Select-Object -First 1) | ForEach-Object { $_.Trim() })
+}
+
+if ($finalResult -eq '通过' -and $currentActiveTaskId -eq $TaskId) {
+    Write-Utf8NoBomFile -Path $activeTaskFilePath -Content ''
+    Write-Ok '已清空 active-task.txt，避免继续指向已完成任务。'
 }
 
 Write-Info "ResultPath=$resolvedResultPath"
