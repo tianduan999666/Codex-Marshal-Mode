@@ -25,6 +25,7 @@
 - `verify-cutover.ps1`
 - `panel-acceptance-checklist.md`
 - `panel-acceptance-three-step-card.md`
+- `panel-acceptance-pass-fail-sheet.md`
 
 ## 当前未落文件
 
@@ -37,7 +38,8 @@
 2. 再执行 `verify-cutover.ps1` 完成自动验板
 3. 若异常则执行 `rollback-from-backup.ps1` 回退
 4. 需要傻瓜版入口时，先看 `panel-acceptance-three-step-card.md`
-5. 最后按 `panel-acceptance-checklist.md` 做完整面板人工验板
+5. 需要打勾记录时，使用 `panel-acceptance-pass-fail-sheet.md`
+6. 最后按 `panel-acceptance-checklist.md` 做完整面板人工验板
 
 ## 说明
 
