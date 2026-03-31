@@ -5,6 +5,7 @@ $repoRootPath = Split-Path -Parent (Split-Path -Parent $scriptRootPath)
 $auditScriptPath = Join-Path $scriptRootPath 'audit-local-task-status.ps1'
 $reviewScriptPath = Join-Path $scriptRootPath 'review-panel-acceptance-closeout.ps1'
 $resolveScriptPath = Join-Path $scriptRootPath 'resolve-panel-acceptance-closeout.ps1'
+$finalizeScriptPath = Join-Path $scriptRootPath 'finalize-panel-acceptance-closeout.ps1'
 $testRunId = Get-Date -Format 'yyyyMMdd-HHmmss'
 $testRootPath = Join-Path (Join-Path $repoRootPath 'temp/generated') ("panel-acceptance-closeout-review-test-$testRunId")
 $tasksRootPath = Join-Path $testRootPath 'tasks'
@@ -225,5 +226,20 @@ $failResolvedResult = Get-Content (Join-Path $failResolveTasksRootPath 'v4-trial
 Assert-Contains -Content $failResolvedState -ExpectedText 'status: ready_to_resume' -Message '不通过态回写后状态应为 ready_to_resume'
 Assert-Contains -Content $failResolvedResult -ExpectedText '人工验板最终结果：不通过' -Message '不通过态回写结果摘要缺少最终结论'
 Assert-Contains -Content $failResolvedResult -ExpectedText '最小缺口：面板回复中仍有一处口径不稳' -Message '不通过态回写结果摘要缺少最小缺口'
+
+$finalizeTaskRootPath = Join-Path (Join-Path $repoRootPath 'temp/generated') ("panel-acceptance-closeout-finalize-$testRunId")
+$finalizeTasksRootPath = Join-Path $finalizeTaskRootPath 'tasks'
+$finalizeActiveTaskFilePath = Join-Path $finalizeTaskRootPath 'active-task.txt'
+Write-Utf8NoBomFile -Path $finalizeActiveTaskFilePath -Content "v4-trial-035-panel-acceptance-closeout`n"
+foreach ($taskId in $taskStateMap.Keys) {
+    $taskDirectoryPath = Join-Path $finalizeTasksRootPath $taskId
+    Write-Utf8NoBomFile -Path (Join-Path $taskDirectoryPath 'state.yaml') -Content $taskStateMap[$taskId]
+    Write-Utf8NoBomFile -Path (Join-Path $taskDirectoryPath 'result.md') -Content (Get-Content (Join-Path (Join-Path $tasksRootPath $taskId) 'result.md') -Raw)
+    Write-Utf8NoBomFile -Path (Join-Path $taskDirectoryPath 'decision-log.md') -Content (Get-Content (Join-Path (Join-Path $tasksRootPath $taskId) 'decision-log.md') -Raw)
+}
+$finalizeOutput = (& $finalizeScriptPath -ResultPath $passResultPath -TaskId 'v4-trial-035-panel-acceptance-closeout' -TasksRootPath $finalizeTasksRootPath -ActiveTaskFilePath $finalizeActiveTaskFilePath -AuditReferenceTimeText $auditReferenceTimeText *>&1 | Out-String)
+$finalizeResolvedState = Get-Content (Join-Path $finalizeTasksRootPath 'v4-trial-035-panel-acceptance-closeout/state.yaml') -Raw
+Assert-Contains -Content $finalizeOutput -ExpectedText '一键收口已完成：真实人工验板结果已复核并回写到本地任务包。' -Message '一键收口提示校验失败'
+Assert-Contains -Content $finalizeResolvedState -ExpectedText 'status: done' -Message '一键收口后状态应为 done'
 
 Write-Host 'PASS: test-panel-acceptance-closeout-review.ps1' -ForegroundColor Green

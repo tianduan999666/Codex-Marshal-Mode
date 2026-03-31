@@ -572,6 +572,7 @@ function Get-ApprovedTrackedCodexFilesFromLockList {
     $expectedApprovedCodexFiles = @(
         '.codex/chancellor/README.md'
         '.codex/chancellor/audit-local-task-status.ps1'
+        '.codex/chancellor/finalize-panel-acceptance-closeout.ps1'
         '.codex/chancellor/create-gate-package.ps1'
         '.codex/chancellor/create-task-package.ps1'
         '.codex/chancellor/install-public-commit-governance-hook.ps1'
