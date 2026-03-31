@@ -23,6 +23,7 @@
 - `install-to-home.ps1`
 - `rollback-from-backup.ps1`
 - `verify-cutover.ps1`
+- `new-panel-acceptance-result.ps1`
 - `panel-acceptance-checklist.md`
 - `panel-acceptance-three-step-card.md`
 - `panel-acceptance-pass-fail-sheet.md`
@@ -40,8 +41,9 @@
 3. 若异常则执行 `rollback-from-backup.ps1` 回退
 4. 需要傻瓜版入口时，先看 `panel-acceptance-three-step-card.md`
 5. 需要打勾记录时，使用 `panel-acceptance-pass-fail-sheet.md`
-6. 验板结束后，用 `panel-acceptance-result-template.md` 留结果
-7. 最后按 `panel-acceptance-checklist.md` 做完整面板人工验板
+6. 验板结束后，可执行 `new-panel-acceptance-result.ps1` 生成结果稿
+7. 结果细节按 `panel-acceptance-result-template.md` 留痕
+8. 最后按 `panel-acceptance-checklist.md` 做完整面板人工验板
 
 ## 说明
 

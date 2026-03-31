@@ -1,6 +1,7 @@
 # 面板人工验板结果模板
 
 适用场景：已经按 `panel-acceptance-three-step-card.md` 或 `panel-acceptance-pass-fail-sheet.md` 完成人工验板后，用来记录最终结论。
+可直接执行：`new-panel-acceptance-result.ps1` 生成带时间戳的结果稿，再补齐本模板。
 
 ## 基本信息
 
