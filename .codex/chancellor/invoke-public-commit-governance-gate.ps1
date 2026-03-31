@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string[]]$ChangedPaths = @(),
     [string]$BaseRef = '',
     [string]$HeadRef = 'HEAD',
@@ -230,6 +230,33 @@ function Get-CanonicalExecStandardGuideUsageOrderItems {
 
     Assert-ExactOrderedValues -SourceValues $usageOrderItems -ExpectedValues $expectedExecStandardGuideUsageOrderItems -Label '执行区现行件说明使用顺序摘要序列'
     return $expectedExecStandardGuideUsageOrderItems
+}
+
+function Get-CanonicalExecStandardGuideValueItems {
+    $execStandardGuidePath = 'docs/40-执行/04-执行区现行件与证据稿说明.md'
+    $expectedExecStandardGuideValueItems = @(
+        '降低后续 Trial 留痕越来越多时的检索成本'
+        '避免把过程稿误当成现行标准件继续扩写'
+        '让执行区保持“现行件少而稳，证据稿可追溯”的长期结构'
+    )
+
+    $sectionContent = Get-FileSectionContent -FilePath $execStandardGuidePath -SectionStartMarker '## 本文件的价值' -SectionEndMarker ''
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "执行区现行件说明未解析到本文件的价值：$execStandardGuidePath"
+    }
+
+    $valueItems = @(
+        [regex]::Matches($sectionContent, '(?m)^- (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($valueItems.Count -eq 0) {
+        throw "执行区现行件说明未解析到本文件的价值列点：$execStandardGuidePath"
+    }
+
+    Assert-ExactOrderedValues -SourceValues $valueItems -ExpectedValues $expectedExecStandardGuideValueItems -Label '执行区现行件说明本文件的价值摘要序列'
+    return $expectedExecStandardGuideValueItems
 }
 
 function Get-MatchedExecStandardDocNamesFromFile {
@@ -4432,6 +4459,13 @@ catch {
 $canonicalExecStandardGuideUsageOrderItems = @()
 try {
     $canonicalExecStandardGuideUsageOrderItems = Get-CanonicalExecStandardGuideUsageOrderItems
+}
+catch {
+    $violationMessages.Add($_.Exception.Message)
+}
+$canonicalExecStandardGuideValueItems = @()
+try {
+    $canonicalExecStandardGuideValueItems = Get-CanonicalExecStandardGuideValueItems
 }
 catch {
     $violationMessages.Add($_.Exception.Message)

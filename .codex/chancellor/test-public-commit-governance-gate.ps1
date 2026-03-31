@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 
 $scriptRootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $gateScriptPath = Join-Path $scriptRootPath 'invoke-public-commit-governance-gate.ps1'
@@ -1340,7 +1340,9 @@ $execStandardGuideUsageOrderLineText1 = '1. 先读 `01-任务包规范.md`'
 $execStandardGuideUsageOrderLineText2 = '2. 再读 `02-任务包模板.md`'
 $execStandardGuideUsageOrderLineText3 = '3. 进入试跑前读 `03-面板入口验收.md`'
 $execStandardGuideUsageOrderLineText4 = '4. 需要追溯历史判断时，再看时间戳证据稿'
-
+$execStandardGuideValueLineText1 = '- 降低后续 Trial 留痕越来越多时的检索成本。'
+$execStandardGuideValueLineText2 = '- 避免把过程稿误当成现行标准件继续扩写。'
+$execStandardGuideValueLineText3 = '- 让执行区保持“现行件少而稳，证据稿可追溯”的长期结构。'
 if ($execReadmeLines -notcontains $execReadmeTitleLineText) {
     throw "测试前置条件不满足：$execReadmePath 中缺少 $execReadmeTitleLineText"
 }
@@ -1428,6 +1430,19 @@ finally {
     [System.IO.File]::WriteAllBytes($execStandardGuidePath, $originalExecStandardGuideBytes)
 }
 
+if ($execStandardGuideLines -notcontains $execStandardGuideValueLineText1 -or $execStandardGuideLines -notcontains $execStandardGuideValueLineText2 -or $execStandardGuideLines -notcontains $execStandardGuideValueLineText3) {
+    throw "测试前置条件不满足：$execStandardGuidePath 中缺少执行区现行件说明本文件的价值测试行。"
+}
+
+try {
+    $driftedExecStandardGuideContent = (Get-Content $execStandardGuidePath -Raw).Replace($execStandardGuideValueLineText3, '- 让执行区大概保持长期稳定。')
+    [System.IO.File]::WriteAllText($execStandardGuidePath, $driftedExecStandardGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/04-执行区现行件与证据稿说明.md') -ExpectedExitCode 1 -TestName 'block-exec-standard-guide-value-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($execStandardGuidePath, $originalExecStandardGuideBytes)
+}
 $navOverviewRuleGuideLineText = '4. `docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`'
 $navOverviewRuleHygieneLineText = '5. `docs/reference/02-仓库卫生与命名规范.md`'
 $navOverviewRuleGuideIndex = [Array]::IndexOf($navOverviewLines, $navOverviewRuleGuideLineText)
