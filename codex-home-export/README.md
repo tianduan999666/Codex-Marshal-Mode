@@ -25,6 +25,7 @@
 - `verify-cutover.ps1`
 - `start-panel-acceptance.ps1`
 - `new-panel-acceptance-result.ps1`
+- `verify-panel-acceptance-result.ps1`
 - `panel-acceptance-checklist.md`
 - `panel-acceptance-three-step-card.md`
 - `panel-acceptance-pass-fail-sheet.md`
@@ -45,7 +46,8 @@
 6. 需要打勾记录时，使用 `panel-acceptance-pass-fail-sheet.md`
 7. 验板结束后，可执行 `new-panel-acceptance-result.ps1` 生成结果稿
 8. 结果细节按 `panel-acceptance-result-template.md` 留痕
-9. 最后按 `panel-acceptance-checklist.md` 做完整面板人工验板
+9. 补齐结果稿后，可执行 `verify-panel-acceptance-result.ps1 -ResultPath <结果稿>` 做结果复核
+10. 最后按 `panel-acceptance-checklist.md` 做完整面板人工验板
 
 ## 说明
 

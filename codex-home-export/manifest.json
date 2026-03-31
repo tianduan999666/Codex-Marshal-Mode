@@ -12,6 +12,7 @@
     "verify-cutover.ps1",
     "start-panel-acceptance.ps1",
     "new-panel-acceptance-result.ps1",
+    "verify-panel-acceptance-result.ps1",
     "panel-acceptance-checklist.md",
     "panel-acceptance-three-step-card.md",
     "panel-acceptance-pass-fail-sheet.md",

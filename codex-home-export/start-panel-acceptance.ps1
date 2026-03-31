@@ -35,4 +35,6 @@ Write-Info "三步入口：$threeStepCardPath"
 Write-Info "打勾单：$passFailSheetPath"
 Write-Info "结果模板：$resultTemplatePath"
 Write-Info "结果稿：$resultDraftPath"
+Write-Info "结果复核：填完结果稿后，执行 `verify-panel-acceptance-result.ps1 -ResultPath \"$resultDraftPath\"`。"
 Write-Info '现在进入官方 Codex 面板，新开会话后按顺序输入：`丞相版本` → `丞相检查` → 必要时 `丞相状态`。'
+Write-Output $resultDraftPath

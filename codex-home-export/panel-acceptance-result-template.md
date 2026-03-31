@@ -2,6 +2,7 @@
 
 适用场景：已经按 `panel-acceptance-three-step-card.md` 或 `panel-acceptance-pass-fail-sheet.md` 完成人工验板后，用来记录最终结论。
 可直接执行：`new-panel-acceptance-result.ps1` 生成带时间戳的结果稿，再补齐本模板。
+补齐后可执行：`verify-panel-acceptance-result.ps1 -ResultPath <结果稿>` 复核结果稿是否填写完整。
 
 ## 基本信息
 
@@ -30,10 +31,10 @@
 
 ### `丞相状态`（如有执行）
 
-- 是否正常响应：是 / 否
-- 当前模式是否清楚：是 / 否
-- 稳态判断是否清楚：是 / 否
-- 下一步是否清楚：是 / 否
+- 是否正常响应：是 / 否 / 未执行
+- 当前模式是否清楚：是 / 否 / 未执行
+- 稳态判断是否清楚：是 / 否 / 未执行
+- 下一步是否清楚：是 / 否 / 未执行
 - 备注：
 
 ## 最终判定
