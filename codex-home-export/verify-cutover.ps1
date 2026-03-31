@@ -80,3 +80,6 @@ Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info "CxVersion=$($runtimeVersionInfo.cx_version)"
 Write-Info "BackupRoot=$($runtimeInstallRecord.backup_root)"
 Write-Ok '切换验板通过。'
+Write-Info '下一步：打开官方 Codex 面板，新开一个全新会话。'
+Write-Info '人工验板顺序：先输入 `丞相版本`，再输入 `丞相检查`，必要时再输入 `丞相状态`。'
+Write-Info '若发现漂移：先重跑 `verify-cutover.ps1`，仍异常再执行 `rollback-from-backup.ps1`。'
