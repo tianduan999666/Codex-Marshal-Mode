@@ -4,6 +4,7 @@ $scriptRootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRootPath = Split-Path -Parent (Split-Path -Parent $scriptRootPath)
 $auditScriptPath = Join-Path $scriptRootPath 'audit-local-task-status.ps1'
 $reviewScriptPath = Join-Path $scriptRootPath 'review-panel-acceptance-closeout.ps1'
+$resolveScriptPath = Join-Path $scriptRootPath 'resolve-panel-acceptance-closeout.ps1'
 $testRunId = Get-Date -Format 'yyyyMMdd-HHmmss'
 $testRootPath = Join-Path (Join-Path $repoRootPath 'temp/generated') ("panel-acceptance-closeout-review-test-$testRunId")
 $tasksRootPath = Join-Path $testRootPath 'tasks'
@@ -90,8 +91,39 @@ phase_hint: panel_acceptance_closeout
 }
 
 foreach ($taskId in $taskStateMap.Keys) {
-    $stateFilePath = Join-Path (Join-Path $tasksRootPath $taskId) 'state.yaml'
+    $taskDirectoryPath = Join-Path $tasksRootPath $taskId
+    $stateFilePath = Join-Path $taskDirectoryPath 'state.yaml'
+    $resultFilePath = Join-Path $taskDirectoryPath 'result.md'
+    $decisionLogFilePath = Join-Path $taskDirectoryPath 'decision-log.md'
+
     Write-Utf8NoBomFile -Path $stateFilePath -Content $taskStateMap[$taskId]
+    Write-Utf8NoBomFile -Path $resultFilePath -Content @'
+# 结果摘要
+
+## 已完成
+
+- 已创建任务包骨架。
+
+## 验证证据
+
+- 目录：样例任务包
+
+## 遗留事项
+
+- 尚未获得官方面板真实人工验板结果。
+
+## 下一步建议
+
+- 等待真实人工验板结果。
+'@
+    Write-Utf8NoBomFile -Path $decisionLogFilePath -Content @'
+# 决策记录
+
+## 2026-03-31 20:00:00
+
+- 决策：创建样例任务包
+- 原因：用于定向回归测试
+'@
 }
 
 $passResultPath = Join-Path $testRootPath 'panel-acceptance-result-pass.md'
@@ -158,5 +190,40 @@ $failOutput = (& $reviewScriptPath -ResultPath $failResultPath -TasksRootPath $t
 Assert-Contains -Content $failOutput -ExpectedText '人工验板尚未通过，当前不能按通过态收口。' -Message '不通过态收口提示校验失败'
 Assert-Contains -Content $failOutput -ExpectedText '建议主公拍板项数：2' -Message '不通过态主公拍板计数校验失败'
 Assert-Contains -Content $failOutput -ExpectedText 'v4-trial-035-panel-acceptance-closeout' -Message '不通过态应保留 035 拍板项'
+
+$passResolveTaskRootPath = Join-Path (Join-Path $repoRootPath 'temp/generated') ("panel-acceptance-closeout-resolve-pass-$testRunId")
+$passResolveTasksRootPath = Join-Path $passResolveTaskRootPath 'tasks'
+$passResolveActiveTaskFilePath = Join-Path $passResolveTaskRootPath 'active-task.txt'
+Write-Utf8NoBomFile -Path $passResolveActiveTaskFilePath -Content "v4-trial-035-panel-acceptance-closeout`n"
+foreach ($taskId in $taskStateMap.Keys) {
+    $taskDirectoryPath = Join-Path $passResolveTasksRootPath $taskId
+    Write-Utf8NoBomFile -Path (Join-Path $taskDirectoryPath 'state.yaml') -Content $taskStateMap[$taskId]
+    Write-Utf8NoBomFile -Path (Join-Path $taskDirectoryPath 'result.md') -Content (Get-Content (Join-Path (Join-Path $tasksRootPath $taskId) 'result.md') -Raw)
+    Write-Utf8NoBomFile -Path (Join-Path $taskDirectoryPath 'decision-log.md') -Content (Get-Content (Join-Path (Join-Path $tasksRootPath $taskId) 'decision-log.md') -Raw)
+}
+& $resolveScriptPath -ResultPath $passResultPath -TaskId 'v4-trial-035-panel-acceptance-closeout' -TasksRootPath $passResolveTasksRootPath -ActiveTaskFilePath $passResolveActiveTaskFilePath -SkipReview
+$passResolvedState = Get-Content (Join-Path $passResolveTasksRootPath 'v4-trial-035-panel-acceptance-closeout/state.yaml') -Raw
+$passResolvedResult = Get-Content (Join-Path $passResolveTasksRootPath 'v4-trial-035-panel-acceptance-closeout/result.md') -Raw
+$passResolvedDecision = Get-Content (Join-Path $passResolveTasksRootPath 'v4-trial-035-panel-acceptance-closeout/decision-log.md') -Raw
+Assert-Contains -Content $passResolvedState -ExpectedText 'status: done' -Message '通过态回写后状态应为 done'
+Assert-Contains -Content $passResolvedResult -ExpectedText '人工验板最终结果：通过' -Message '通过态回写结果摘要缺少最终结论'
+Assert-Contains -Content $passResolvedDecision -ExpectedText '决策：回写真实人工验板结果到任务包' -Message '通过态回写决策日志缺少回写记录'
+
+$failResolveTaskRootPath = Join-Path (Join-Path $repoRootPath 'temp/generated') ("panel-acceptance-closeout-resolve-fail-$testRunId")
+$failResolveTasksRootPath = Join-Path $failResolveTaskRootPath 'tasks'
+$failResolveActiveTaskFilePath = Join-Path $failResolveTaskRootPath 'active-task.txt'
+Write-Utf8NoBomFile -Path $failResolveActiveTaskFilePath -Content "v4-trial-035-panel-acceptance-closeout`n"
+foreach ($taskId in $taskStateMap.Keys) {
+    $taskDirectoryPath = Join-Path $failResolveTasksRootPath $taskId
+    Write-Utf8NoBomFile -Path (Join-Path $taskDirectoryPath 'state.yaml') -Content $taskStateMap[$taskId]
+    Write-Utf8NoBomFile -Path (Join-Path $taskDirectoryPath 'result.md') -Content (Get-Content (Join-Path (Join-Path $tasksRootPath $taskId) 'result.md') -Raw)
+    Write-Utf8NoBomFile -Path (Join-Path $taskDirectoryPath 'decision-log.md') -Content (Get-Content (Join-Path (Join-Path $tasksRootPath $taskId) 'decision-log.md') -Raw)
+}
+& $resolveScriptPath -ResultPath $failResultPath -TaskId 'v4-trial-035-panel-acceptance-closeout' -TasksRootPath $failResolveTasksRootPath -ActiveTaskFilePath $failResolveActiveTaskFilePath -SkipReview
+$failResolvedState = Get-Content (Join-Path $failResolveTasksRootPath 'v4-trial-035-panel-acceptance-closeout/state.yaml') -Raw
+$failResolvedResult = Get-Content (Join-Path $failResolveTasksRootPath 'v4-trial-035-panel-acceptance-closeout/result.md') -Raw
+Assert-Contains -Content $failResolvedState -ExpectedText 'status: ready_to_resume' -Message '不通过态回写后状态应为 ready_to_resume'
+Assert-Contains -Content $failResolvedResult -ExpectedText '人工验板最终结果：不通过' -Message '不通过态回写结果摘要缺少最终结论'
+Assert-Contains -Content $failResolvedResult -ExpectedText '最小缺口：面板回复中仍有一处口径不稳' -Message '不通过态回写结果摘要缺少最小缺口'
 
 Write-Host 'PASS: test-panel-acceptance-closeout-review.ps1' -ForegroundColor Green
