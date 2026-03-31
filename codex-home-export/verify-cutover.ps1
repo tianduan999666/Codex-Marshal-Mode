@@ -82,6 +82,7 @@ Write-Info "BackupRoot=$($runtimeInstallRecord.backup_root)"
 Write-Ok '切换验板通过。'
 Write-Info '下一步：打开官方 Codex 面板，新开一个全新会话。'
 Write-Info '简版验板卡：先看 `panel-acceptance-three-step-card.md`；需要打勾记录时看 `panel-acceptance-pass-fail-sheet.md`。'
+Write-Info '结果留痕：人工验板结束后，用 `panel-acceptance-result-template.md` 记录最终结论。'
 Write-Info '完整固定口径：如需逐项复核，再看 `panel-acceptance-checklist.md`。'
 Write-Info '人工验板顺序：先输入 `丞相版本`，再输入 `丞相检查`，必要时再输入 `丞相状态`。'
 Write-Info '若发现漂移：先重跑 `verify-cutover.ps1`，仍异常再执行 `rollback-from-backup.ps1`。'

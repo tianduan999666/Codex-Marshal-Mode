@@ -12,7 +12,8 @@
     "verify-cutover.ps1",
     "panel-acceptance-checklist.md",
     "panel-acceptance-three-step-card.md",
-    "panel-acceptance-pass-fail-sheet.md"
+    "panel-acceptance-pass-fail-sheet.md",
+    "panel-acceptance-result-template.md"
   ],
   "excluded": [
     "auth.json",
