@@ -86,6 +86,7 @@ F:\260328大都督模式
 - 关键配置来源与漂移复核模板：`docs/40-执行/21-关键配置来源与漂移复核模板.md`
 - 10 分钟上手指南：`docs/40-执行/22-10分钟上手指南.md`
 - 公开试用招募文案包：`docs/40-执行/23-公开试用招募文案包.md`
+- 第一轮试用反馈记录表：`docs/40-执行/24-第一轮试用反馈记录表.md`
 - 本机生产母体骨架：`codex-home-export/README.md`
 - 一键初始化入口：`codex-home-export/initialize-workspace.ps1`
 - 一键新任务入口：`codex-home-export/new-task.ps1`
