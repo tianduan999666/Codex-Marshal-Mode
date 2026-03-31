@@ -1343,6 +1343,10 @@ $execStandardGuideUsageOrderLineText4 = '4. 需要追溯历史判断时，再看
 $execStandardGuideEvidenceDraftLineText1 = '- 带时间戳的执行文档'
 $execStandardGuideEvidenceDraftLineText2 = '- 某轮推进中的提炼稿、冻结稿、过程说明稿'
 $execStandardGuideEvidenceDraftLineText3 = '- 仅用于还原当时判断过程的阶段性文档'
+$execStandardGuideNamingRuleLineText1 = '- 新增现行标准件时，优先使用固定编号文件名，再补本文件中的列表。'
+$execStandardGuideNamingRuleLineText2 = '- 新增带时间戳的过程稿时，不得默认视为现行标准件。'
+$execStandardGuideNamingRuleLineText3 = '- 若固定编号文件与时间戳稿出现差异，以固定编号文件为准。'
+$execStandardGuideNamingRuleLineText4 = '- 若某份时间戳稿已失去参考价值，应转入 `docs/90-归档/` 而不是继续留在执行区长期混放。'
 $execStandardGuideValueLineText1 = '- 降低后续 Trial 留痕越来越多时的检索成本。'
 $execStandardGuideValueLineText2 = '- 避免把过程稿误当成现行标准件继续扩写。'
 $execStandardGuideValueLineText3 = '- 让执行区保持“现行件少而稳，证据稿可追溯”的长期结构。'
@@ -1442,6 +1446,20 @@ try {
     [System.IO.File]::WriteAllText($execStandardGuidePath, $driftedExecStandardGuideContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/04-执行区现行件与证据稿说明.md') -ExpectedExitCode 1 -TestName 'block-exec-standard-guide-evidence-draft-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($execStandardGuidePath, $originalExecStandardGuideBytes)
+}
+
+if ($execStandardGuideLines -notcontains $execStandardGuideNamingRuleLineText1 -or $execStandardGuideLines -notcontains $execStandardGuideNamingRuleLineText2 -or $execStandardGuideLines -notcontains $execStandardGuideNamingRuleLineText3 -or $execStandardGuideLines -notcontains $execStandardGuideNamingRuleLineText4) {
+    throw "测试前置条件不满足：$execStandardGuidePath 中缺少执行区现行件说明命名与维护规则测试行。"
+}
+
+try {
+    $driftedExecStandardGuideContent = (Get-Content $execStandardGuidePath -Raw).Replace($execStandardGuideNamingRuleLineText4, '- 若某份时间戳稿后续再说')
+    [System.IO.File]::WriteAllText($execStandardGuidePath, $driftedExecStandardGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/04-执行区现行件与证据稿说明.md') -ExpectedExitCode 1 -TestName 'block-exec-standard-guide-naming-rule-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($execStandardGuidePath, $originalExecStandardGuideBytes)

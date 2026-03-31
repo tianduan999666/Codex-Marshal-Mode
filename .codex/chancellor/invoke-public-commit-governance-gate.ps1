@@ -259,6 +259,34 @@ function Get-CanonicalExecStandardGuideUsageOrderItems {
     return $expectedExecStandardGuideUsageOrderItems
 }
 
+function Get-CanonicalExecStandardGuideNamingRuleItems {
+    $execStandardGuidePath = 'docs/40-执行/04-执行区现行件与证据稿说明.md'
+    $expectedExecStandardGuideNamingRuleItems = @(
+        '新增现行标准件时，优先使用固定编号文件名，再补本文件中的列表'
+        '新增带时间戳的过程稿时，不得默认视为现行标准件'
+        '若固定编号文件与时间戳稿出现差异，以固定编号文件为准'
+        '若某份时间戳稿已失去参考价值，应转入 `docs/90-归档/` 而不是继续留在执行区长期混放'
+    )
+
+    $sectionContent = Get-FileSectionContent -FilePath $execStandardGuidePath -SectionStartMarker '## 命名与维护规则' -SectionEndMarker '## 已迁入归档区的证据稿'
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "执行区现行件说明未解析到命名与维护规则：$execStandardGuidePath"
+    }
+
+    $namingRuleItems = @(
+        [regex]::Matches($sectionContent, '(?m)^- (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($namingRuleItems.Count -eq 0) {
+        throw "执行区现行件说明未解析到命名与维护规则列点：$execStandardGuidePath"
+    }
+
+    Assert-ExactOrderedValues -SourceValues $namingRuleItems -ExpectedValues $expectedExecStandardGuideNamingRuleItems -Label '执行区现行件说明命名与维护规则摘要序列'
+    return $expectedExecStandardGuideNamingRuleItems
+}
+
 function Get-CanonicalExecStandardGuideValueItems {
     $execStandardGuidePath = 'docs/40-执行/04-执行区现行件与证据稿说明.md'
     $expectedExecStandardGuideValueItems = @(
@@ -4493,6 +4521,13 @@ catch {
 $canonicalExecStandardGuideUsageOrderItems = @()
 try {
     $canonicalExecStandardGuideUsageOrderItems = Get-CanonicalExecStandardGuideUsageOrderItems
+}
+catch {
+    $violationMessages.Add($_.Exception.Message)
+}
+$canonicalExecStandardGuideNamingRuleItems = @()
+try {
+    $canonicalExecStandardGuideNamingRuleItems = Get-CanonicalExecStandardGuideNamingRuleItems
 }
 catch {
     $violationMessages.Add($_.Exception.Message)
