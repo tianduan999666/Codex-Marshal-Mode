@@ -287,6 +287,32 @@ function Get-CanonicalExecStandardGuideNamingRuleItems {
     return $expectedExecStandardGuideNamingRuleItems
 }
 
+function Get-CanonicalExecStandardGuideArchivedEvidenceItems {
+    $execStandardGuidePath = 'docs/40-执行/04-执行区现行件与证据稿说明.md'
+    $expectedExecStandardGuideArchivedEvidenceItems = @(
+        'docs/90-归档/20260328-232458-v4-mvp-boundary-and-first-task-package.md'
+        'docs/90-归档/20260328-233811-v4-trial-001-mvp-boundary-freeze.md'
+    )
+
+    $sectionContent = Get-FileSectionContent -FilePath $execStandardGuidePath -SectionStartMarker '## 已迁入归档区的证据稿' -SectionEndMarker '## 本文件的价值'
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "执行区现行件说明未解析到已迁入归档区的证据稿：$execStandardGuidePath"
+    }
+
+    $archivedEvidenceItems = @(
+        [regex]::Matches($sectionContent, '(?m)^- `([^`]+)`\r?$') |
+            ForEach-Object {
+                $_.Groups[1].Value.Trim()
+            }
+    )
+    if ($archivedEvidenceItems.Count -eq 0) {
+        throw "执行区现行件说明未解析到已迁入归档区的证据稿列点：$execStandardGuidePath"
+    }
+
+    Assert-ExactOrderedValues -SourceValues $archivedEvidenceItems -ExpectedValues $expectedExecStandardGuideArchivedEvidenceItems -Label '执行区现行件说明已迁入归档区的证据稿序列'
+    return $expectedExecStandardGuideArchivedEvidenceItems
+}
+
 function Get-CanonicalExecStandardGuideValueItems {
     $execStandardGuidePath = 'docs/40-执行/04-执行区现行件与证据稿说明.md'
     $expectedExecStandardGuideValueItems = @(
@@ -4528,6 +4554,13 @@ catch {
 $canonicalExecStandardGuideNamingRuleItems = @()
 try {
     $canonicalExecStandardGuideNamingRuleItems = Get-CanonicalExecStandardGuideNamingRuleItems
+}
+catch {
+    $violationMessages.Add($_.Exception.Message)
+}
+$canonicalExecStandardGuideArchivedEvidenceItems = @()
+try {
+    $canonicalExecStandardGuideArchivedEvidenceItems = Get-CanonicalExecStandardGuideArchivedEvidenceItems
 }
 catch {
     $violationMessages.Add($_.Exception.Message)
