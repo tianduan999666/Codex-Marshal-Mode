@@ -89,6 +89,7 @@ F:\260328大都督模式
 - 第一轮试用反馈记录表：`docs/40-执行/24-第一轮试用反馈记录表.md`
 - 试用接待与跟进话术：`docs/40-执行/25-试用接待与跟进话术.md`
 - 第一轮试用周报模板：`docs/40-执行/26-第一轮试用周报模板.md`
+- 第一轮真实发帖执行清单：`docs/40-执行/27-第一轮真实发帖执行清单.md`
 - 本机生产母体骨架：`codex-home-export/README.md`
 - 一键初始化入口：`codex-home-export/initialize-workspace.ps1`
 - 一键新任务入口：`codex-home-export/new-task.ps1`
