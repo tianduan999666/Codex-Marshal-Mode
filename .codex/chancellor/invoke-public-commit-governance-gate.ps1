@@ -204,6 +204,34 @@ function Get-CanonicalExecStandardGuideConclusionLine {
     return $expectedExecStandardGuideConclusionLine
 }
 
+function Get-CanonicalExecStandardGuideUsageOrderItems {
+    $execStandardGuidePath = 'docs/40-执行/04-执行区现行件与证据稿说明.md'
+    $expectedExecStandardGuideUsageOrderItems = @(
+        '先读 `01-任务包规范.md`'
+        '再读 `02-任务包模板.md`'
+        '进入试跑前读 `03-面板入口验收.md`'
+        '需要追溯历史判断时，再看时间戳证据稿'
+    )
+
+    $sectionContent = Get-FileSectionContent -FilePath $execStandardGuidePath -SectionStartMarker '## 使用顺序' -SectionEndMarker '## 命名与维护规则'
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "执行区现行件说明未解析到使用顺序：$execStandardGuidePath"
+    }
+
+    $usageOrderItems = @(
+        [regex]::Matches($sectionContent, '(?m)^\d+\. (.+?)\r?$') |
+            ForEach-Object {
+                ($_.Groups[1].Value.Trim() -replace '。$','')
+            }
+    )
+    if ($usageOrderItems.Count -eq 0) {
+        throw "执行区现行件说明未解析到使用顺序列点：$execStandardGuidePath"
+    }
+
+    Assert-ExactOrderedValues -SourceValues $usageOrderItems -ExpectedValues $expectedExecStandardGuideUsageOrderItems -Label '执行区现行件说明使用顺序摘要序列'
+    return $expectedExecStandardGuideUsageOrderItems
+}
+
 function Get-MatchedExecStandardDocNamesFromFile {
     param(
         [string]$FilePath,
@@ -4397,6 +4425,13 @@ catch {
 $canonicalExecStandardGuideConclusionLine = ''
 try {
     $canonicalExecStandardGuideConclusionLine = Get-CanonicalExecStandardGuideConclusionLine
+}
+catch {
+    $violationMessages.Add($_.Exception.Message)
+}
+$canonicalExecStandardGuideUsageOrderItems = @()
+try {
+    $canonicalExecStandardGuideUsageOrderItems = Get-CanonicalExecStandardGuideUsageOrderItems
 }
 catch {
     $violationMessages.Add($_.Exception.Message)

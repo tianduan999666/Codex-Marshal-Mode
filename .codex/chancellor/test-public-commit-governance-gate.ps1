@@ -1336,6 +1336,10 @@ $execStandardGuidePath = Join-Path $repoRootPath 'docs/40-执行/04-执行区现
 $originalExecStandardGuideBytes = [System.IO.File]::ReadAllBytes($execStandardGuidePath)
 $execStandardGuideLines = Get-Content $execStandardGuidePath
 $execStandardGuideConclusionLineText = '在 `docs/40-执行/` 下，固定编号文件是现行标准件，带时间戳的文件默认是证据稿或过程稿。'
+$execStandardGuideUsageOrderLineText1 = '1. 先读 `01-任务包规范.md`'
+$execStandardGuideUsageOrderLineText2 = '2. 再读 `02-任务包模板.md`'
+$execStandardGuideUsageOrderLineText3 = '3. 进入试跑前读 `03-面板入口验收.md`'
+$execStandardGuideUsageOrderLineText4 = '4. 需要追溯历史判断时，再看时间戳证据稿'
 
 if ($execReadmeLines -notcontains $execReadmeTitleLineText) {
     throw "测试前置条件不满足：$execReadmePath 中缺少 $execReadmeTitleLineText"
@@ -1405,6 +1409,20 @@ try {
     [System.IO.File]::WriteAllText($execStandardGuidePath, $driftedExecStandardGuideContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/04-执行区现行件与证据稿说明.md') -ExpectedExitCode 1 -TestName 'block-exec-standard-guide-conclusion-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($execStandardGuidePath, $originalExecStandardGuideBytes)
+}
+
+if ($execStandardGuideLines -notcontains $execStandardGuideUsageOrderLineText1 -or $execStandardGuideLines -notcontains $execStandardGuideUsageOrderLineText2 -or $execStandardGuideLines -notcontains $execStandardGuideUsageOrderLineText3 -or $execStandardGuideLines -notcontains $execStandardGuideUsageOrderLineText4) {
+    throw "测试前置条件不满足：$execStandardGuidePath 中缺少执行区现行件说明使用顺序测试行。"
+}
+
+try {
+    $driftedExecStandardGuideContent = (Get-Content $execStandardGuidePath -Raw).Replace($execStandardGuideUsageOrderLineText4, '4. 需要追溯历史判断时，按情况查找时间戳文档')
+    [System.IO.File]::WriteAllText($execStandardGuidePath, $driftedExecStandardGuideContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/04-执行区现行件与证据稿说明.md') -ExpectedExitCode 1 -TestName 'block-exec-standard-guide-usage-order-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($execStandardGuidePath, $originalExecStandardGuideBytes)
