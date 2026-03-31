@@ -8,6 +8,7 @@
     "VERSION.json",
     "manifest.json",
     "install-to-home.ps1",
+    "initialize-workspace.ps1",
     "new-task.ps1",
     "rollback-from-backup.ps1",
     "verify-cutover.ps1",

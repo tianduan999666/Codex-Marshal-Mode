@@ -1,7 +1,14 @@
-﻿$ErrorActionPreference = 'Stop'
+﻿param(
+    [string]$RepoRootPath = ''
+)
+
+$ErrorActionPreference = 'Stop'
 
 $scriptRootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRootPath = (Resolve-Path (Join-Path $scriptRootPath '..\..')).Path
+if ([string]::IsNullOrWhiteSpace($RepoRootPath)) {
+    $RepoRootPath = Join-Path $scriptRootPath '..\..'
+}
+$repoRootPath = (Resolve-Path $RepoRootPath).Path
 $hookDirectoryPath = Join-Path $repoRootPath '.git\hooks'
 $hookFilePath = Join-Path $hookDirectoryPath 'pre-push'
 $backupTimestampText = Get-Date -Format 'yyyyMMdd-HHmmss'
