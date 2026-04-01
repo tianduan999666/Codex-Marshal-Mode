@@ -93,6 +93,7 @@ F:\260328大都督模式
 - V2EX首发执行包：`docs/40-执行/28-V2EX首发执行包.md`
 - 少数派首发执行包：`docs/40-执行/29-少数派首发执行包.md`
 - 朋友圈与熟人转介绍首发执行包：`docs/40-执行/30-朋友圈与熟人转介绍首发执行包.md`
+- 三渠道首发选择对比卡：`docs/40-执行/31-三渠道首发选择对比卡.md`
 - 本机生产母体骨架：`codex-home-export/README.md`
 - 一键初始化入口：`codex-home-export/initialize-workspace.ps1`
 - 一键新任务入口：`codex-home-export/new-task.ps1`
