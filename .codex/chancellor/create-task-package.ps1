@@ -26,8 +26,8 @@ $planningGuideRelativePath = 'docs/30-方案/07-V4-规划策略候选规范.md'
 $governanceGuideRelativePath = 'docs/30-方案/08-V4-治理审计候选规范.md'
 $closeoutGuideRelativePath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
 
-if ($TaskId -notmatch '^v4-trial-\d{3}-.+$') {
-    throw 'TaskId 必须匹配 v4-trial-<三位序号>-<语义名> 格式。'
+if ($TaskId -notmatch '^v4-(trial|target)-\d{3}-.+$') {
+    throw 'TaskId 必须匹配 v4-trial-<三位序号>-<语义名> 或 v4-target-<三位序号>-<语义名> 格式。'
 }
 
 if (Test-Path $taskDirectoryPath) {
