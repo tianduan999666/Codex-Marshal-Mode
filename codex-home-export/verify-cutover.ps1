@@ -14,6 +14,7 @@ $configSourcePath = Join-Path $sourceRoot 'config.toml'
 $runtimeVersionPath = Join-Path $resolvedTargetCodexHome 'config\cx-version.json'
 $runtimeManifestPath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode\manifest.json'
 $runtimeReadmePath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode\README.md'
+$runtimeStartPanelTaskPath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode\start-panel-task.ps1'
 $runtimeAgentsPath = Join-Path $resolvedTargetCodexHome 'AGENTS.md'
 $runtimeConfigPath = Join-Path $resolvedTargetCodexHome 'config.toml'
 $runtimeInstallRecordPath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode\install-record.json'
@@ -31,7 +32,7 @@ function Get-Sha256Text([string]$Path) {
     return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
 }
 
-foreach ($requiredPath in @($versionSourcePath, $agentsSourcePath, $configSourcePath, $runtimeVersionPath, $runtimeManifestPath, $runtimeReadmePath, $runtimeAgentsPath, $runtimeConfigPath, $runtimeInstallRecordPath)) {
+foreach ($requiredPath in @($versionSourcePath, $agentsSourcePath, $configSourcePath, $runtimeVersionPath, $runtimeManifestPath, $runtimeReadmePath, $runtimeStartPanelTaskPath, $runtimeAgentsPath, $runtimeConfigPath, $runtimeInstallRecordPath)) {
     if (-not (Test-Path $requiredPath)) {
         throw "缺少必需文件：$requiredPath"
     }
@@ -64,7 +65,7 @@ if ($runtimeManifestInfo.version -ne $expectedVersionValue) {
     throw "运行态 manifest 版本不匹配：期望 $expectedVersionValue，实际 $($runtimeManifestInfo.version)"
 }
 
-foreach ($requiredManagedFile in @('config/cx-version.json', 'config/marshal-mode/manifest.json', 'config/marshal-mode/README.md', 'AGENTS.md', 'config.toml', 'config/marshal-mode/install-record.json')) {
+foreach ($requiredManagedFile in @('config/cx-version.json', 'config/marshal-mode/manifest.json', 'config/marshal-mode/README.md', 'config/marshal-mode/start-panel-task.ps1', 'AGENTS.md', 'config.toml', 'config/marshal-mode/install-record.json')) {
     if (-not ($runtimeInstallRecord.managed_files -contains $requiredManagedFile)) {
         throw "安装记录缺少 managed_files 项：$requiredManagedFile"
     }
@@ -73,10 +74,12 @@ foreach ($requiredManagedFile in @('config/cx-version.json', 'config/marshal-mod
 $expectedHashByPath = @{
     'AGENTS.md' = Get-Sha256Text -Path $agentsSourcePath
     'config.toml' = Get-Sha256Text -Path $configSourcePath
+    'config/marshal-mode/start-panel-task.ps1' = Get-Sha256Text -Path (Join-Path $sourceRoot 'start-panel-task.ps1')
 }
 $runtimeHashByPath = @{
     'AGENTS.md' = Get-Sha256Text -Path $runtimeAgentsPath
     'config.toml' = Get-Sha256Text -Path $runtimeConfigPath
+    'config/marshal-mode/start-panel-task.ps1' = Get-Sha256Text -Path $runtimeStartPanelTaskPath
 }
 foreach ($hashPath in $expectedHashByPath.Keys) {
     if ($runtimeHashByPath[$hashPath] -ne $expectedHashByPath[$hashPath]) {
@@ -113,8 +116,8 @@ Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info "CxVersion=$($runtimeVersionInfo.cx_version)"
 Write-Info "BackupRoot=$($runtimeInstallRecord.backup_root)"
 Write-Ok '最小主链验真通过。'
-Write-Info '默认日常入口：回官方 Codex 面板直接说 `丞相：我要做 XX`。'
-Write-Info '同版本第一次开工会先验真；后续同版本任务默认跳过重复验真，直接建任务。'
-Write-Info '若发现可修复漂移，会先安全修复，再继续。'
+Write-Info '默认日常入口：回官方 Codex 面板直接说 `传令：我要做 XX`。'
+Write-Info '一句话入口默认链路：轻量检查 → 完整验真（必要时） → 自动修复（必要时） → 自动建任务 → 进入执行模式。'
+Write-Info '验真、修复、检查只针对丞相运行环境与真源，不检查你的项目代码。'
 Write-Info '若当前就在维护层，也可执行 `new-task.ps1 -Title "你的任务标题"` 直接起任务。'
 Write-Info '若发现异常：先重跑 `verify-cutover.ps1`，仍异常再执行 `rollback-from-backup.ps1`。'

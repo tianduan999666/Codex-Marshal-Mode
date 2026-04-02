@@ -138,7 +138,7 @@ else {
     Write-Output '1. 打开官方 Codex 面板，新开一个会话。'
     Write-Output '2. 直接粘贴下面这段话：'
     Write-Host ''
-    Write-Host '丞相：当前任务已创建。' -ForegroundColor Yellow
+    Write-Host '传令：当前任务已创建。' -ForegroundColor Yellow
     Write-Host ('任务编号：{0}' -f $taskId) -ForegroundColor Yellow
     Write-Host ('任务标题：{0}' -f $Title) -ForegroundColor Yellow
     Write-Host '请先判断瓶颈，给出最小可验证推进点，然后直接开始。' -ForegroundColor Yellow

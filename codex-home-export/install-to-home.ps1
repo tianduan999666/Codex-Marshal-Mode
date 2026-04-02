@@ -12,18 +12,21 @@ $manifestSourcePath = Join-Path $sourceRoot 'manifest.json'
 $readmeSourcePath = Join-Path $sourceRoot 'README.md'
 $agentsSourcePath = Join-Path $sourceRoot 'AGENTS.md'
 $configTomlSourcePath = Join-Path $sourceRoot 'config.toml'
+$startPanelTaskSourcePath = Join-Path $sourceRoot 'start-panel-task.ps1'
 $runtimeVersionTargetPath = Join-Path $resolvedTargetCodexHome 'config\cx-version.json'
 $runtimeAgentsTargetPath = Join-Path $resolvedTargetCodexHome 'AGENTS.md'
 $runtimeConfigTomlTargetPath = Join-Path $resolvedTargetCodexHome 'config.toml'
 $runtimeMetaRoot = Join-Path $resolvedTargetCodexHome 'config\marshal-mode'
 $runtimeManifestTargetPath = Join-Path $runtimeMetaRoot 'manifest.json'
 $runtimeReadmeTargetPath = Join-Path $runtimeMetaRoot 'README.md'
+$runtimeStartPanelTaskTargetPath = Join-Path $runtimeMetaRoot 'start-panel-task.ps1'
 $runtimeInstallRecordPath = Join-Path $runtimeMetaRoot 'install-record.json'
 $backupRoot = Join-Path $resolvedTargetCodexHome "backup\local-production-cutover-$timestamp"
 $managedFileMappings = @(
     @{ SourcePath = $versionSourcePath; TargetPath = $runtimeVersionTargetPath; RelativeName = 'config/cx-version.json' }
     @{ SourcePath = $manifestSourcePath; TargetPath = $runtimeManifestTargetPath; RelativeName = 'config/marshal-mode/manifest.json' }
     @{ SourcePath = $readmeSourcePath; TargetPath = $runtimeReadmeTargetPath; RelativeName = 'config/marshal-mode/README.md' }
+    @{ SourcePath = $startPanelTaskSourcePath; TargetPath = $runtimeStartPanelTaskTargetPath; RelativeName = 'config/marshal-mode/start-panel-task.ps1' }
     @{ SourcePath = $agentsSourcePath; TargetPath = $runtimeAgentsTargetPath; RelativeName = 'AGENTS.md' }
     @{ SourcePath = $configTomlSourcePath; TargetPath = $runtimeConfigTomlTargetPath; RelativeName = 'config.toml' }
 )
@@ -73,7 +76,7 @@ function Get-Sha256Text([string]$Path) {
     return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
 }
 
-foreach ($sourcePath in @($versionSourcePath, $manifestSourcePath, $readmeSourcePath, $agentsSourcePath, $configTomlSourcePath)) {
+foreach ($sourcePath in @($versionSourcePath, $manifestSourcePath, $readmeSourcePath, $startPanelTaskSourcePath, $agentsSourcePath, $configTomlSourcePath)) {
     if (-not (Test-Path $sourcePath)) {
         throw "缺少源文件：$sourcePath"
     }

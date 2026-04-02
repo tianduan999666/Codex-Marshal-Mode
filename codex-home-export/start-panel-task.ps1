@@ -111,7 +111,7 @@ $verifySkipped = $false
 $verifyErrorMessage = ''
 if ($canSkipVerify) {
     $verifySkipped = $true
-    Write-Info ("检测到当前版本 {0} 已在本机通过首轮验真，本次直接建任务。" -f $currentSourceVersion)
+    Write-Info ("检测到当前版本 {0} 的轻量检查已通过，本次跳过完整验真，直接建任务。" -f $currentSourceVersion)
 }
 else {
     try {
@@ -123,7 +123,7 @@ else {
 
     if (-not [string]::IsNullOrWhiteSpace($verifyErrorMessage)) {
         if ($verifyErrorMessage -like 'auth.json 不存在*') {
-            throw '当前还没登录官方 Codex，不能自动开工。请先完成登录，再回面板重试“丞相：我要做 XX”。'
+            throw '当前还没登录官方 Codex，不能自动开工。请先完成登录，再回面板重试“传令：我要做 XX”。'
         }
     }
 
@@ -176,16 +176,22 @@ $activeTaskId = Get-ActiveTaskId -Path $activeTaskFilePath
 Write-Host ''
 Write-Ok '一句话开工已完成。'
 if ($verifySkipped) {
-    Write-Output '- 自动验真：已跳过（当前版本本机已验过）。'
+    Write-Output '- 轻量检查：通过（当前版本与关键文件一致）。'
+    Write-Output '- 完整验真：已跳过（当前版本本机已验过）。'
+    Write-Output '- 自动修复：未触发。'
 }
 elseif ($repairUsed) {
-    Write-Output '- 自动验真：先发现漂移，已安全修复并复查通过。'
+    Write-Output '- 轻量检查：发现需复核，已转入完整验真。'
+    Write-Output '- 完整验真：通过。'
+    Write-Output '- 自动修复：已执行并复查通过。'
 }
 else {
-    Write-Output '- 自动验真：通过。'
+    Write-Output '- 轻量检查：已转入完整验真。'
+    Write-Output '- 完整验真：通过。'
+    Write-Output '- 自动修复：未触发。'
 }
 Write-Output ('- 自动建任务：{0}' -f $Title)
 if (-not [string]::IsNullOrWhiteSpace($activeTaskId)) {
     Write-Output ('- 当前激活任务：{0}' -f $activeTaskId)
 }
-Write-Output '- 下一步：留在当前会话，直接判断瓶颈并开始，不用切到 PowerShell。'
+Write-Output '- 进入执行模式：留在当前会话，直接判断瓶颈并开始，不用切到 PowerShell。'
