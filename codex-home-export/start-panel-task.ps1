@@ -23,7 +23,11 @@ $verifyScriptPath = Join-Path $scriptRootPath 'verify-cutover.ps1'
 $installScriptPath = Join-Path $scriptRootPath 'install-to-home.ps1'
 $newTaskScriptPath = Join-Path $scriptRootPath 'new-task.ps1'
 $versionSourcePath = Join-Path $scriptRootPath 'VERSION.json'
+$agentsSourcePath = Join-Path $scriptRootPath 'AGENTS.md'
+$configSourcePath = Join-Path $scriptRootPath 'config.toml'
 $runtimeVersionPath = Join-Path $resolvedTargetCodexHome 'config\cx-version.json'
+$runtimeAgentsPath = Join-Path $resolvedTargetCodexHome 'AGENTS.md'
+$runtimeConfigPath = Join-Path $resolvedTargetCodexHome 'config.toml'
 $runtimeMetaRootPath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode'
 $taskStartStatePath = Join-Path $runtimeMetaRootPath 'task-start-state.json'
 $activeTaskFilePath = Join-Path $resolvedRepoRootPath '.codex\chancellor\active-task.txt'
@@ -67,7 +71,15 @@ function Write-Utf8NoBomJson([string]$Path, [object]$Payload) {
     [System.IO.File]::WriteAllText($Path, $jsonText, $utf8NoBom)
 }
 
-foreach ($requiredPath in @($verifyScriptPath, $installScriptPath, $newTaskScriptPath, $versionSourcePath)) {
+function Get-Sha256TextOrEmpty([string]$Path) {
+    if (-not (Test-Path $Path)) {
+        return ''
+    }
+
+    return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
+}
+
+foreach ($requiredPath in @($verifyScriptPath, $installScriptPath, $newTaskScriptPath, $versionSourcePath, $agentsSourcePath, $configSourcePath, $runtimeAgentsPath, $runtimeConfigPath)) {
     if (-not (Test-Path $requiredPath)) {
         throw "缺少一句话开工所需脚本：$requiredPath"
     }
@@ -83,9 +95,13 @@ $taskStartState = Read-JsonFileOrNull -Path $taskStartStatePath
 $currentSourceVersion = if ($null -ne $sourceVersionInfo) { $sourceVersionInfo.cx_version } else { '' }
 $currentRuntimeVersion = if ($null -ne $runtimeVersionInfo) { $runtimeVersionInfo.cx_version } else { '' }
 $currentSourceRoot = $scriptRootPath
+$currentSourceAgentsHash = Get-Sha256TextOrEmpty -Path $agentsSourcePath
+$currentSourceConfigHash = Get-Sha256TextOrEmpty -Path $configSourcePath
+$currentRuntimeAgentsHash = Get-Sha256TextOrEmpty -Path $runtimeAgentsPath
+$currentRuntimeConfigHash = Get-Sha256TextOrEmpty -Path $runtimeConfigPath
 $canSkipVerify = $false
 if (-not $ForceVerify) {
-    if (($null -ne $taskStartState) -and ($taskStartState.verify_status -eq 'passed') -and ($taskStartState.cx_version -eq $currentSourceVersion) -and ($taskStartState.runtime_version -eq $currentRuntimeVersion) -and ($taskStartState.source_root -eq $currentSourceRoot) -and ($currentSourceVersion -eq $currentRuntimeVersion)) {
+    if (($null -ne $taskStartState) -and ($taskStartState.verify_status -eq 'passed') -and ($taskStartState.cx_version -eq $currentSourceVersion) -and ($taskStartState.runtime_version -eq $currentRuntimeVersion) -and ($taskStartState.source_root -eq $currentSourceRoot) -and ($currentSourceVersion -eq $currentRuntimeVersion) -and ($currentSourceAgentsHash -eq $currentRuntimeAgentsHash) -and ($currentSourceConfigHash -eq $currentRuntimeConfigHash)) {
         $canSkipVerify = $true
     }
 }
@@ -122,6 +138,8 @@ else {
         $repairUsed = $true
         $runtimeVersionInfo = Read-JsonFileOrNull -Path $runtimeVersionPath
         $currentRuntimeVersion = if ($null -ne $runtimeVersionInfo) { $runtimeVersionInfo.cx_version } else { '' }
+        $currentRuntimeAgentsHash = Get-Sha256TextOrEmpty -Path $runtimeAgentsPath
+        $currentRuntimeConfigHash = Get-Sha256TextOrEmpty -Path $runtimeConfigPath
     }
 
     $taskStartStatePayload = [ordered]@{
@@ -131,6 +149,10 @@ else {
         runtime_version = $currentRuntimeVersion
         source_root = $currentSourceRoot
         target_codex_home = $resolvedTargetCodexHome
+        source_agents_hash = $currentSourceAgentsHash
+        source_config_hash = $currentSourceConfigHash
+        runtime_agents_hash = $currentRuntimeAgentsHash
+        runtime_config_hash = $currentRuntimeConfigHash
         repair_used = $repairUsed
     }
     Write-Utf8NoBomJson -Path $taskStartStatePath -Payload $taskStartStatePayload
