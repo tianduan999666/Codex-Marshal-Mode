@@ -1876,12 +1876,12 @@ function Get-CanonicalPanelCommandState {
 
     $checklistCommands = @(
         Get-OrderedUniqueValues -Values @(
-            [regex]::Matches($checklistStepsSection, '丞相(?:帮助|状态|检查|修复|验板|版本)') |
+            [regex]::Matches($checklistStepsSection, '传令 (?:帮助|状态|检查|修复|验板|版本)') |
                 ForEach-Object { $_.Value }
         )
     )
     if ($checklistCommands.Count -eq 0) {
-        throw "面板人工验板清单未解析到丞相命令：$checklistPath"
+        throw "面板人工验板清单未解析到传令命令：$checklistPath"
     }
     Assert-ExactOrderedValues -SourceValues $checklistCommands -ExpectedValues $expectedChecklistCommands -Label '面板人工验板清单命令序列'
 
