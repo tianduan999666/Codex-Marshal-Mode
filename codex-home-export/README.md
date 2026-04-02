@@ -18,6 +18,8 @@
 ## 当前已落文件
 
 - `README.md`
+- `AGENTS.md`
+- `config.toml`
 - `VERSION.json`
 - `manifest.json`
 - `install-to-home.ps1`
@@ -40,18 +42,17 @@
 
 ## 使用原则
 
-1. 若想尽量一条命令跑通本机准备，可先执行 `initialize-workspace.ps1`
-2. 需要单独同步最小骨架时，再执行 `install-to-home.ps1`
-3. 再执行 `verify-cutover.ps1` 完成自动验板
-4. 若异常则执行 `rollback-from-backup.ps1` 回退
-5. 若想一步完成验板准备，可执行 `start-panel-acceptance.ps1`
-6. 需要傻瓜版入口时，先看 `panel-acceptance-three-step-card.md`
-7. 需要打勾记录时，使用 `panel-acceptance-pass-fail-sheet.md`
-8. 验板结束后，可执行 `new-panel-acceptance-result.ps1` 生成结果稿
-9. 结果细节按 `panel-acceptance-result-template.md` 留痕
-10. 补齐结果稿后，可执行 `verify-panel-acceptance-result.ps1 -ResultPath <结果稿>` 做结果复核，并直接查看脚本输出的收口提示
-11. 最后按 `panel-acceptance-checklist.md` 做完整面板人工验板
-12. 若需要一条命令创建新任务，可执行 `new-task.ps1 -Title "任务标题"`；这是维护层动作，建完后立即回到官方 Codex 面板继续
+### 当前唯一主线（只看这 3 条）
+
+1. 先执行 `initialize-workspace.ps1`，先跑最小准备；默认不装治理门禁，也不自动建示例任务。
+2. 需要单独同步或复查生产态时，执行 `install-to-home.ps1` 与 `verify-cutover.ps1`。
+3. 需要新任务时，执行 `new-task.ps1 -Title "任务标题"`；当前默认创建 `v4-target-*` 任务，如需补建 Trial 任务再加 `-TaskNamespace trial`；建完后立即回到官方 Codex 面板继续。
+
+### 当前次级材料（先不作为日常主路径）
+
+- `rollback-from-backup.ps1`：只有安装或验真异常时再用。
+- `start-panel-acceptance.ps1`、`new-panel-acceptance-result.ps1`、`verify-panel-acceptance-result.ps1`：保留作维护层补充动作，不作为当前自用 MVP 主路径。
+- `panel-acceptance-*` 文档：保留作补充参考，不作为当前日常必经步骤。
 
 ## 说明
 

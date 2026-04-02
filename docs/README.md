@@ -2,6 +2,13 @@
 
 这里是新 V4 仓的正式文档区。
 
+## 明早自用先看
+- `../logs/20260402-040300-morning-handoff.md`
+- `../codex-home-export/README.md`
+- `40-执行/README.md`
+- `../logs/20260402-022000-self-use-first-run-card.md`
+- `../logs/20260402-013700-mvp-24h-plan.md`
+
 ## 先看什么
 - `00-导航/02-现行标准件总览.md`
 - `00-导航/01-V4-重启导读.md`

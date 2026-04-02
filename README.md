@@ -14,7 +14,7 @@
 
 ## 公开试用文案（100 字版）
 
-我做了一套面向官方 Codex 面板的继续工作工具。每次开新会话，不用重讲背景，能直接接着做。当前支持 Windows 开发者试用，初始化和建任务都已压成一条命令。有兴趣试用的回我，我免费帮你配第一套。
+我做了一套面向官方 Codex 面板的继续工作工具。每次开新会话，不用重讲背景，能直接接着做。当前支持 Windows 开发者试用，初始化、验真、建任务都已压到最短路径。有兴趣试用的回我，我免费帮你配第一套。
 
 如果你想按不同渠道直接复制使用，仓里已经附好可直接复制的文案包。
 
@@ -45,6 +45,14 @@ F:\260328大都督模式
 ├─ temp/
 └─ codex-home-export/
 ```
+
+## 明早自用先看
+
+- 晨起交接单：`logs/20260402-040300-morning-handoff.md`
+- 三条主链说明：`codex-home-export/README.md`
+- 执行区入口：`docs/40-执行/README.md`
+- 自用实测卡：`logs/20260402-022000-self-use-first-run-card.md`
+- 24 小时节奏：`logs/20260402-013700-mvp-24h-plan.md`
 
 ## 快速入口
 
@@ -95,7 +103,7 @@ F:\260328大都督模式
 - 朋友圈与熟人转介绍首发执行包：`docs/40-执行/30-朋友圈与熟人转介绍首发执行包.md`
 - 三渠道首发选择对比卡：`docs/40-执行/31-三渠道首发选择对比卡.md`
 - 本机生产母体骨架：`codex-home-export/README.md`
-- 一键初始化入口：`codex-home-export/initialize-workspace.ps1`
-- 一键新任务入口：`codex-home-export/new-task.ps1`
+- 初始化入口：`codex-home-export/initialize-workspace.ps1`
+- 新任务入口：`codex-home-export/new-task.ps1`
 - 反屎山总纲：`docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`
 - 卫生与命名规范：`docs/reference/02-仓库卫生与命名规范.md`

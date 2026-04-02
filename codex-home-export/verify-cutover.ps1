@@ -9,9 +9,13 @@ $ErrorActionPreference = 'Stop'
 $sourceRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $resolvedTargetCodexHome = [System.IO.Path]::GetFullPath($TargetCodexHome)
 $versionSourcePath = Join-Path $sourceRoot 'VERSION.json'
+$agentsSourcePath = Join-Path $sourceRoot 'AGENTS.md'
+$configSourcePath = Join-Path $sourceRoot 'config.toml'
 $runtimeVersionPath = Join-Path $resolvedTargetCodexHome 'config\cx-version.json'
 $runtimeManifestPath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode\manifest.json'
 $runtimeReadmePath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode\README.md'
+$runtimeAgentsPath = Join-Path $resolvedTargetCodexHome 'AGENTS.md'
+$runtimeConfigPath = Join-Path $resolvedTargetCodexHome 'config.toml'
 $runtimeInstallRecordPath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode\install-record.json'
 $authPath = Join-Path $resolvedTargetCodexHome 'auth.json'
 
@@ -23,7 +27,11 @@ function Write-Ok([string]$Message) {
     Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
-foreach ($requiredPath in @($versionSourcePath, $runtimeVersionPath, $runtimeManifestPath, $runtimeReadmePath, $runtimeInstallRecordPath)) {
+function Get-Sha256Text([string]$Path) {
+    return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
+}
+
+foreach ($requiredPath in @($versionSourcePath, $agentsSourcePath, $configSourcePath, $runtimeVersionPath, $runtimeManifestPath, $runtimeReadmePath, $runtimeAgentsPath, $runtimeConfigPath, $runtimeInstallRecordPath)) {
     if (-not (Test-Path $requiredPath)) {
         throw "缺少必需文件：$requiredPath"
     }
@@ -56,9 +64,34 @@ if ($runtimeManifestInfo.version -ne $expectedVersionValue) {
     throw "运行态 manifest 版本不匹配：期望 $expectedVersionValue，实际 $($runtimeManifestInfo.version)"
 }
 
-foreach ($requiredManagedFile in @('config/cx-version.json', 'config/marshal-mode/manifest.json', 'config/marshal-mode/README.md', 'config/marshal-mode/install-record.json')) {
+foreach ($requiredManagedFile in @('config/cx-version.json', 'config/marshal-mode/manifest.json', 'config/marshal-mode/README.md', 'AGENTS.md', 'config.toml', 'config/marshal-mode/install-record.json')) {
     if (-not ($runtimeInstallRecord.managed_files -contains $requiredManagedFile)) {
         throw "安装记录缺少 managed_files 项：$requiredManagedFile"
+    }
+}
+
+$expectedHashByPath = @{
+    'AGENTS.md' = Get-Sha256Text -Path $agentsSourcePath
+    'config.toml' = Get-Sha256Text -Path $configSourcePath
+}
+$runtimeHashByPath = @{
+    'AGENTS.md' = Get-Sha256Text -Path $runtimeAgentsPath
+    'config.toml' = Get-Sha256Text -Path $runtimeConfigPath
+}
+foreach ($hashPath in $expectedHashByPath.Keys) {
+    if ($runtimeHashByPath[$hashPath] -ne $expectedHashByPath[$hashPath]) {
+        throw "运行件哈希不匹配：$hashPath"
+    }
+
+    if ($runtimeInstallRecord.PSObject.Properties.Name -contains 'synced_hashes') {
+        $recordHashItem = @($runtimeInstallRecord.synced_hashes | Where-Object { $_.path -eq $hashPath } | Select-Object -First 1)
+        if ($recordHashItem.Count -eq 0) {
+            throw "安装记录缺少 synced_hashes 项：$hashPath"
+        }
+
+        if ($recordHashItem[0].sha256 -ne $expectedHashByPath[$hashPath]) {
+            throw "安装记录哈希不匹配：$hashPath"
+        }
     }
 }
 
@@ -79,11 +112,7 @@ if (-not (Test-Path $authPath)) {
 Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info "CxVersion=$($runtimeVersionInfo.cx_version)"
 Write-Info "BackupRoot=$($runtimeInstallRecord.backup_root)"
-Write-Ok '切换验板通过。'
-Write-Info '下一步：打开官方 Codex 面板，新开一个全新会话。'
-Write-Info '一键准备：如想把人工验板准备一步做完，可执行 `start-panel-acceptance.ps1`。'
-Write-Info '简版验板卡：先看 `panel-acceptance-three-step-card.md`；需要打勾记录时看 `panel-acceptance-pass-fail-sheet.md`。'
-Write-Info '结果留痕：人工验板结束后，可执行 `new-panel-acceptance-result.ps1` 生成结果稿，再按 `panel-acceptance-result-template.md` 补齐。'
-Write-Info '完整固定口径：如需逐项复核，再看 `panel-acceptance-checklist.md`。'
-Write-Info '人工验板顺序：先输入 `丞相版本`，再输入 `丞相检查`，必要时再输入 `丞相状态`。'
+Write-Ok '最小主链验真通过。'
+Write-Info '下一步只保留 3 条主链：initialize-workspace.ps1、install-to-home.ps1 / verify-cutover.ps1、new-task.ps1。'
+Write-Info '若要马上开工：执行 `new-task.ps1 -Title "你的任务标题"`，然后回官方 Codex 面板继续。'
 Write-Info '若发现漂移：先重跑 `verify-cutover.ps1`，仍异常再执行 `rollback-from-backup.ps1`。'

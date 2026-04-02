@@ -1,0 +1,176 @@
+# 模型提供方：决定请求发往哪个后端
+model_provider = "crs"
+
+# 默认模型：主力模型
+model = "gpt-5.4"
+# 推理强度：越高通常越稳，但可能更慢
+model_reasoning_effort = "xhigh"
+# 上下文窗口：可处理的最大上下文规模
+model_context_window = 300000
+
+# 自动压缩阈值：接近上限时自动整理上下文
+model_auto_compact_token_limit = 260000
+
+# 已确认 Windows / WSL 提示：避免重复提醒
+windows_wsl_setup_acknowledged = true
+
+# 网络访问：允许联网检索与访问在线资源
+network_access = "enabled"
+
+# 输出详细度：回答会更展开
+model_verbosity = "high"
+
+# 不把回复长期落盘：更偏隐私
+disable_response_storage = true
+# 审批策略：never = 不再逐条向你确认命令
+approval_policy = "never"
+
+# 隐藏不稳定特性提示：减少弹窗打扰
+suppress_unstable_features_warning = true
+
+preferred_auth_method = "apikey"
+personality = "pragmatic"
+sandbox_mode = "workspace-write"
+
+[features]
+# 多代理：允许 explorer / reviewer / docs 并行协作
+multi_agent = true
+
+# 快速模式：实验能力，先保持关闭更稳
+fast_mode = false
+
+# 个性风格：主要影响表达风格，不是刚需
+personality = false
+
+# Shell 快照：重复命令体验更顺，建议开启
+shell_snapshot = true
+
+# 撤销能力：改动后更容易回退，建议开启
+undo = true
+
+[agents]
+# 最大并行子代理数：过高会更乱也更耗资源
+max_threads = 6
+
+# 子代理深度：1 表示子代理不再继续分派子代理
+max_depth = 1
+
+[agents.explorer]
+# explorer：只读探索代码与结构
+description = "只读代码探索代理，在提出改动方案前收集代码证据。"
+
+# explorer 对应的配置文件
+config_file = "agents/explorer.toml"
+
+[agents.reviewer]
+# reviewer：审正确性、安全性、测试完整性
+description = "代码审查代理，专注于正确性、安全性和测试完整性。"
+
+# reviewer 对应的配置文件
+config_file = "agents/reviewer.toml"
+
+[agents.docs_researcher]
+# docs_researcher：核对 API、框架行为、版本说明
+description = "文档研究代理，验证 API、框架行为和版本说明。"
+
+# docs_researcher 对应的配置文件
+config_file = "agents/docs-researcher.toml"
+
+[profiles.gpt54_codex]
+# 该 profile 使用的模型
+model = "gpt-5.4"
+# 该 profile 的推理强度
+model_reasoning_effort = "xhigh"
+# 该 profile 的上下文窗口
+model_context_window = 300000
+
+# 该 profile 的自动压缩阈值
+model_auto_compact_token_limit = 260000
+
+[profiles.gpt54_codex.windows]
+# Windows 下优先使用提权沙箱
+sandbox = "elevated"
+
+[model_providers.packycode]
+name = "packycode"
+base_url = "https://codex-api.packycode.com/v1"
+wire_api = "responses"
+requires_openai_auth = true
+[windows]
+# Windows 总体沙箱偏好：提权模式
+sandbox = "elevated"
+
+[mcp_servers.serena]
+# Serena：语义检索、符号定位、项目记忆
+command = "cmd"
+args = ["/c", "uvx", "--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--context", "codex", "--project-from-cwd", "--open-web-dashboard", "false"]
+
+[mcp_servers.desktop-commander]
+# Desktop Commander：终端与桌面类操作
+command = "cmd"
+args = ["/c", "powershell", "-ExecutionPolicy", "Bypass", "-File", "%USERPROFILE%\\.codex\\scripts\\run-desktop-commander.ps1", "--no-onboarding"]
+
+[mcp_servers.desktop-commander.env]
+# 补充 Windows 基础环境变量
+SystemRoot = 'C:\Windows'
+
+[mcp_servers.context7]
+# Context7：拉取最新官方文档与 API 用法
+command = "cmd"
+args = ["/c", "npx", "-y", "@upstash/context7-mcp@latest"]
+
+# 研究型 MCP：memory / sequential-thinking 已启用；其余按需开启
+# [mcp_servers.exa]
+# # Exa：更强的网页与研究检索
+# url = "https://mcp.exa.ai/mcp"
+
+[mcp_servers.memory]
+# memory：提供跨轮记忆能力
+command = "cmd"
+args = ["/c", "npx", "-y", "@modelcontextprotocol/server-memory"]
+
+[mcp_servers.sequential-thinking]
+# sequential-thinking：分步推理辅助
+command = "cmd"
+args = ["/c", "npx", "-y", "@modelcontextprotocol/server-sequential-thinking"]
+
+[mcp_servers.playwright]
+args = ["@playwright/mcp@latest"]
+command = "npx"
+
+# [mcp_servers.playwright]
+# # Playwright：浏览器自动化 / E2E 用，按需开启
+# command = "cmd"
+# args = ["/c", "npx", "-y", "@playwright/mcp@latest", "--extension"]
+
+[commands.cx]
+prompt = "~/.codex/prompts/ecc-cx.md"
+description = "丞相模式：自动拆解、自动推进、自动执行、自动汇报、自动纠偏，只在关键点请求决策。"
+
+# 最小模板只负责注册 cx 命令，尽量不碰你现有的 provider / model / MCP 配置。
+# 如需完整 everything-codex 推荐配置，请参考：
+#   ~/.codex/config.everything-codex.full.template.toml
+# 或在安装时显式使用：
+#   powershell -ExecutionPolicy Bypass -File .\codex-home-export\install-to-home.ps1 -ApplyTemplateConfig
+[model_providers.my_proxy]
+name = "My Proxy API"
+base_url = "http://api.codexapi.icu/v1"
+wire_api = "responses"
+requires_openai_auth = true
+[model_providers.custom]
+name = "custom"
+wire_api = "responses"
+requires_openai_auth = true
+base_url = "https://api.mol.us.ci/v1"
+
+[model_providers.yunyi]
+name = "yunyi"
+base_url = "https://yunyi.rdzhvip.com/codex"
+wire_api = "responses"
+requires_openai_auth = true
+
+[model_providers.crs]
+name = "crs"
+base_url = "https://capi.quan2go.com/openai"
+wire_api = "responses"
+requires_openai_auth = true

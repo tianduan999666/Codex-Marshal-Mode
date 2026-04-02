@@ -3,6 +3,8 @@ param(
     [string]$TargetCodexHome = (Join-Path $env:USERPROFILE '.codex'),
     [string]$FirstTaskTitle = '第一个示例任务',
     [string]$FirstTaskGoal = '',
+    [switch]$InstallGovernanceHook,
+    [switch]$CreateExampleTask,
     [switch]$SkipExampleTask,
     [switch]$ForceExampleTask,
     [switch]$SkipVerify
@@ -60,25 +62,31 @@ foreach ($requiredPath in @($installScriptPath, $newTaskScriptPath, $verifyScrip
 
 Write-Info "RepoRoot=$resolvedRepoRootPath"
 Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
-Write-Info '开始执行一键初始化：安装最小骨架 → 安装门禁 → 准备首个任务 → 自动验板。'
+Write-Info '开始执行初始化：同步最小主链 → 可选补建任务 → 可选验真。'
 
 & $installScriptPath -TargetCodexHome $resolvedTargetCodexHome
 
-if (Test-Path $gitHookDirectoryPath) {
-    if (-not (Test-Path $hookInstallScriptPath)) {
-        throw "缺少 hook 安装脚本：$hookInstallScriptPath"
-    }
+if ($InstallGovernanceHook) {
+    if (Test-Path $gitHookDirectoryPath) {
+        if (-not (Test-Path $hookInstallScriptPath)) {
+            throw "缺少 hook 安装脚本：$hookInstallScriptPath"
+        }
 
-    & $hookInstallScriptPath -RepoRootPath $resolvedRepoRootPath
+        & $hookInstallScriptPath -RepoRootPath $resolvedRepoRootPath
+    }
+    else {
+        Write-WarnLine '未检测到 .git/hooks，已跳过治理门禁安装；如当前是 ZIP 包，请改用 git clone 后重跑。'
+    }
 }
 else {
-    Write-WarnLine '未检测到 .git/hooks，已跳过治理门禁安装；如当前是 ZIP 包，请改用 git clone 后重跑。'
+    Write-Info '默认未安装治理门禁；如需维护层 hook，请显式加 `-InstallGovernanceHook`。'
 }
 
 $createdExampleTask = $false
 $activeTaskId = Get-ActiveTaskId -Path $activeTaskFilePath
 $hasAnyTask = Test-HasAnyTask -Path $tasksRootPath
-if (-not $SkipExampleTask) {
+$shouldAttemptExampleTask = $CreateExampleTask -or $ForceExampleTask
+if ($shouldAttemptExampleTask) {
     if ($ForceExampleTask -or ((-not $hasAnyTask) -and [string]::IsNullOrWhiteSpace($activeTaskId))) {
         $newTaskParameters = @{
             Title = $FirstTaskTitle
@@ -96,6 +104,9 @@ if (-not $SkipExampleTask) {
         Write-Info '如需强制补一个示例任务，可重跑并加 `-ForceExampleTask`。'
     }
 }
+elseif (-not $SkipExampleTask) {
+    Write-Info '默认未创建示例任务；如需补一个引导任务，请显式加 `-CreateExampleTask`。'
+}
 
 if (-not $SkipVerify) {
     if (Test-Path $authPath) {
@@ -107,14 +118,13 @@ if (-not $SkipVerify) {
 }
 
 Write-Host ''
-Write-Ok '一键初始化已完成。'
-Write-Output '你现在可以这样继续：'
-Write-Output '1. 打开官方 Codex 面板。'
-Write-Output '2. 新开一个会话。'
+Write-Ok '初始化已完成。'
+Write-Output '当前只保留 3 条主链：'
+Write-Output '1. 复查安装状态：`verify-cutover.ps1`'
 if ($createdExampleTask) {
-    Write-Output '3. 直接使用刚才脚本输出的那段任务继续话术开工。'
+    Write-Output '2. 继续刚才脚本输出的任务话术。'
 }
 else {
-    Write-Output '3. 如需新任务，执行 `new-task.ps1 -Title "你的任务标题"` 后再回到面板。'
+    Write-Output '2. 新建任务：`new-task.ps1 -Title "你的任务标题"`'
 }
-Write-Output '4. 若想复查本机安装状态，可执行 `verify-cutover.ps1`。'
+Write-Output '3. 回官方 Codex 面板继续。'

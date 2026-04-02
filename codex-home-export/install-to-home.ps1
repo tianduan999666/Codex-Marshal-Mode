@@ -10,12 +10,23 @@ $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $versionSourcePath = Join-Path $sourceRoot 'VERSION.json'
 $manifestSourcePath = Join-Path $sourceRoot 'manifest.json'
 $readmeSourcePath = Join-Path $sourceRoot 'README.md'
+$agentsSourcePath = Join-Path $sourceRoot 'AGENTS.md'
+$configTomlSourcePath = Join-Path $sourceRoot 'config.toml'
 $runtimeVersionTargetPath = Join-Path $resolvedTargetCodexHome 'config\cx-version.json'
+$runtimeAgentsTargetPath = Join-Path $resolvedTargetCodexHome 'AGENTS.md'
+$runtimeConfigTomlTargetPath = Join-Path $resolvedTargetCodexHome 'config.toml'
 $runtimeMetaRoot = Join-Path $resolvedTargetCodexHome 'config\marshal-mode'
 $runtimeManifestTargetPath = Join-Path $runtimeMetaRoot 'manifest.json'
 $runtimeReadmeTargetPath = Join-Path $runtimeMetaRoot 'README.md'
 $runtimeInstallRecordPath = Join-Path $runtimeMetaRoot 'install-record.json'
 $backupRoot = Join-Path $resolvedTargetCodexHome "backup\local-production-cutover-$timestamp"
+$managedFileMappings = @(
+    @{ SourcePath = $versionSourcePath; TargetPath = $runtimeVersionTargetPath; RelativeName = 'config/cx-version.json' }
+    @{ SourcePath = $manifestSourcePath; TargetPath = $runtimeManifestTargetPath; RelativeName = 'config/marshal-mode/manifest.json' }
+    @{ SourcePath = $readmeSourcePath; TargetPath = $runtimeReadmeTargetPath; RelativeName = 'config/marshal-mode/README.md' }
+    @{ SourcePath = $agentsSourcePath; TargetPath = $runtimeAgentsTargetPath; RelativeName = 'AGENTS.md' }
+    @{ SourcePath = $configTomlSourcePath; TargetPath = $runtimeConfigTomlTargetPath; RelativeName = 'config.toml' }
+)
 
 function Write-Info([string]$Message) {
     Write-Host "[INFO] $Message" -ForegroundColor Cyan
@@ -58,7 +69,11 @@ function Read-JsonFile([string]$Path) {
     return (Get-Content -Raw -Path $Path | ConvertFrom-Json)
 }
 
-foreach ($sourcePath in @($versionSourcePath, $manifestSourcePath, $readmeSourcePath)) {
+function Get-Sha256Text([string]$Path) {
+    return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
+}
+
+foreach ($sourcePath in @($versionSourcePath, $manifestSourcePath, $readmeSourcePath, $agentsSourcePath, $configTomlSourcePath)) {
     if (-not (Test-Path $sourcePath)) {
         throw "缺少源文件：$sourcePath"
     }
@@ -73,28 +88,28 @@ if (-not $versionInfo.cx_version) {
 Write-Info "SourceRoot=$sourceRoot"
 Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info "CxVersion=$($versionInfo.cx_version)"
-Write-Info '当前脚本只同步最小骨架，不覆盖 auth.json、sessions 或其他用户隐私文件。'
+Write-Info '当前脚本会同步最小主链所需的元数据与运行件，不覆盖 auth.json、sessions 或其他用户隐私文件。'
 
 if ($DryRun) {
-    foreach ($targetPath in @($runtimeVersionTargetPath, $runtimeManifestTargetPath, $runtimeReadmeTargetPath, $runtimeInstallRecordPath)) {
-        Write-Info "DryRun 将写入：$targetPath"
+    foreach ($fileMapping in $managedFileMappings) {
+        Write-Info ("DryRun 将写入：{0}" -f $fileMapping.TargetPath)
     }
+    Write-Info "DryRun 将写入：$runtimeInstallRecordPath"
 
     Write-Ok 'DryRun 检查通过，未执行实际写入。'
     exit 0
 }
 
 New-Item -ItemType Directory -Force -Path $resolvedTargetCodexHome | Out-Null
-[void](Backup-FileIfExists -PathToBackup $runtimeVersionTargetPath -RelativeName 'config\cx-version.json')
-[void](Backup-FileIfExists -PathToBackup $runtimeManifestTargetPath -RelativeName 'config\marshal-mode\manifest.json')
-[void](Backup-FileIfExists -PathToBackup $runtimeReadmeTargetPath -RelativeName 'config\marshal-mode\README.md')
+foreach ($fileMapping in $managedFileMappings) {
+    [void](Backup-FileIfExists -PathToBackup $fileMapping.TargetPath -RelativeName $fileMapping.RelativeName)
+}
 [void](Backup-FileIfExists -PathToBackup $runtimeInstallRecordPath -RelativeName 'config\marshal-mode\install-record.json')
 
-Ensure-ParentDirectory -Path $runtimeVersionTargetPath
-Ensure-ParentDirectory -Path $runtimeManifestTargetPath
-Copy-Item -Force $versionSourcePath $runtimeVersionTargetPath
-Copy-Item -Force $manifestSourcePath $runtimeManifestTargetPath
-Copy-Item -Force $readmeSourcePath $runtimeReadmeTargetPath
+foreach ($fileMapping in $managedFileMappings) {
+    Ensure-ParentDirectory -Path $fileMapping.TargetPath
+    Copy-Item -Force $fileMapping.SourcePath $fileMapping.TargetPath
+}
 
 $installRecord = [ordered]@{
     installed_at = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
@@ -105,20 +120,21 @@ $installRecord = [ordered]@{
     stage = $manifestInfo.stage
     source_of_truth = $versionInfo.source_of_truth
     backup_root = $backupRoot
-    synced_files = @(
-        'config/cx-version.json'
-        'config/marshal-mode/manifest.json'
-        'config/marshal-mode/README.md'
-    )
+    synced_files = @($managedFileMappings | ForEach-Object { $_.RelativeName })
     managed_files = @(
-        'config/cx-version.json'
-        'config/marshal-mode/manifest.json'
-        'config/marshal-mode/README.md'
-        'config/marshal-mode/install-record.json'
+        @($managedFileMappings | ForEach-Object { $_.RelativeName }) + @('config/marshal-mode/install-record.json')
+    )
+    synced_hashes = @(
+        $managedFileMappings | ForEach-Object {
+            [ordered]@{
+                path = $_.RelativeName
+                sha256 = Get-Sha256Text -Path $_.TargetPath
+            }
+        }
     )
 }
 
-Set-Utf8NoBomContent -Path $runtimeInstallRecordPath -Content ($installRecord | ConvertTo-Json -Depth 4)
-Write-Ok '已同步 cx-version.json、manifest.json、README.md 与安装记录。'
+Set-Utf8NoBomContent -Path $runtimeInstallRecordPath -Content ($installRecord | ConvertTo-Json -Depth 5)
+Write-Ok '已同步最小主链所需元数据、运行件与安装记录。'
 Write-Info "安装记录：$runtimeInstallRecordPath"
-Write-WarnLine '当前已具备自动安装、自动回滚与自动验板；仍建议新开会话执行面板人工验板。'
+Write-WarnLine '如需验证生产真源是否接管成功，请继续执行 verify-cutover.ps1。'

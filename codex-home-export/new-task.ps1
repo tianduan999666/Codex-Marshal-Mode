@@ -5,6 +5,8 @@ param(
     [string]$Slug = '',
     [string]$RepoRootPath = '',
     [string]$PhaseHint = 'user_task',
+    [ValidateSet('trial', 'target')]
+    [string]$TaskNamespace = 'target',
     [ValidateSet('low', 'medium', 'high', 'critical')]
     [string]$RiskLevel = 'low',
     [switch]$NoSetActiveTask
@@ -51,16 +53,20 @@ function ConvertTo-TaskSlug {
 }
 
 function Get-NextTaskNumber {
-    param([string]$TasksRoot)
+    param(
+        [string]$TasksRoot,
+        [string]$TaskNamespace
+    )
 
     if (-not (Test-Path $TasksRoot)) {
         return 1
     }
 
+    $taskPattern = '^v4-{0}-(\d{{3}})-.+$' -f [regex]::Escape($TaskNamespace)
     $numbers = @(
         Get-ChildItem -Path $TasksRoot -Directory |
             ForEach-Object {
-                if ($_.Name -match '^v4-trial-(\d{3})-.+$') {
+                if ($_.Name -match $taskPattern) {
                     [int]$Matches[1]
                 }
             }
@@ -78,8 +84,8 @@ if (-not (Test-Path $createTaskScriptPath)) {
 }
 
 $resolvedSlug = ConvertTo-TaskSlug -Text $(if ([string]::IsNullOrWhiteSpace($Slug)) { $Title } else { $Slug })
-$taskNumber = Get-NextTaskNumber -TasksRoot $tasksRootPath
-$taskId = 'v4-trial-{0:000}-{1}' -f $taskNumber, $resolvedSlug
+$taskNumber = Get-NextTaskNumber -TasksRoot $tasksRootPath -TaskNamespace $TaskNamespace
+$taskId = 'v4-{0}-{1:000}-{2}' -f $TaskNamespace, $taskNumber, $resolvedSlug
 $resolvedGoal = $Goal
 if ([string]::IsNullOrWhiteSpace($resolvedGoal)) {
     $resolvedGoal = ('围绕“{0}”完成当前轮最小闭环推进' -f $Title)
@@ -91,6 +97,7 @@ $verifySignal = '已落盘当前任务的首轮结果、下一步与关键决策
 $setActiveTask = -not $NoSetActiveTask.IsPresent
 
 Write-Info "RepoRoot=$resolvedRepoRootPath"
+Write-Info "TaskNamespace=$TaskNamespace"
 Write-Info "TaskId=$taskId"
 
 & $createTaskScriptPath `
@@ -109,6 +116,7 @@ $taskDirectoryPath = Join-Path $tasksRootPath $taskId
 
 Write-Host ''
 Write-Ok '新任务已创建。'
+Write-Output ('- 任务命名空间：{0}' -f $TaskNamespace)
 Write-Output ('- 任务编号：{0}' -f $taskId)
 Write-Output ('- 任务目录：{0}' -f $taskDirectoryPath)
 Write-Output ('- 当前标题：{0}' -f $Title)

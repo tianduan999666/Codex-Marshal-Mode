@@ -1,10 +1,12 @@
 {
   "name": "marshal-mode-home-export",
-  "version": "CX-202603292219",
+  "version": "CX-202604020234",
   "stage": "bridge-ready",
   "source_codex_home": "C:/Users/tianduan999/.codex",
   "included": [
     "README.md",
+    "AGENTS.md",
+    "config.toml",
     "VERSION.json",
     "manifest.json",
     "install-to-home.ps1",
