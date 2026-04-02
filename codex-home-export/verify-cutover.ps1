@@ -113,6 +113,7 @@ Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info "CxVersion=$($runtimeVersionInfo.cx_version)"
 Write-Info "BackupRoot=$($runtimeInstallRecord.backup_root)"
 Write-Ok '最小主链验真通过。'
-Write-Info '下一步只保留 3 条主链：initialize-workspace.ps1、install-to-home.ps1 / verify-cutover.ps1、new-task.ps1。'
-Write-Info '若要马上开工：执行 `new-task.ps1 -Title "你的任务标题"`，然后回官方 Codex 面板继续。'
-Write-Info '若发现漂移：先重跑 `verify-cutover.ps1`，仍异常再执行 `rollback-from-backup.ps1`。'
+Write-Info '默认日常入口：回官方 Codex 面板直接说 `丞相：我要做 XX`。'
+Write-Info '系统会先验真；若发现可修复漂移，会先安全修复，再自动建任务并留在当前会话继续。'
+Write-Info '若当前就在维护层，也可执行 `new-task.ps1 -Title "你的任务标题"` 直接起任务。'
+Write-Info '若发现异常：先重跑 `verify-cutover.ps1`，仍异常再执行 `rollback-from-backup.ps1`。'

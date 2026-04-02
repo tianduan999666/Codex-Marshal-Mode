@@ -25,6 +25,7 @@
 - `install-to-home.ps1`
 - `initialize-workspace.ps1`
 - `new-task.ps1`
+- `start-panel-task.ps1`
 - `rollback-from-backup.ps1`
 - `verify-cutover.ps1`
 - `start-panel-acceptance.ps1`
@@ -42,11 +43,11 @@
 
 ## 使用原则
 
-### 当前唯一主线（只看这 3 条）
+### 当前唯一主线（先看这 3 条）
 
-1. 先执行 `initialize-workspace.ps1`，先跑最小准备；默认不装治理门禁，也不自动建示例任务。
-2. 需要单独同步或复查生产态时，执行 `install-to-home.ps1` 与 `verify-cutover.ps1`。
-3. 需要新任务时，执行 `new-task.ps1 -Title "任务标题"`；当前默认创建 `v4-target-*` 任务，如需补建 Trial 任务再加 `-TaskNamespace trial`；建完后立即回到官方 Codex 面板继续。
+1. 日常开工优先回官方 `Codex` 面板，直接说：`丞相：我要做 XX`。
+2. 面板内默认先走 `start-panel-task.ps1`：先验真；若发现可修复漂移，先安全修复；然后自动建任务，并留在当前会话继续。
+3. 第一次准备或维护层排障时，再执行 `initialize-workspace.ps1`、`install-to-home.ps1`、`verify-cutover.ps1` 与 `new-task.ps1`。
 
 ### 当前次级材料（先不作为日常主路径）
 

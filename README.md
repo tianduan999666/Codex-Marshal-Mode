@@ -46,6 +46,13 @@ F:\260328大都督模式
 └─ codex-home-export/
 ```
 
+## 现在默认怎么开工
+
+- 第一次准备环境，仍用维护层脚本。
+- 日常开工，优先回官方 Codex 面板直接说：`丞相：我要做 XX`。
+- 面板内会先走 `codex-home-export/start-panel-task.ps1`，自动完成：验真 → 必要时安全修复 → 建任务。
+- 成功后留在当前会话继续，不再先把你赶去 PowerShell。
+
 ## 明早自用先看
 
 - 晨起交接单：`logs/20260402-040300-morning-handoff.md`
