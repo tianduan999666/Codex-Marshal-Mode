@@ -176,6 +176,7 @@ Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info "CxVersion=$($runtimeVersionInfo.cx_version)"
 Write-Info "BackupRoot=$($runtimeInstallRecord.backup_root)"
 Write-Info ("ManagedFileCount={0}" -f $managedFileMappings.Count)
+Write-Info '运行态说明：`task-start-state.json` 只用于同版本轻量复核缓存；不属于 manifest 受管文件，也不参与公开提交。'
 Write-Ok '生产母体受管文件验真通过。'
 Write-Info '默认日常入口：回官方 Codex 面板直接说 `传令：我要做 XX`。'
 Write-Info '对外流程：先确认丞相能正常接到传令 → 再确认丞相自身状态良好 → 接着把丞相调整到最佳工作状态 → 丞相记录这次要做的任务 → 丞相开始执行任务。'

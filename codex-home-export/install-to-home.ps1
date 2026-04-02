@@ -128,6 +128,7 @@ Write-Info "SourceRoot=$sourceRoot"
 Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info "CxVersion=$($versionInfo.cx_version)"
 Write-Info ("当前脚本会按 manifest 受管清单同步 {0} 个文件，不覆盖 auth.json、sessions 或其他用户隐私文件。" -f $managedFileMappings.Count)
+Write-Info '运行态说明：`task-start-state.json` 属于本地开工状态缓存；不在 manifest 受管清单内，本轮不会覆盖。'
 
 if ($DryRun) {
     foreach ($fileMapping in $managedFileMappings) {

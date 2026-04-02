@@ -41,6 +41,12 @@
 - 无必须缺口；当前仍建议保留人工面板验板记录
 - 完整导出内容（如 `prompts/`、`scripts/`、`skills/`、`agents/` 等）
 
+## 受管文件与运行态状态边界
+
+- `manifest.json` 的 `included` 是当前生产母体受管文件真源；`install-to-home.ps1` 与 `verify-cutover.ps1` 都按这份清单工作。
+- `install-record.json` 是本机安装记录，属于受管本地记录，会随每次生产同步一起更新。
+- `task-start-state.json` 是本地开工状态缓存，只用于同版本轻量复核；它不属于 `manifest` 受管文件，也不参与公开提交。
+
 ## 使用原则
 
 ### 当前唯一主线（先看这 4 条）
