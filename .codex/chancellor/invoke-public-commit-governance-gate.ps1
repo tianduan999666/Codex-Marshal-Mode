@@ -729,7 +729,7 @@ function Get-CanonicalPanelCommandState {
         '- 唯一做事入口：`传令：XXXX`'
         '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
         '- 新对话自动提示：`例如：传令：计算1+1=?`'
-        '- 默认开场白：`🪶 军令已达。亮，接管全盘。`'
+        '- 默认开场白：`🪶 军令入帐。亮，即刻接管全局。`'
         ('- 对外流程：`' + ($expectedTaskEntryFlow -join ' → ') + '`')
         ('- 固定边界提示：`' + $expectedBoundaryPrompt + '`')
         '- `传令：版本`：返回当前版本与真源。'
@@ -743,7 +743,7 @@ function Get-CanonicalPanelCommandState {
         '- `当前任务`：当前是否存在激活任务。'
         '- `触发方式`：只在用户主动输入 `传令：升级` 时触发。'
         '3. 先看系统是否给出示例：`例如：传令：计算1+1=?`'
-        '5. 检查回复是否使用固定开场白：`🪶 军令已达。亮，接管全盘。`'
+        '5. 检查回复是否使用固定开场白：`🪶 军令入帐。亮，即刻接管全局。`'
         '7. 输入 `传令：版本`，检查版本号、版本来源、真源路径是否清楚。'
         '8. 输入 `传令：状态`，检查是否能按固定 6 行说清当前状态。'
         '9. 如需确认升级口径，再输入 `传令：升级`，检查是否明确“默认不自动升级，需用户主动提出”。'
@@ -757,7 +757,7 @@ function Get-CanonicalPanelCommandState {
         '自然语言任务入口统一使用：`传令：`'
         '- 唯一做事入口：`传令：XXXX`'
         '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
-        '- 默认开场白：`🪶 军令已达。亮，接管全盘。`'
+        '- 默认开场白：`🪶 军令入帐。亮，即刻接管全局。`'
         '- 新对话自动提示：`例如：传令：计算1+1=?`'
         ('- 固定边界提示：`' + $expectedBoundaryPrompt + '`')
         '3. 确认是否先看到示例：`例如：传令：计算1+1=?`'
@@ -765,7 +765,7 @@ function Get-CanonicalPanelCommandState {
         '5. 继续输入：`传令：版本`'
         '6. 再输入：`传令：状态`'
         '7. 如需确认升级口径，再输入：`传令：升级`'
-        '- `开场白对不对`：是否固定为 `🪶 军令已达。亮，接管全盘。`'
+        '- `开场白对不对`：是否固定为 `🪶 军令入帐。亮，即刻接管全局。`'
         '- `提示清不清楚`：是否给出示例 `例如：传令：计算1+1=?`'
         '- `边界稳不稳`：是否明确只检查丞相自己，不检查你的项目'
         '- `版本对不对`：能否说清版本号、版本来源、真源路径'
@@ -849,8 +849,8 @@ function Get-CanonicalPanelCommandState {
     if ($versionInfo.task_entry_prefix -ne '传令：') {
         throw "生产母体版本文件 task_entry_prefix 漂移：期望 传令：，实际 $($versionInfo.task_entry_prefix)"
     }
-    if ($versionInfo.opening_line -ne '🪶 军令已达。亮，接管全盘。') {
-        throw "生产母体版本文件 opening_line 漂移：期望 🪶 军令已达。亮，接管全盘。，实际 $($versionInfo.opening_line)"
+    if ($versionInfo.opening_line -ne '🪶 军令入帐。亮，即刻接管全局。') {
+        throw "生产母体版本文件 opening_line 漂移：期望 🪶 军令入帐。亮，即刻接管全局。，实际 $($versionInfo.opening_line)"
     }
     if ($versionInfo.new_chat_hint -ne '例如：传令：计算1+1=?') {
         throw "生产母体版本文件 new_chat_hint 漂移：期望 例如：传令：计算1+1=?，实际 $($versionInfo.new_chat_hint)"
