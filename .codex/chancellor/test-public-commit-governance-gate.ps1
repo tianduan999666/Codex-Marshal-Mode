@@ -27,6 +27,30 @@ function Invoke-GateForTestCase {
     }
 }
 
+function Find-LineMatch {
+    param(
+        [string[]]$Lines,
+        [string]$Pattern
+    )
+
+    $lineIndex = [Array]::FindIndex(
+        $Lines,
+        [Predicate[string]]{
+            param($line)
+            return $line -match $Pattern
+        }
+    )
+
+    if ($lineIndex -lt 0) {
+        return $null
+    }
+
+    return [pscustomobject]@{
+        Index = $lineIndex
+        LineText = $Lines[$lineIndex]
+    }
+}
+
 $testCases = @(
     @{
         Name = 'allow-public-docs'
@@ -1732,12 +1756,14 @@ try {
 finally {
     [System.IO.File]::WriteAllBytes($execStandardGuidePath, $originalExecStandardGuideBytes)
 }
-$navOverviewRuleGuideLineText = '4. `docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`'
-$navOverviewRuleHygieneLineText = '5. `docs/reference/02-仓库卫生与命名规范.md`'
-$navOverviewRuleGuideIndex = [Array]::IndexOf($navOverviewLines, $navOverviewRuleGuideLineText)
-$navOverviewRuleHygieneIndex = [Array]::IndexOf($navOverviewLines, $navOverviewRuleHygieneLineText)
+$navOverviewRuleGuideMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+`docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）\.md`$'
+$navOverviewRuleHygieneMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+`docs/reference/02-仓库卫生与命名规范\.md`$'
+$navOverviewRuleGuideLineText = $navOverviewRuleGuideMatch.LineText
+$navOverviewRuleHygieneLineText = $navOverviewRuleHygieneMatch.LineText
+$navOverviewRuleGuideIndex = $navOverviewRuleGuideMatch.Index
+$navOverviewRuleHygieneIndex = $navOverviewRuleHygieneMatch.Index
 
-if ($navOverviewRuleGuideIndex -lt 0 -or $navOverviewRuleHygieneIndex -lt 0) {
+if ($null -eq $navOverviewRuleGuideMatch -or $null -eq $navOverviewRuleHygieneMatch) {
     throw "测试前置条件不满足：$navOverviewPath 中缺少规则入口顺序测试行。"
 }
 
@@ -1763,11 +1789,13 @@ $execReadmeTargetEntryLineText = '- `12-V4-Target-实施计划.md`'
 $readmeExecCurrentEntryLineText = '- 任务包半自动起包：`docs/40-执行/11-任务包半自动起包.md`'
 $readmeExecTargetEntryLineText = '- V4-Target 实施计划：`docs/40-执行/12-V4-Target-实施计划.md`'
 $docsReadmeExecCurrentEntryLineText = '- `40-执行/11-任务包半自动起包.md`'
-$navOverviewCurrentExecEntryLineText = '12. `docs/40-执行/11-任务包半自动起包.md`'
-$navOverviewReadingExecEntryLineText = '12. 需要更快起包时，看 `docs/40-执行/11-任务包半自动起包.md`'
+$navOverviewCurrentExecEntryMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+`docs/40-执行/11-任务包半自动起包\.md`$'
+$navOverviewReadingExecEntryMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+需要更快起包时，看 `docs/40-执行/11-任务包半自动起包\.md`$'
+$navOverviewCurrentExecEntryLineText = $navOverviewCurrentExecEntryMatch.LineText
+$navOverviewReadingExecEntryLineText = $navOverviewReadingExecEntryMatch.LineText
 $maintenanceGuideExecEntryLineText = '- 文档：`docs/40-执行/11-任务包半自动起包.md`'
 
-if ($execReadmeLines -notcontains $execReadmeCurrentEntryLineText -or $execReadmeLines -notcontains $execReadmeTargetEntryLineText -or $readmeLines -notcontains $readmeExecCurrentEntryLineText -or $readmeLines -notcontains $readmeExecTargetEntryLineText -or $docsReadmeLines -notcontains $docsReadmeExecCurrentEntryLineText -or $navOverviewLines -notcontains $navOverviewCurrentExecEntryLineText -or $navOverviewLines -notcontains $navOverviewReadingExecEntryLineText -or $maintenanceGuideLines -notcontains $maintenanceGuideExecEntryLineText) {
+if ($execReadmeLines -notcontains $execReadmeCurrentEntryLineText -or $execReadmeLines -notcontains $execReadmeTargetEntryLineText -or $readmeLines -notcontains $readmeExecCurrentEntryLineText -or $readmeLines -notcontains $readmeExecTargetEntryLineText -or $docsReadmeLines -notcontains $docsReadmeExecCurrentEntryLineText -or $null -eq $navOverviewCurrentExecEntryMatch -or $null -eq $navOverviewReadingExecEntryMatch -or $maintenanceGuideLines -notcontains $maintenanceGuideExecEntryLineText) {
     throw '测试前置条件不满足：执行区真源联动测试行缺失。'
 }
 
@@ -1914,14 +1942,18 @@ $docsReadmePlanningEntryLineText = '- `30-方案/07-V4-规划策略候选规范.
 $docsReadmeGovernanceEntryLineText = '- `30-方案/08-V4-治理审计候选规范.md`'
 $docsReadmePlanningEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmePlanningEntryLineText)
 $docsReadmeGovernanceEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeGovernanceEntryLineText)
-$navOverviewBackgroundPlanningEntryLineText = '10. `docs/30-方案/07-V4-规划策略候选规范.md`'
-$navOverviewBackgroundGovernanceEntryLineText = '11. `docs/30-方案/08-V4-治理审计候选规范.md`'
-$navOverviewBackgroundPlanningEntryIndex = [Array]::IndexOf($navOverviewLines, $navOverviewBackgroundPlanningEntryLineText)
-$navOverviewBackgroundGovernanceEntryIndex = [Array]::IndexOf($navOverviewLines, $navOverviewBackgroundGovernanceEntryLineText)
-$navOverviewReadingOrderPlanningEntryLineText = '17. 需要明确规划层第一条高复利候选时，看 `docs/30-方案/07-V4-规划策略候选规范.md`'
-$navOverviewReadingOrderGovernanceEntryLineText = '18. 需要明确治理层第二条高复利候选时，看 `docs/30-方案/08-V4-治理审计候选规范.md`'
-$navOverviewReadingOrderPlanningEntryIndex = [Array]::IndexOf($navOverviewLines, $navOverviewReadingOrderPlanningEntryLineText)
-$navOverviewReadingOrderGovernanceEntryIndex = [Array]::IndexOf($navOverviewLines, $navOverviewReadingOrderGovernanceEntryLineText)
+$navOverviewBackgroundPlanningEntryMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+`docs/30-方案/07-V4-规划策略候选规范\.md`$'
+$navOverviewBackgroundGovernanceEntryMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+`docs/30-方案/08-V4-治理审计候选规范\.md`$'
+$navOverviewBackgroundPlanningEntryLineText = $navOverviewBackgroundPlanningEntryMatch.LineText
+$navOverviewBackgroundGovernanceEntryLineText = $navOverviewBackgroundGovernanceEntryMatch.LineText
+$navOverviewBackgroundPlanningEntryIndex = $navOverviewBackgroundPlanningEntryMatch.Index
+$navOverviewBackgroundGovernanceEntryIndex = $navOverviewBackgroundGovernanceEntryMatch.Index
+$navOverviewReadingOrderPlanningEntryMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+需要明确规划层第一条高复利候选时，看 `docs/30-方案/07-V4-规划策略候选规范\.md`$'
+$navOverviewReadingOrderGovernanceEntryMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+需要明确治理层第二条高复利候选时，看 `docs/30-方案/08-V4-治理审计候选规范\.md`$'
+$navOverviewReadingOrderPlanningEntryLineText = $navOverviewReadingOrderPlanningEntryMatch.LineText
+$navOverviewReadingOrderGovernanceEntryLineText = $navOverviewReadingOrderGovernanceEntryMatch.LineText
+$navOverviewReadingOrderPlanningEntryIndex = $navOverviewReadingOrderPlanningEntryMatch.Index
+$navOverviewReadingOrderGovernanceEntryIndex = $navOverviewReadingOrderGovernanceEntryMatch.Index
 $targetPlanPlanningEntryLineText = 'docs/30-方案/07-V4-规划策略候选规范.md'
 $targetPlanGovernanceEntryLineText = 'docs/30-方案/08-V4-治理审计候选规范.md'
 $targetPlanPlanningEntryIndex = [Array]::IndexOf($targetPlanLines, $targetPlanPlanningEntryLineText)
@@ -1931,11 +1963,11 @@ if ($docsReadmePlanningEntryIndex -lt 0 -or $docsReadmeGovernanceEntryIndex -lt 
     throw "测试前置条件不满足：$docsReadmePath 中缺少真源联动测试行。"
 }
 
-if ($navOverviewBackgroundPlanningEntryIndex -lt 0 -or $navOverviewBackgroundGovernanceEntryIndex -lt 0) {
+if ($null -eq $navOverviewBackgroundPlanningEntryMatch -or $null -eq $navOverviewBackgroundGovernanceEntryMatch) {
     throw "测试前置条件不满足：$navOverviewPath 中缺少入口与背景真源联动测试行。"
 }
 
-if ($navOverviewReadingOrderPlanningEntryIndex -lt 0 -or $navOverviewReadingOrderGovernanceEntryIndex -lt 0) {
+if ($null -eq $navOverviewReadingOrderPlanningEntryMatch -or $null -eq $navOverviewReadingOrderGovernanceEntryMatch) {
     throw "测试前置条件不满足：$navOverviewPath 中缺少阅读顺序真源联动测试行。"
 }
 
@@ -2035,12 +2067,14 @@ finally {
     [System.IO.File]::WriteAllBytes($targetPlanPath, $originalTargetPlanBytes)
 }
 
-$navOverviewMaintenanceGateEntryLineText = '19. `docs/40-执行/19-多 gate 与多异常并存处理规则.md`'
-$navOverviewMaintenanceConcurrentEntryLineText = '20. `docs/40-执行/20-复杂并存汇报骨架模板.md`'
-$navOverviewMaintenanceGateEntryIndex = [Array]::IndexOf($navOverviewLines, $navOverviewMaintenanceGateEntryLineText)
-$navOverviewMaintenanceConcurrentEntryIndex = [Array]::IndexOf($navOverviewLines, $navOverviewMaintenanceConcurrentEntryLineText)
+$navOverviewMaintenanceGateEntryMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+`docs/40-执行/19-多 gate 与多异常并存处理规则\.md`$'
+$navOverviewMaintenanceConcurrentEntryMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+`docs/40-执行/20-复杂并存汇报骨架模板\.md`$'
+$navOverviewMaintenanceGateEntryLineText = $navOverviewMaintenanceGateEntryMatch.LineText
+$navOverviewMaintenanceConcurrentEntryLineText = $navOverviewMaintenanceConcurrentEntryMatch.LineText
+$navOverviewMaintenanceGateEntryIndex = $navOverviewMaintenanceGateEntryMatch.Index
+$navOverviewMaintenanceConcurrentEntryIndex = $navOverviewMaintenanceConcurrentEntryMatch.Index
 
-if ($navOverviewMaintenanceGateEntryIndex -lt 0 -or $navOverviewMaintenanceConcurrentEntryIndex -lt 0) {
+if ($null -eq $navOverviewMaintenanceGateEntryMatch -or $null -eq $navOverviewMaintenanceConcurrentEntryMatch) {
     throw "测试前置条件不满足：$navOverviewPath 中缺少维护层主线入口背景区测试行。"
 }
 
@@ -2061,12 +2095,14 @@ finally {
     [System.IO.File]::WriteAllBytes($navOverviewPath, $originalNavOverviewBytes)
 }
 
-$readingOrderGateLineText = '26. 需要裁决多 gate 或多异常的主状态时，看 `docs/40-执行/19-多 gate 与多异常并存处理规则.md`'
-$readingOrderConcurrentLineText = '27. 需要把复杂并存场景快速落进任务包时，看 `docs/40-执行/20-复杂并存汇报骨架模板.md`'
-$readingOrderGateIndex = [Array]::IndexOf($navOverviewLines, $readingOrderGateLineText)
-$readingOrderConcurrentIndex = [Array]::IndexOf($navOverviewLines, $readingOrderConcurrentLineText)
+$readingOrderGateMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+需要裁决多 gate 或多异常的主状态时，看 `docs/40-执行/19-多 gate 与多异常并存处理规则\.md`$'
+$readingOrderConcurrentMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+需要把复杂并存场景快速落进任务包时，看 `docs/40-执行/20-复杂并存汇报骨架模板\.md`$'
+$readingOrderGateLineText = $readingOrderGateMatch.LineText
+$readingOrderConcurrentLineText = $readingOrderConcurrentMatch.LineText
+$readingOrderGateIndex = $readingOrderGateMatch.Index
+$readingOrderConcurrentIndex = $readingOrderConcurrentMatch.Index
 
-if ($readingOrderGateIndex -lt 0 -or $readingOrderConcurrentIndex -lt 0) {
+if ($null -eq $readingOrderGateMatch -or $null -eq $readingOrderConcurrentMatch) {
     throw "测试前置条件不满足：$navOverviewPath 中缺少阅读顺序测试行。"
 }
 
@@ -2266,488 +2302,137 @@ finally {
     [System.IO.File]::WriteAllBytes($codexHomeExportVersionPath, $originalCodexHomeExportVersionBytes)
 }
 
-$agentsPanelCommandLineText = '| `传令 验板` | 给出进入官方面板人工验收的固定步骤 |'
-$panelAcceptanceGoalText = '确保主公从官方面板进入时，入口语义稳定、任务包衔接明确、改动后有固定人工验收闭环。'
-$panelAcceptanceExcludedLineText = '- 多 Agent、长期记忆、独立 UI'
-$panelAcceptanceScopeSummaryLineText = '- 入口相关改动后的人工复验步骤'
-$panelAcceptanceScopeLineText = '- `人工复验步骤`：入口相关改动后的人工复验步骤。'
-$panelHelpUsageLineText = '- `传令 帮助`：显示当前用法、命令与注意事项。'
-$panelHelpTemplateLineText = '- `注意事项`：最后提示维护层动作、安全边界与人工验板提醒。'
-$panelHelpUsageItemLineText = '- `维护层说明`：如必须落到脚本层，要明确说明“这是维护层动作”。'
-$panelHelpPanelCommandItemLineText = '- `公开边界`：普通用户只暴露面板命令，不主动推荐终端丞相别名。'
-$panelHelpNoticeItemLineText = '- `新开会话验板提醒`：入口相关改动后，建议新开官方面板会话做人眼验板。'
-$panelVersionCommandSlotLineText = '- `真源路径`：优先说明当前版本真源路径为 `codex-home-export/VERSION.json`。'
-$panelCheckCommandSlotLineText = '- `建议动作`：如发现问题，给出下一步建议或引导到修复 / 验板。'
-$panelStatusCommandSlotLineText = '- `稳态判断`：明确当前是否稳态。'
-$panelRepairCommandSlotLineText = '- `升级条件`：超出安全边界或无法自动修复时停止扩展并提示人工处理。'
-$panelAcceptanceCommandSlotLineText = '- `验板目标`：确认版本、模式与入口表现是否稳态。'
-$panelAcceptanceStepItemLineText = '- `任务一致性`：若本地存在激活任务，检查回复口径是否与当前任务状态一致。'
-$panelPassSummaryLineText = '- 入口相关改动后，能通过“新开会话 + 首句验板”完成复验。'
-$panelPassCriterionItemLineText = '- `复验闭环`：入口相关改动后，可通过新开会话与首句验板完成复验。'
-$panelFailSummaryLineText = '- 入口回复与本地激活任务状态明显冲突。'
-$panelFailSignalItemLineText = '- `复验失败`：重新执行必要同步动作后，仍无法通过新开会话与首句验板完成复验。'
-$panelRecoverySummaryLineText = '4. 若仍失败，记录为入口缺陷，不带着问题进入真实任务试跑。'
-$panelRecoveryItemLineText = '- `缺陷收口`：若仍失败，记录为入口缺陷，不带着问题进入真实任务试跑。'
-$panelTrialGateItemLineText = '- `公开边界`：本文档可进入公开仓；真实运行态与日志继续只留本地。'
-$panelRepairBoundaryLineText = '- `传令 修复`：在安全边界内尝试自动修复常见问题。'
-$checklistApplicableSceneLineText = '适用场景：完成 `install-to-home.ps1` 与 `verify-cutover.ps1` 后，人工确认本机生产切换是否丝滑。'
-$checklistCommandSourceLineText = '当前验板命令口径以 `codex-home-export/VERSION.json` 的 `panel_commands` 为准。'
-$checklistNaturalEntryLineText = '自然语言任务入口统一使用：`传令：`'
-$checklistHelpUsageLineText = '- `传令 帮助`：显示当前用法、命令与注意事项。'
-$checklistHelpTemplateLineText = '- `注意事项`：最后提示维护层动作、安全边界与人工验板提醒。'
-$checklistHelpUsageItemLineText = '- `维护层说明`：如必须落到脚本层，要明确说明“这是维护层动作”。'
-$checklistHelpPanelCommandItemLineText = '- `公开边界`：普通用户只暴露面板命令，不主动推荐终端丞相别名。'
-$checklistHelpNoticeItemLineText = '- `新开会话验板提醒`：入口相关改动后，建议新开官方面板会话做人眼验板。'
-$checklistVersionCommandSlotLineText = '- `真源路径`：优先说明当前版本真源路径为 `codex-home-export/VERSION.json`。'
-$checklistCheckCommandSlotLineText = '- `建议动作`：如发现问题，给出下一步建议或引导到修复 / 验板。'
-$checklistStatusCommandSlotLineText = '- `稳态判断`：明确当前是否稳态。'
-$checklistRepairCommandSlotLineText = '- `升级条件`：超出安全边界或无法自动修复时停止扩展并提示人工处理。'
-$checklistAcceptanceCommandSlotLineText = '- `验板目标`：确认版本、模式与入口表现是否稳态。'
-$checklistStepSummaryLineText = '5. 如需再验一层，继续输入：`传令 状态`'
-$checklistStepItemLineText = '- `状态验证`：如需再验一层，继续输入：`传令 状态`'
-$checklistPassSummaryLineText = '- 整个过程无需再手改本地文件。'
-$checklistPassCriterionItemLineText = '- `无需手改`：整个过程无需再手改本地文件。'
-$checklistRecoverySummaryLineText = '3. 回退后重新打开面板，再次验板。'
-$checklistRecoveryItemLineText = '- `重新验板`：回退后重新打开面板，再次验板。'
-$checklistAcceptanceBoundaryLineText = '- `传令 验板`：给出进入官方面板人工验收的固定步骤。'
+$agentsTaskEntryLineText = '| `传令：XXXX` | 唯一做事入口；`XXXX` 直接写自然语言需求 |'
+$agentsUpgradeLineText = '| `传令：升级` | 仅在用户主动要求时，再处理升级动作 |'
+$panelProtocolLineText = '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
+$panelBoundaryLineText = '- 固定边界提示：`提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。`'
+$panelStatusSlotLineText = '- `关键文件一致性`：关键文件是否一致。'
+$panelUpgradeStepLineText = '9. 如需确认升级口径，再输入 `传令：升级`，检查是否明确“默认不自动升级，需用户主动提出”。'
+$checklistCommandSourceLineText = '当前验板命令口径以 `codex-home-export/VERSION.json` 为准。'
+$checklistProtocolLineText = '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
+$checklistBoundaryLineText = '- 固定边界提示：`提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。`'
+$checklistStepLineText = '7. 如需确认升级口径，再输入：`传令：升级`'
+$checklistLegacyGuardLineText = '- 入口口径没有回退为旧的多命令体系。'
+$legacyPanelCommandText = '传令 检查'
+$legacyOpeningLineText = '丞相亮启奏：谨呈本次事宜。'
 $codexHomeExportPanelChecklistPath = Join-Path $repoRootPath 'codex-home-export/panel-acceptance-checklist.md'
 $panelAcceptanceDocPath = Join-Path $repoRootPath 'docs/40-执行/03-面板入口验收.md'
 $originalAgentsPanelBytes = [System.IO.File]::ReadAllBytes($agentsPath)
 $originalCodexHomeExportPanelChecklistBytes = [System.IO.File]::ReadAllBytes($codexHomeExportPanelChecklistPath)
 $originalPanelAcceptanceDocBytes = [System.IO.File]::ReadAllBytes($panelAcceptanceDocPath)
 
-if ($agentsLines -notcontains $agentsPanelCommandLineText) {
-    throw "测试前置条件不满足：$agentsPath 中缺少 $agentsPanelCommandLineText"
+if ($agentsLines -notcontains $agentsTaskEntryLineText) {
+    throw "测试前置条件不满足：$agentsPath 中缺少 $agentsTaskEntryLineText"
 }
 
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelAcceptanceGoalText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelAcceptanceGoalText"
+if ($agentsLines -notcontains $agentsUpgradeLineText) {
+    throw "测试前置条件不满足：$agentsPath 中缺少 $agentsUpgradeLineText"
 }
 
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelAcceptanceExcludedLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelAcceptanceExcludedLineText"
+if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelProtocolLineText) {
+    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelProtocolLineText"
 }
 
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelAcceptanceScopeSummaryLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelAcceptanceScopeSummaryLineText"
+if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelBoundaryLineText) {
+    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelBoundaryLineText"
 }
 
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelAcceptanceScopeLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelAcceptanceScopeLineText"
+if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelStatusSlotLineText) {
+    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelStatusSlotLineText"
 }
 
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelHelpUsageLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelHelpUsageLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelHelpTemplateLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelHelpTemplateLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelHelpUsageItemLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelHelpUsageItemLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelHelpPanelCommandItemLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelHelpPanelCommandItemLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelHelpNoticeItemLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelHelpNoticeItemLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelVersionCommandSlotLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelVersionCommandSlotLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelCheckCommandSlotLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelCheckCommandSlotLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelStatusCommandSlotLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelStatusCommandSlotLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelRepairCommandSlotLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelRepairCommandSlotLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelAcceptanceCommandSlotLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelAcceptanceCommandSlotLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelAcceptanceStepItemLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelAcceptanceStepItemLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelPassSummaryLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelPassSummaryLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelPassCriterionItemLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelPassCriterionItemLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelFailSummaryLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelFailSummaryLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelFailSignalItemLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelFailSignalItemLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelRecoverySummaryLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelRecoverySummaryLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelRecoveryItemLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelRecoveryItemLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelTrialGateItemLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelTrialGateItemLineText"
-}
-
-if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelRepairBoundaryLineText) {
-    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelRepairBoundaryLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistApplicableSceneLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistApplicableSceneLineText"
+if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelUpgradeStepLineText) {
+    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelUpgradeStepLineText"
 }
 
 if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistCommandSourceLineText) {
     throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistCommandSourceLineText"
 }
 
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistNaturalEntryLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistNaturalEntryLineText"
+if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistProtocolLineText) {
+    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistProtocolLineText"
 }
 
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistHelpUsageLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistHelpUsageLineText"
+if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistBoundaryLineText) {
+    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistBoundaryLineText"
 }
 
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistHelpTemplateLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistHelpTemplateLineText"
+if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistStepLineText) {
+    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistStepLineText"
 }
 
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistHelpUsageItemLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistHelpUsageItemLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistHelpPanelCommandItemLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistHelpPanelCommandItemLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistHelpNoticeItemLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistHelpNoticeItemLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistVersionCommandSlotLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistVersionCommandSlotLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistCheckCommandSlotLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistCheckCommandSlotLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistStatusCommandSlotLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistStatusCommandSlotLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistRepairCommandSlotLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistRepairCommandSlotLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistAcceptanceCommandSlotLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistAcceptanceCommandSlotLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistStepSummaryLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistStepSummaryLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistStepItemLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistStepItemLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistPassSummaryLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistPassSummaryLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistPassCriterionItemLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistPassCriterionItemLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistRecoverySummaryLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistRecoverySummaryLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistRecoveryItemLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistRecoveryItemLineText"
-}
-
-if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistAcceptanceBoundaryLineText) {
-    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistAcceptanceBoundaryLineText"
+if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistLegacyGuardLineText) {
+    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistLegacyGuardLineText"
 }
 
 try {
     $driftedVersionInfo = Get-Content $codexHomeExportVersionPath -Raw | ConvertFrom-Json
-    $driftedVersionInfo.panel_commands = @(
-        $driftedVersionInfo.panel_commands | Where-Object { $_ -ne '传令 修复' }
-    )
+    $driftedVersionInfo.task_entry_prefix = '丞相：'
     $driftedVersionContent = ($driftedVersionInfo | ConvertTo-Json -Depth 10)
     [System.IO.File]::WriteAllText($codexHomeExportVersionPath, $driftedVersionContent + [Environment]::NewLine, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('codex-home-export/VERSION.json') -ExpectedExitCode 1 -TestName 'block-panel-commands-version-drift'
+    Invoke-GateForTestCase -Paths @('codex-home-export/VERSION.json') -ExpectedExitCode 1 -TestName 'block-panel-version-entry-prefix-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($codexHomeExportVersionPath, $originalCodexHomeExportVersionBytes)
 }
 
 try {
-    $driftedAgentsContent = (Get-Content $agentsPath -Raw).Replace($agentsPanelCommandLineText, '| `丞相回板` | 给出进入官方面板人工验收的固定步骤 |')
+    $driftedVersionInfo = Get-Content $codexHomeExportVersionPath -Raw | ConvertFrom-Json
+    $driftedVersionInfo.panel_commands = @('传令：状态','传令：版本','传令：检查')
+    $driftedVersionContent = ($driftedVersionInfo | ConvertTo-Json -Depth 10)
+    [System.IO.File]::WriteAllText($codexHomeExportVersionPath, $driftedVersionContent + [Environment]::NewLine, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/VERSION.json') -ExpectedExitCode 1 -TestName 'block-panel-version-command-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportVersionPath, $originalCodexHomeExportVersionBytes)
+}
+
+try {
+    $driftedVersionInfo = Get-Content $codexHomeExportVersionPath -Raw | ConvertFrom-Json
+    $driftedVersionInfo.boundary_prompt = '提示：先检查你的项目，再决定是否执行。'
+    $driftedVersionContent = ($driftedVersionInfo | ConvertTo-Json -Depth 10)
+    [System.IO.File]::WriteAllText($codexHomeExportVersionPath, $driftedVersionContent + [Environment]::NewLine, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/VERSION.json') -ExpectedExitCode 1 -TestName 'block-panel-version-boundary-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportVersionPath, $originalCodexHomeExportVersionBytes)
+}
+
+try {
+    $driftedAgentsContent = (Get-Content $agentsPath -Raw).Replace($agentsTaskEntryLineText, '| `丞相：XXXX` | 唯一做事入口；`XXXX` 直接写自然语言需求 |')
     [System.IO.File]::WriteAllText($agentsPath, $driftedAgentsContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('AGENTS.md') -ExpectedExitCode 1 -TestName 'block-panel-commands-agents-drift'
+    Invoke-GateForTestCase -Paths @('AGENTS.md') -ExpectedExitCode 1 -TestName 'block-panel-agents-entry-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($agentsPath, $originalAgentsPanelBytes)
 }
 
 try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace('传令 状态', '传令 帮助')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
+    $driftedAgentsContent = (Get-Content $agentsPath -Raw).Replace($agentsUpgradeLineText, '| `传令 检查` | 做最小必要检查 |')
+    [System.IO.File]::WriteAllText($agentsPath, $driftedAgentsContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-commands-checklist-drift'
+    Invoke-GateForTestCase -Paths @('AGENTS.md') -ExpectedExitCode 1 -TestName 'block-panel-agents-legacy-command-drift'
 }
 finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
+    [System.IO.File]::WriteAllBytes($agentsPath, $originalAgentsPanelBytes)
 }
 
 try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelAcceptanceGoalText, '先看看是否差不多。')
+    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelProtocolLineText, '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：检查`')
     [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-goal-drift'
+    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-command-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
 }
 
 try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelAcceptanceExcludedLineText, '- 暂时先不细说')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-excluded-summary-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelAcceptanceScopeSummaryLineText, '- 临时看看情况')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-scope-summary-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelAcceptanceScopeLineText, '- `人工复验步骤`：到时候再说。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-scope-slot-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelHelpUsageLineText, '- `传令 帮助`：显示帮助。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-help-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelHelpTemplateLineText, '- `注意事项`：最后提示一些提醒。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-help-template-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelHelpUsageItemLineText, '- `维护层说明`：按情况决定是否说明。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-help-usage-item-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelHelpPanelCommandItemLineText, '- `公开边界`：必要时也可以推荐终端别名。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-help-panel-command-item-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelHelpNoticeItemLineText, '- `新开会话验板提醒`：最后再看看情况。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-help-notice-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelVersionCommandSlotLineText, '- `真源路径`：看情况再决定是否说明。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-version-slot-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelCheckCommandSlotLineText, '- `建议动作`：发现问题再说。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-check-slot-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelStatusCommandSlotLineText, '- `稳态判断`：大概看起来还行。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-status-slot-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelRepairCommandSlotLineText, '- `升级条件`：遇到复杂情况再说。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-repair-slot-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelAcceptanceCommandSlotLineText, '- `验板目标`：大概确认一下即可。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-panel-acceptance-slot-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelAcceptanceStepItemLineText, '- `任务一致性`：最后再看看是否一致。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-step-item-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelPassSummaryLineText, '- 入口改完后再看看情况。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-pass-summary-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelPassCriterionItemLineText, '- `复验闭环`：入口改完后再看看情况。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-pass-item-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelFailSummaryLineText, '- 大概有点不对劲。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-fail-summary-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelRecoverySummaryLineText, '4. 先放一放再说。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-recovery-summary-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelFailSignalItemLineText, '- `复验失败`：再试试看。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-fail-item-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelRecoveryItemLineText, '- `缺陷收口`：先放一放再说。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-recovery-item-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelTrialGateItemLineText, '- `公开边界`：看情况决定是否公开。')
-    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-trial-gate-item-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
-}
-
-try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelRepairBoundaryLineText, '- `传令 修复`：尝试自动修复问题。')
+    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelBoundaryLineText, '- 固定边界提示：`提示：丞相会先检查你的项目，再决定是否执行。`')
     [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-boundary-drift'
@@ -2757,193 +2442,23 @@ finally {
 }
 
 try {
-    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace('`传令 版本`：返回当前版本与版本来源。', '`传令 版本`：返回当前版本号。')
+    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelStatusSlotLineText, '- `关键文件一致性`：大概没问题就行。')
     [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-response-drift'
+    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-status-slot-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
 }
 
 try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistHelpUsageLineText, '- `传令 帮助`：显示帮助。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
+    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelUpgradeStepLineText, '9. 如需确认升级口径，再输入 `传令：检查`。')
+    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-help-drift'
+    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-upgrade-step-drift'
 }
 finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistHelpTemplateLineText, '- `注意事项`：最后提示一些提醒。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-help-template-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistHelpUsageItemLineText, '- `维护层说明`：按情况决定是否说明。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-help-usage-item-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistHelpPanelCommandItemLineText, '- `公开边界`：必要时也可以推荐终端别名。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-help-panel-command-item-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistHelpNoticeItemLineText, '- `新开会话验板提醒`：最后再看看情况。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-help-notice-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistVersionCommandSlotLineText, '- `真源路径`：看情况再决定是否说明。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-version-slot-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistCheckCommandSlotLineText, '- `建议动作`：发现问题再说。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-check-slot-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistStatusCommandSlotLineText, '- `稳态判断`：大概看起来还行。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-status-slot-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistRepairCommandSlotLineText, '- `升级条件`：遇到复杂情况再说。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-repair-slot-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistAcceptanceCommandSlotLineText, '- `验板目标`：大概确认一下即可。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-panel-acceptance-slot-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistStepSummaryLineText, '5. 最后输入：`传令 状态`')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-step-summary-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistStepItemLineText, '- `状态验证`：最后再看看情况。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-step-item-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistPassSummaryLineText, '- 最后大概看看就行。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-pass-summary-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistPassCriterionItemLineText, '- `无需手改`：必要时手动补一下。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-pass-item-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistRecoverySummaryLineText, '3. 先等等再说。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-recovery-summary-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistRecoveryItemLineText, '- `重新验板`：先等等再说。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-recovery-item-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistAcceptanceBoundaryLineText, '- `传令 验板`：提供一个大概步骤。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-boundary-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
-}
-
-try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistApplicableSceneLineText, '适用场景：完成切换后，人工大概看看是否可用。')
-    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-applicable-scene-drift'
-}
-finally {
-    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
+    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
 }
 
 try {
@@ -2957,10 +2472,50 @@ finally {
 }
 
 try {
-    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace('`传令 检查` 能做最小必要检查并返回人话结论。', '`传令 检查` 能返回检查结果。')
+    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistProtocolLineText, '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：检查`')
     [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-response-drift'
+    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-command-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
+}
+
+try {
+    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistBoundaryLineText, '- 固定边界提示：`提示：先检查你的项目，再决定是否执行。`')
+    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-boundary-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
+}
+
+try {
+    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistStepLineText, '7. 如需确认升级口径，再输入：`传令：检查`')
+    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-step-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
+}
+
+try {
+    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistLegacyGuardLineText, '- 入口口径已经回退为旧的多命令体系。')
+    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-legacy-guard-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
+}
+
+try {
+    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace('传令：版本', '传令 版本')
+    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-legacy-marker-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)

@@ -700,225 +700,127 @@ function Get-CodexHomeExportConsistencyState {
 function Get-CanonicalPanelCommandState {
     $agentsPath = 'AGENTS.md'
     $versionPath = 'codex-home-export/VERSION.json'
+    $acceptanceDocPath = 'docs/40-执行/03-面板入口验收.md'
     $checklistPath = 'codex-home-export/panel-acceptance-checklist.md'
-    $expectedPanelCommands = @(
-        '传令 帮助'
-        '传令 状态'
-        '传令 检查'
-        '传令 修复'
-        '传令 验板'
-        '传令 版本'
+    $expectedAgentRows = @(
+        [pscustomobject]@{ Command = '传令：XXXX'; Description = '唯一做事入口；`XXXX` 直接写自然语言需求' }
+        [pscustomobject]@{ Command = '传令：状态'; Description = '查看当前丞相状态' }
+        [pscustomobject]@{ Command = '传令：版本'; Description = '查看当前版本与真源' }
+        [pscustomobject]@{ Command = '传令：升级'; Description = '仅在用户主动要求时，再处理升级动作' }
     )
-    $expectedHelpCommands = @(
-        '传令 帮助'
+    $expectedTaskEntryFlow = @(
+        '先确认丞相能正常接到传令'
+        '再确认丞相自身状态良好'
+        '接着把丞相调整到最佳工作状态'
+        '丞相记录这次要做的任务'
+        '丞相开始执行任务'
     )
-    $expectedHelpTemplateItems = @(
-        [pscustomobject]@{ Name = '当前用法'; Description = '先说明当前默认入口与适用场景' }
-        [pscustomobject]@{ Name = '面板命令'; Description = '再列出当前面板传令命令及其含义' }
-        [pscustomobject]@{ Name = '注意事项'; Description = '最后提示维护层动作、安全边界与人工验板提醒' }
+    $expectedStatusBarSlots = @(
+        '版本'
+        '上次检查'
+        '自动修复'
+        '关键文件一致性'
+        '当前模式'
+        '当前任务'
     )
-    $expectedHelpUsageItems = @(
-        [pscustomobject]@{ Name = '默认入口'; Description = '当前默认用户入口是官方 Codex 面板' }
-        [pscustomobject]@{ Name = '适用场景'; Description = '普通用户日常使用优先在面板内完成，终端仅保留给维护、安装、迁移、排障' }
-        [pscustomobject]@{ Name = '维护层说明'; Description = '如必须落到脚本层，要明确说明“这是维护层动作”' }
+    $expectedBoundaryPrompt = '提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。'
+    $expectedAcceptanceLines = @(
+        '确保主公新开对话时，一眼就懂怎么用；入口不歧义，开场白固定，查看口径稳定，任务入口可以直接开工。'
+        '- 唯一做事入口：`传令：XXXX`'
+        '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
+        '- 新对话自动提示：`例如：传令：计算1+1=?`'
+        '- 默认开场白：`🪶 军令已达。亮，接管全盘。`'
+        ('- 对外流程：`' + ($expectedTaskEntryFlow -join ' → ') + '`')
+        ('- 固定边界提示：`' + $expectedBoundaryPrompt + '`')
+        '- `传令：版本`：返回当前版本与真源。'
+        '- `传令：状态`：汇报当前状态与下一步。'
+        '- `传令：升级`：只在用户主动提出时，再处理升级动作。'
+        '- `版本`：当前版本号。'
+        '- `上次检查`：最近一次检查时间或结论。'
+        '- `自动修复`：是否触发过自动修复。'
+        '- `关键文件一致性`：关键文件是否一致。'
+        '- `当前模式`：当前处于丞相还是都督。'
+        '- `当前任务`：当前是否存在激活任务。'
+        '- `触发方式`：只在用户主动输入 `传令：升级` 时触发。'
+        '3. 先看系统是否给出示例：`例如：传令：计算1+1=?`'
+        '5. 检查回复是否使用固定开场白：`🪶 军令已达。亮，接管全盘。`'
+        '7. 输入 `传令：版本`，检查版本号、版本来源、真源路径是否清楚。'
+        '8. 输入 `传令：状态`，检查是否能按固定 6 行说清当前状态。'
+        '9. 如需确认升级口径，再输入 `传令：升级`，检查是否明确“默认不自动升级，需用户主动提出”。'
+        '- `传令：版本` 能说清版本号、版本来源、真源路径。'
+        '- `传令：状态` 能按固定 6 行说清当前状态。'
+        '- `传令：升级` 能明确“用户主动提出才处理，不自动升级”。'
     )
-    $expectedHelpPanelCommandItems = @(
-        [pscustomobject]@{ Name = '命令顺序'; Description = '按传令 帮助、传令 状态、传令 检查、传令 修复、传令 验板、传令 版本的顺序展示' }
-        [pscustomobject]@{ Name = '命令含义'; Description = '每条命令都要带一句人话含义，不得只列命令名' }
-        [pscustomobject]@{ Name = '公开边界'; Description = '普通用户只暴露面板命令，不主动推荐终端丞相别名' }
-    )
-    $expectedHelpNoticeItems = @(
-        [pscustomobject]@{ Name = '安全边界'; Description = '普通用户入口优先留在官方面板，维护层动作不向普通用户外露复杂终端流程' }
-        [pscustomobject]@{ Name = '维护层动作'; Description = '如必须落到脚本层，要明确说明“这是维护层动作”' }
-        [pscustomobject]@{ Name = '新开会话验板提醒'; Description = '入口相关改动后，建议新开官方面板会话做人眼验板' }
-    )
-    $expectedVersionCommandSlotItems = @(
-        [pscustomobject]@{ Name = '版本号'; Description = '返回当前版本号' }
-        [pscustomobject]@{ Name = '版本来源'; Description = '明确当前版本来自哪个版本来源' }
-        [pscustomobject]@{ Name = '真源路径'; Description = '优先说明当前版本真源路径为 `codex-home-export/VERSION.json`' }
-    )
-    $expectedCheckCommandSlotItems = @(
-        [pscustomobject]@{ Name = '检查范围'; Description = '只检查丞相运行环境、版本、真源与关键文件，不检查你的项目代码' }
-        [pscustomobject]@{ Name = '检查结论'; Description = '用人话汇报当前是否存在明显异常或风险' }
-        [pscustomobject]@{ Name = '建议动作'; Description = '如发现问题，给出下一步建议或引导到修复 / 验板' }
-    )
-    $expectedStatusCommandSlotItems = @(
-        [pscustomobject]@{ Name = '当前模式'; Description = '明确当前处于丞相还是都督' }
-        [pscustomobject]@{ Name = '稳态判断'; Description = '明确当前是否稳态' }
-        [pscustomobject]@{ Name = '下一步'; Description = '给出最小下一步建议' }
-    )
-    $expectedRepairCommandSlotItems = @(
-        [pscustomobject]@{ Name = '修复范围'; Description = '只在安全边界内处理丞相运行环境的当前常见问题，不改你的项目代码' }
-        [pscustomobject]@{ Name = '处理方式'; Description = '优先尝试自动修复当前已知常见问题' }
-        [pscustomobject]@{ Name = '升级条件'; Description = '超出安全边界或无法自动修复时停止扩展并提示人工处理' }
-    )
-    $expectedPanelAcceptanceCommandSlotItems = @(
-        [pscustomobject]@{ Name = '触发场景'; Description = '入口相关改动后或切换后进入官方面板做人眼验板' }
-        [pscustomobject]@{ Name = '验板动作'; Description = '给出进入官方面板人工验收的固定步骤' }
-        [pscustomobject]@{ Name = '验板目标'; Description = '确认版本、模式与入口表现是否稳态' }
-    )
-    $expectedAcceptanceGoalText = '确保主公从官方面板进入时，入口语义稳定、任务包衔接明确、改动后有固定人工验收闭环'
-    $expectedAcceptanceExcludedItems = @(
-        '真实业务任务是否跑通'
-        '安装链与发布链是否稳定'
-        '多 Agent、长期记忆、独立 UI'
-    )
-    $expectedAcceptanceScopeSummaryItems = @(
-        '`传令：` 首句入口风格'
-        '面板内置命令的最小响应口径'
-        '入口与 `.codex/chancellor/tasks/` 的衔接关系'
-        '入口相关改动后的人工复验步骤'
-    )
-    $expectedAcceptanceScopeItems = @(
-        [pscustomobject]@{ Name = '首句入口风格'; Description = '`传令：` 首句入口风格' }
-        [pscustomobject]@{ Name = '最小响应口径'; Description = '面板内置命令的最小响应口径' }
-        [pscustomobject]@{ Name = '任务包衔接'; Description = '入口与 `.codex/chancellor/tasks/` 的衔接关系' }
-        [pscustomobject]@{ Name = '人工复验步骤'; Description = '入口相关改动后的人工复验步骤' }
-    )
-    $expectedAcceptanceStepItems = @(
-        [pscustomobject]@{ Name = '预处理动作'; Description = '如有入口相关改动，先完成必要安装或同步动作' }
-        [pscustomobject]@{ Name = '新开会话'; Description = '新开一个聊天会话，不复用旧会话' }
-        [pscustomobject]@{ Name = '首句验板'; Description = '第一条消息输入：`传令：测试入口是否稳态`' }
-        [pscustomobject]@{ Name = '开头校验'; Description = '检查回复是否使用固定开头：`丞相亮启奏：谨呈本次事宜。`' }
-        [pscustomobject]@{ Name = '语气校验'; Description = '检查回复语气是否符合丞相模式，不回退为普通口吻' }
-        [pscustomobject]@{ Name = '状态校验'; Description = '输入 `传令 状态`，检查是否能给出当前模式、状态与下一步的人话结论' }
-        [pscustomobject]@{ Name = '任务一致性'; Description = '若本地存在激活任务，检查回复口径是否与当前任务状态一致' }
-    )
-    $expectedAcceptancePassSummaryItems = @(
-        '`传令：...` 首句能稳定进入丞相模式'
-        '回复开头使用固定文案，且口吻不漂移'
-        '`传令 帮助` 能显示当前用法、命令与注意事项'
-        '`传令 帮助` 能按“当前用法 → 面板命令 → 注意事项”组织输出'
-        '`传令 帮助` 的当前用法能覆盖“默认入口 → 适用场景 → 维护层说明”'
-        '`传令 帮助` 的面板命令说明能覆盖“命令顺序 → 命令含义 → 公开边界”'
-        '`传令 帮助` 的注意事项能覆盖“安全边界 → 维护层动作 → 新开会话验板提醒”'
-        '`固定人工验收步骤` 能覆盖“预处理动作 → 新开会话 → 首句验板 → 开头校验 → 语气校验 → 状态校验 → 任务一致性”'
-        '`传令 版本` 能返回当前版本与版本来源'
-        '`传令 版本` 的输出能覆盖“版本号 → 版本来源 → 真源路径”'
-        '`传令 检查` 能做最小必要检查并返回人话结论'
-        '`传令 检查` 的输出能覆盖“检查范围 → 检查结论 → 建议动作”'
-        '`传令 状态` 能汇报当前模式、是否稳态、下一步'
-        '`传令 状态` 的输出能覆盖“当前模式 → 稳态判断 → 下一步”'
-        '`传令 修复` 的边界说明能覆盖“修复范围 → 处理方式 → 升级条件”'
-        '`传令 验板` 的边界说明能覆盖“触发场景 → 验板动作 → 验板目标”'
-        '若存在激活任务，入口口径与本地任务状态不冲突'
-        '入口相关改动后，能通过“新开会话 + 首句验板”完成复验'
-    )
-    $expectedAcceptanceFailSummaryItems = @(
-        '首句未进入丞相模式'
-        '固定开头丢失或风格回退为普通模式'
-        '`传令 帮助` 未显示当前用法、命令与注意事项'
-        '`传令 帮助` 未按“当前用法 → 面板命令 → 注意事项”组织输出'
-        '`传令 帮助` 的当前用法未覆盖“默认入口 → 适用场景 → 维护层说明”'
-        '`传令 帮助` 的面板命令说明未覆盖“命令顺序 → 命令含义 → 公开边界”'
-        '`传令 帮助` 的注意事项未覆盖“安全边界 → 维护层动作 → 新开会话验板提醒”'
-        '`固定人工验收步骤` 未覆盖“预处理动作 → 新开会话 → 首句验板 → 开头校验 → 语气校验 → 状态校验 → 任务一致性”'
-        '`传令 版本` 未返回当前版本与版本来源'
-        '`传令 版本` 的输出未覆盖“版本号 → 版本来源 → 真源路径”'
-        '`传令 检查` 未做最小必要检查或未返回人话结论'
-        '`传令 检查` 的输出未覆盖“检查范围 → 检查结论 → 建议动作”'
-        '`传令 状态` 未汇报当前模式、是否稳态、下一步'
-        '`传令 状态` 的输出未覆盖“当前模式 → 稳态判断 → 下一步”'
-        '`传令 修复` 的边界说明未覆盖“修复范围 → 处理方式 → 升级条件”'
-        '`传令 验板` 的边界说明未覆盖“触发场景 → 验板动作 → 验板目标”'
-        '入口回复与本地激活任务状态明显冲突'
-    )
-    $expectedAcceptanceRecoverySummaryItems = @(
-        '先停止继续扩展任务范围'
-        '回看最近入口相关变更是否涉及 `AGENTS.md`、规则文档或安装同步动作'
-        '重新执行必要同步动作后，新开会话再次验板'
-        '若仍失败，记录为入口缺陷，不带着问题进入真实任务试跑'
-    )
-    $expectedChecklistStepItems = @(
-        [pscustomobject]@{ Name = '关闭旧会话'; Description = '关闭当前 `Codex` 会话' }
-        [pscustomobject]@{ Name = '新开官方面板'; Description = '重新打开官方 `Codex` 面板，新开一个全新会话' }
-        [pscustomobject]@{ Name = '版本验证'; Description = '首句输入：`传令 版本`' }
-        [pscustomobject]@{ Name = '检查验证'; Description = '继续输入：`传令 检查`' }
-        [pscustomobject]@{ Name = '状态验证'; Description = '如需再验一层，继续输入：`传令 状态`' }
-    )
-    $expectedAcceptancePassItems = @(
-        [pscustomobject]@{ Name = '模式稳定'; Description = '首句进入丞相模式，固定开头不丢失，语气不漂移' }
-        [pscustomobject]@{ Name = '帮助完整'; Description = '帮助输出覆盖结构与子项模板' }
-        [pscustomobject]@{ Name = '命令口径'; Description = '版本、检查、状态与维护边界口径完整' }
-        [pscustomobject]@{ Name = '任务一致'; Description = '若存在激活任务，入口口径与本地任务状态不冲突' }
-        [pscustomobject]@{ Name = '复验闭环'; Description = '入口相关改动后，可通过新开会话与首句验板完成复验' }
-    )
-    $expectedAcceptanceFailItems = @(
-        [pscustomobject]@{ Name = '模式失稳'; Description = '首句未进入丞相模式，或固定开头丢失、语气回退' }
-        [pscustomobject]@{ Name = '帮助缺项'; Description = '帮助输出未覆盖固定结构或固定子项模板' }
-        [pscustomobject]@{ Name = '命令漂移'; Description = '版本、检查、状态或维护边界口径出现缺失或漂移' }
-        [pscustomobject]@{ Name = '任务冲突'; Description = '入口回复与本地激活任务状态明显冲突' }
-        [pscustomobject]@{ Name = '复验失败'; Description = '重新执行必要同步动作后，仍无法通过新开会话与首句验板完成复验' }
-    )
-    $expectedAcceptanceRecoveryItems = @(
-        [pscustomobject]@{ Name = '停止扩展'; Description = '先停止继续扩展任务范围' }
-        [pscustomobject]@{ Name = '回看变更'; Description = '回看最近入口相关变更是否涉及 `AGENTS.md`、规则文档或安装同步动作' }
-        [pscustomobject]@{ Name = '重新验板'; Description = '重新执行必要同步动作后，新开会话再次验板' }
-        [pscustomobject]@{ Name = '缺陷收口'; Description = '若仍失败，记录为入口缺陷，不带着问题进入真实任务试跑' }
-    )
-    $expectedAcceptanceTrialGateItems = @(
-        [pscustomobject]@{ Name = '前置门槛'; Description = '本文档是进入真实任务试跑前的固定门槛' }
-        [pscustomobject]@{ Name = '放行条件'; Description = '只有入口验收通过后，才进入后续真实任务闭环验证' }
-        [pscustomobject]@{ Name = '公开边界'; Description = '本文档可进入公开仓；真实运行态与日志继续只留本地' }
-    )
-    $expectedChecklistPassSummaryItems = @(
-        '`传令 版本` 能返回当前版本与版本来源'
-        '`传令 版本` 的输出能覆盖“版本号 → 版本来源 → 真源路径”'
-        '`传令 检查` 能做最小必要检查并返回人话结论'
-        '`传令 检查` 的输出能覆盖“检查范围 → 检查结论 → 建议动作”'
-        '`传令 状态` 能汇报当前模式、是否稳态、下一步'
-        '`传令 状态` 的输出能覆盖“当前模式 → 稳态判断 → 下一步”'
-        '`传令 修复` 的边界说明能覆盖“修复范围 → 处理方式 → 升级条件”'
-        '`传令 验板` 的边界说明能覆盖“触发场景 → 验板动作 → 验板目标”'
-        '人工验板步骤能覆盖“关闭旧会话 → 新开官方面板 → 版本验证 → 检查验证 → 状态验证”'
-        '整个过程不出现明显崩溃、失焦或命令失效'
-        '整个过程无需再手改本地文件'
-    )
-    $expectedChecklistPassItems = @(
-        [pscustomobject]@{ Name = '命令有效'; Description = '版本、检查、状态命令可用且口径完整' }
-        [pscustomobject]@{ Name = '边界稳定'; Description = '修复与验板边界说明完整' }
-        [pscustomobject]@{ Name = '验板闭环'; Description = '人工验板步骤模板完整' }
-        [pscustomobject]@{ Name = '过程稳定'; Description = '整个过程不出现明显崩溃、失焦或命令失效' }
-        [pscustomobject]@{ Name = '无需手改'; Description = '整个过程无需再手改本地文件' }
-    )
-    $expectedChecklistRecoverySummaryItems = @(
-        '先执行：`codex-home-export/verify-cutover.ps1`'
-        '若仍异常，再执行：`codex-home-export/rollback-from-backup.ps1`'
-        '回退后重新打开面板，再次验板'
-    )
-    $expectedChecklistRecoveryItems = @(
-        [pscustomobject]@{ Name = '自动复核'; Description = '先执行：`codex-home-export/verify-cutover.ps1`' }
-        [pscustomobject]@{ Name = '自动回退'; Description = '若仍异常，再执行：`codex-home-export/rollback-from-backup.ps1`' }
-        [pscustomobject]@{ Name = '重新验板'; Description = '回退后重新打开面板，再次验板' }
-    )
-    $expectedChecklistIntroLines = @(
+    $expectedChecklistLines = @(
         '适用场景：完成 `install-to-home.ps1` 与 `verify-cutover.ps1` 后，人工确认本机生产切换是否丝滑。'
-        '当前验板命令口径以 `codex-home-export/VERSION.json` 的 `panel_commands` 为准。'
+        '当前验板命令口径以 `codex-home-export/VERSION.json` 为准。'
         '自然语言任务入口统一使用：`传令：`'
+        '- 唯一做事入口：`传令：XXXX`'
+        '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
+        '- 默认开场白：`🪶 军令已达。亮，接管全盘。`'
+        '- 新对话自动提示：`例如：传令：计算1+1=?`'
+        ('- 固定边界提示：`' + $expectedBoundaryPrompt + '`')
+        '3. 确认是否先看到示例：`例如：传令：计算1+1=?`'
+        '4. 首句输入：`传令：测试入口是否稳态`'
+        '5. 继续输入：`传令：版本`'
+        '6. 再输入：`传令：状态`'
+        '7. 如需确认升级口径，再输入：`传令：升级`'
+        '- `开场白对不对`：是否固定为 `🪶 军令已达。亮，接管全盘。`'
+        '- `提示清不清楚`：是否给出示例 `例如：传令：计算1+1=?`'
+        '- `边界稳不稳`：是否明确只检查丞相自己，不检查你的项目'
+        '- `版本对不对`：能否说清版本号、版本来源、真源路径'
+        '- `状态稳不稳`：能否按固定 6 行说清当前状态'
+        '- `升级边界清不清楚`：能否明确“默认不自动升级，用户主动提出才处理”'
+        '- 命令能正常响应。'
+        '- 入口口径没有回退为旧的多命令体系。'
+        '1. 先执行：`codex-home-export/verify-cutover.ps1`'
+        '2. 若仍异常，再执行：`codex-home-export/rollback-from-backup.ps1`'
+        '3. 回退后重新打开面板，再次验板。'
     )
-    $expectedChecklistStepSummaryItems = @(
-        '关闭当前 `Codex` 会话'
-        '重新打开官方 `Codex` 面板，新开一个全新会话'
-        '首句输入：`传令 版本`'
-        '继续输入：`传令 检查`'
-        '如需再验一层，继续输入：`传令 状态`'
-    )
-    $expectedChecklistCommands = @(
-        '传令 版本'
+    $legacyMarkers = @(
+        '传令 帮助'
         '传令 检查'
-        '传令 状态'
-    )
-    $expectedBoundaryCommands = @(
         '传令 修复'
         '传令 验板'
+        '传令 版本'
+        '传令 状态'
+        '丞相亮启奏：谨呈本次事宜。'
+        '丞相：'
+        '丞相:'
     )
 
-    $agentsSection = Get-FileSectionContent -FilePath $agentsPath -SectionStartMarker '## 面板传令命令' -SectionEndMarker '## 仓库卫生纪律'
-    if ([string]::IsNullOrWhiteSpace($agentsSection)) {
-        throw "AGENTS 未解析到面板传令命令区块：$agentsPath"
+    function Assert-LineSetContains {
+        param(
+            [string[]]$Lines,
+            [string]$ExpectedLine,
+            [string]$Label
+        )
+
+        if ($Lines -notcontains $ExpectedLine) {
+            throw "$Label 缺少固定行：$ExpectedLine"
+        }
     }
 
-    $agentPanelCommandRows = @(
+    function Assert-ContentHasNoLegacyMarker {
+        param(
+            [string]$Content,
+            [string]$Label,
+            [string[]]$Markers
+        )
+
+        foreach ($marker in $Markers) {
+            if ($Content.Contains($marker)) {
+                throw "$Label 仍残留旧口径：$marker"
+            }
+        }
+    }
+
+    $agentsSection = Get-FileSectionContent -FilePath $agentsPath -SectionStartMarker '## 面板传令格式' -SectionEndMarker '## 仓库卫生纪律'
+    if ([string]::IsNullOrWhiteSpace($agentsSection)) {
+        throw "AGENTS 未解析到面板传令格式区块：$agentsPath"
+    }
+
+    $agentRows = @(
         [regex]::Matches($agentsSection, '(?m)^\|\s*`([^`]+)`\s*\|\s*([^|]+?)\s*\|\s*$') |
             ForEach-Object {
                 [pscustomobject]@{
@@ -927,1201 +829,59 @@ function Get-CanonicalPanelCommandState {
                 }
             }
     )
-    $agentPanelCommands = @(
-        Get-OrderedUniqueValues -Values @(
-            $agentPanelCommandRows | ForEach-Object { $_.Command }
-        )
-    )
-    Assert-ExactOrderedValues -SourceValues $agentPanelCommands -ExpectedValues $expectedPanelCommands -Label 'AGENTS 面板传令命令真源'
-
-    $expectedHelpRows = @()
-    foreach ($expectedHelpCommand in $expectedHelpCommands) {
+    Assert-ExactOrderedValues -SourceValues @($agentRows | ForEach-Object { $_.Command }) -ExpectedValues @($expectedAgentRows | ForEach-Object { $_.Command }) -Label 'AGENTS 面板传令格式序列'
+    foreach ($expectedAgentRow in $expectedAgentRows) {
         $matchedAgentRow = @(
-            $agentPanelCommandRows |
-                Where-Object { $_.Command -eq $expectedHelpCommand }
+            $agentRows |
+                Where-Object { $_.Command -eq $expectedAgentRow.Command }
         ) | Select-Object -First 1
         if ($null -eq $matchedAgentRow) {
-            throw "AGENTS 面板传令命令真源缺少命令：$expectedHelpCommand"
+            throw "AGENTS 面板传令格式缺少命令：$($expectedAgentRow.Command)"
         }
 
-        $expectedHelpRows += [pscustomobject]@{
-            Command = $matchedAgentRow.Command
-            Description = $matchedAgentRow.Description
+        if ($matchedAgentRow.Description -ne $expectedAgentRow.Description) {
+            throw "AGENTS 面板传令格式漂移：$($expectedAgentRow.Command) 期望 $($expectedAgentRow.Description)，实际 $($matchedAgentRow.Description)"
         }
     }
-
-    $expectedAcceptanceRows = @()
-    foreach ($expectedAcceptanceCommand in $expectedChecklistCommands) {
-        $matchedAgentRow = @(
-            $agentPanelCommandRows |
-                Where-Object { $_.Command -eq $expectedAcceptanceCommand }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedAgentRow) {
-            throw "AGENTS 面板传令命令真源缺少命令：$expectedAcceptanceCommand"
-        }
-
-        $expectedAcceptanceRows += [pscustomobject]@{
-            Command = $matchedAgentRow.Command
-            Description = $matchedAgentRow.Description
-        }
-    }
-
-    $expectedBoundaryRows = @()
-    foreach ($expectedBoundaryCommand in $expectedBoundaryCommands) {
-        $matchedAgentRow = @(
-            $agentPanelCommandRows |
-                Where-Object { $_.Command -eq $expectedBoundaryCommand }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedAgentRow) {
-            throw "AGENTS 面板传令命令真源缺少命令：$expectedBoundaryCommand"
-        }
-
-        $expectedBoundaryRows += [pscustomobject]@{
-            Command = $matchedAgentRow.Command
-            Description = $matchedAgentRow.Description
-        }
-    }
+    Assert-ContentHasNoLegacyMarker -Content $agentsSection -Label 'AGENTS 面板传令格式' -Markers $legacyMarkers
 
     $versionInfo = Read-JsonObjectFromFile -Path $versionPath -Label '生产母体版本文件'
-    $versionPanelCommands = @(
-        Get-OrderedUniqueValues -Values @($versionInfo.panel_commands)
-    )
-    if ($versionPanelCommands.Count -eq 0) {
-        throw "生产母体版本文件缺少 panel_commands：$versionPath"
+    if ($versionInfo.task_entry_prefix -ne '传令：') {
+        throw "生产母体版本文件 task_entry_prefix 漂移：期望 传令：，实际 $($versionInfo.task_entry_prefix)"
     }
-    Assert-ExactOrderedValues -SourceValues $versionPanelCommands -ExpectedValues $expectedPanelCommands -Label '生产母体 panel_commands'
-
-    $acceptanceDocPath = 'docs/40-执行/03-面板入口验收.md'
-    $acceptanceGoalSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 一句话目标' -SectionEndMarker '## 验收范围'
-    if ([string]::IsNullOrWhiteSpace($acceptanceGoalSection)) {
-        throw "面板入口验收未解析到一句话目标：$acceptanceDocPath"
-    }
-
-    $acceptanceGoalText = ($acceptanceGoalSection.Trim() -replace '。$','')
-    if ([string]::IsNullOrWhiteSpace($acceptanceGoalText)) {
-        throw "面板入口验收未解析到一句话目标正文：$acceptanceDocPath"
-    }
-    if ($acceptanceGoalText -ne $expectedAcceptanceGoalText) {
-        throw "面板入口验收一句话目标漂移：期望 $expectedAcceptanceGoalText，实际 $acceptanceGoalText"
-    }
-
-    $acceptanceExcludedSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 本轮不验收' -SectionEndMarker '## 帮助命令公开用法'
-    if ([string]::IsNullOrWhiteSpace($acceptanceExcludedSection)) {
-        throw "面板入口验收未解析到本轮不验收摘要：$acceptanceDocPath"
-    }
-
-    $acceptanceExcludedItems = @(
-        [regex]::Matches($acceptanceExcludedSection, '(?m)^- (.+?)\r?$') |
-            ForEach-Object {
-                ($_.Groups[1].Value.Trim() -replace '。$','')
-            }
-    )
-    if ($acceptanceExcludedItems.Count -eq 0) {
-        throw "面板入口验收未解析到本轮不验收摘要列点：$acceptanceDocPath"
-    }
-    Assert-ExactOrderedValues -SourceValues $acceptanceExcludedItems -ExpectedValues $expectedAcceptanceExcludedItems -Label '面板入口验收本轮不验收摘要序列'
-
-    $acceptanceScopeSummarySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 验收范围' -SectionEndMarker '## 验收范围固定槽位'
-    if ([string]::IsNullOrWhiteSpace($acceptanceScopeSummarySection)) {
-        throw "面板入口验收未解析到验收范围摘要：$acceptanceDocPath"
-    }
-
-    $acceptanceScopeSummaryItems = @(
-        [regex]::Matches($acceptanceScopeSummarySection, '(?m)^- (.+?)\r?$') |
-            ForEach-Object {
-                ($_.Groups[1].Value.Trim() -replace '。$','')
-            }
-    )
-    if ($acceptanceScopeSummaryItems.Count -eq 0) {
-        throw "面板入口验收未解析到验收范围摘要列点：$acceptanceDocPath"
-    }
-    Assert-ExactOrderedValues -SourceValues $acceptanceScopeSummaryItems -ExpectedValues $expectedAcceptanceScopeSummaryItems -Label '面板入口验收验收范围摘要序列'
-
-    $acceptanceScopeSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 验收范围固定槽位' -SectionEndMarker '## 本轮不验收'
-    if ([string]::IsNullOrWhiteSpace($acceptanceScopeSection)) {
-        throw "面板入口验收未解析到验收范围固定槽位：$acceptanceDocPath"
-    }
-
-    $acceptanceScopeRows = @(
-        [regex]::Matches($acceptanceScopeSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($acceptanceScopeRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedAcceptanceScopeItems | ForEach-Object { $_.Name }) -Label '面板入口验收验收范围固定槽位序列'
-    foreach ($expectedAcceptanceScopeItem in $expectedAcceptanceScopeItems) {
-        $matchedAcceptanceScopeRow = @(
-            $acceptanceScopeRows |
-                Where-Object { $_.Name -eq $expectedAcceptanceScopeItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedAcceptanceScopeRow) {
-            throw "面板入口验收缺少验收范围固定槽位：$($expectedAcceptanceScopeItem.Name)"
-        }
-
-        if ($matchedAcceptanceScopeRow.Description -ne $expectedAcceptanceScopeItem.Description) {
-            throw "面板入口验收验收范围固定槽位漂移：$($expectedAcceptanceScopeItem.Name) 期望 $($expectedAcceptanceScopeItem.Description)，实际 $($matchedAcceptanceScopeRow.Description)"
-        }
-    }
-
-    $helpSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 帮助命令公开用法' -SectionEndMarker '## 帮助命令固定结构'
-    if ([string]::IsNullOrWhiteSpace($helpSection)) {
-        throw "面板入口验收未解析到帮助命令公开用法：$acceptanceDocPath"
-    }
-
-    $helpRows = @(
-        [regex]::Matches($helpSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Command = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($helpRows | ForEach-Object { $_.Command }) -ExpectedValues $expectedHelpCommands -Label '面板入口验收帮助命令用法序列'
-    foreach ($expectedHelpRow in $expectedHelpRows) {
-        $matchedHelpRow = @(
-            $helpRows |
-                Where-Object { $_.Command -eq $expectedHelpRow.Command }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedHelpRow) {
-            throw "面板入口验收缺少帮助命令用法：$($expectedHelpRow.Command)"
-        }
-
-        if ($matchedHelpRow.Description -ne $expectedHelpRow.Description) {
-            throw "面板入口验收帮助命令用法漂移：$($expectedHelpRow.Command) 期望 $($expectedHelpRow.Description)，实际 $($matchedHelpRow.Description)"
-        }
-    }
-
-    $helpTemplateSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 帮助命令固定结构' -SectionEndMarker '## 当前用法固定子项'
-    if ([string]::IsNullOrWhiteSpace($helpTemplateSection)) {
-        throw "面板入口验收未解析到帮助命令固定结构：$acceptanceDocPath"
-    }
-
-    $helpTemplateRows = @(
-        [regex]::Matches($helpTemplateSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($helpTemplateRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedHelpTemplateItems | ForEach-Object { $_.Name }) -Label '面板入口验收帮助命令固定结构序列'
-    foreach ($expectedHelpTemplateItem in $expectedHelpTemplateItems) {
-        $matchedHelpTemplateRow = @(
-            $helpTemplateRows |
-                Where-Object { $_.Name -eq $expectedHelpTemplateItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedHelpTemplateRow) {
-            throw "面板入口验收缺少帮助命令固定结构项：$($expectedHelpTemplateItem.Name)"
-        }
-
-        if ($matchedHelpTemplateRow.Description -ne $expectedHelpTemplateItem.Description) {
-            throw "面板入口验收帮助命令固定结构漂移：$($expectedHelpTemplateItem.Name) 期望 $($expectedHelpTemplateItem.Description)，实际 $($matchedHelpTemplateRow.Description)"
-        }
-    }
-
-    $helpUsageSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 当前用法固定子项' -SectionEndMarker '## 面板命令固定子项'
-    if ([string]::IsNullOrWhiteSpace($helpUsageSection)) {
-        throw "面板入口验收未解析到当前用法固定子项：$acceptanceDocPath"
-    }
-
-    $helpUsageRows = @(
-        [regex]::Matches($helpUsageSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($helpUsageRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedHelpUsageItems | ForEach-Object { $_.Name }) -Label '面板入口验收当前用法固定子项序列'
-    foreach ($expectedHelpUsageItem in $expectedHelpUsageItems) {
-        $matchedHelpUsageRow = @(
-            $helpUsageRows |
-                Where-Object { $_.Name -eq $expectedHelpUsageItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedHelpUsageRow) {
-            throw "面板入口验收缺少当前用法固定子项：$($expectedHelpUsageItem.Name)"
-        }
-
-        if ($matchedHelpUsageRow.Description -ne $expectedHelpUsageItem.Description) {
-            throw "面板入口验收当前用法固定子项漂移：$($expectedHelpUsageItem.Name) 期望 $($expectedHelpUsageItem.Description)，实际 $($matchedHelpUsageRow.Description)"
-        }
-    }
-
-    $helpPanelCommandSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 面板命令固定子项' -SectionEndMarker '## 注意事项固定子项'
-    if ([string]::IsNullOrWhiteSpace($helpPanelCommandSection)) {
-        throw "面板入口验收未解析到面板命令固定子项：$acceptanceDocPath"
-    }
-
-    $helpPanelCommandRows = @(
-        [regex]::Matches($helpPanelCommandSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($helpPanelCommandRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedHelpPanelCommandItems | ForEach-Object { $_.Name }) -Label '面板入口验收面板命令固定子项序列'
-    foreach ($expectedHelpPanelCommandItem in $expectedHelpPanelCommandItems) {
-        $matchedHelpPanelCommandRow = @(
-            $helpPanelCommandRows |
-                Where-Object { $_.Name -eq $expectedHelpPanelCommandItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedHelpPanelCommandRow) {
-            throw "面板入口验收缺少面板命令固定子项：$($expectedHelpPanelCommandItem.Name)"
-        }
-
-        if ($matchedHelpPanelCommandRow.Description -ne $expectedHelpPanelCommandItem.Description) {
-            throw "面板入口验收面板命令固定子项漂移：$($expectedHelpPanelCommandItem.Name) 期望 $($expectedHelpPanelCommandItem.Description)，实际 $($matchedHelpPanelCommandRow.Description)"
-        }
-    }
-
-    $helpNoticeSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 注意事项固定子项' -SectionEndMarker '## 两条维护命令边界'
-    if ([string]::IsNullOrWhiteSpace($helpNoticeSection)) {
-        throw "面板入口验收未解析到注意事项固定子项：$acceptanceDocPath"
-    }
-
-    $helpNoticeRows = @(
-        [regex]::Matches($helpNoticeSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($helpNoticeRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedHelpNoticeItems | ForEach-Object { $_.Name }) -Label '面板入口验收注意事项固定子项序列'
-    foreach ($expectedHelpNoticeItem in $expectedHelpNoticeItems) {
-        $matchedHelpNoticeRow = @(
-            $helpNoticeRows |
-                Where-Object { $_.Name -eq $expectedHelpNoticeItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedHelpNoticeRow) {
-            throw "面板入口验收缺少注意事项固定子项：$($expectedHelpNoticeItem.Name)"
-        }
-
-        if ($matchedHelpNoticeRow.Description -ne $expectedHelpNoticeItem.Description) {
-            throw "面板入口验收注意事项固定子项漂移：$($expectedHelpNoticeItem.Name) 期望 $($expectedHelpNoticeItem.Description)，实际 $($matchedHelpNoticeRow.Description)"
-        }
-    }
-
-    $boundarySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 两条维护命令边界' -SectionEndMarker '## 传令 修复固定槽位'
-    if ([string]::IsNullOrWhiteSpace($boundarySection)) {
-        throw "面板入口验收未解析到两条维护命令边界：$acceptanceDocPath"
-    }
-
-    $boundaryRows = @(
-        [regex]::Matches($boundarySection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Command = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($boundaryRows | ForEach-Object { $_.Command }) -ExpectedValues $expectedBoundaryCommands -Label '面板入口验收维护命令边界序列'
-    foreach ($expectedBoundaryRow in $expectedBoundaryRows) {
-        $matchedBoundaryRow = @(
-            $boundaryRows |
-                Where-Object { $_.Command -eq $expectedBoundaryRow.Command }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedBoundaryRow) {
-            throw "面板入口验收缺少维护命令边界：$($expectedBoundaryRow.Command)"
-        }
-
-        if ($matchedBoundaryRow.Description -ne $expectedBoundaryRow.Description) {
-            throw "面板入口验收维护命令边界漂移：$($expectedBoundaryRow.Command) 期望 $($expectedBoundaryRow.Description)，实际 $($matchedBoundaryRow.Description)"
-        }
-    }
-
-    $repairCommandSlotSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 传令 修复固定槽位' -SectionEndMarker '## 传令 验板固定槽位'
-    if ([string]::IsNullOrWhiteSpace($repairCommandSlotSection)) {
-        throw "面板入口验收未解析到传令 修复固定槽位：$acceptanceDocPath"
-    }
-
-    $repairCommandSlotRows = @(
-        [regex]::Matches($repairCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($repairCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedRepairCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板入口验收传令 修复固定槽位序列'
-    foreach ($expectedRepairCommandSlotItem in $expectedRepairCommandSlotItems) {
-        $matchedRepairCommandSlotRow = @(
-            $repairCommandSlotRows |
-                Where-Object { $_.Name -eq $expectedRepairCommandSlotItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedRepairCommandSlotRow) {
-            throw "面板入口验收缺少传令 修复固定槽位：$($expectedRepairCommandSlotItem.Name)"
-        }
-
-        if ($matchedRepairCommandSlotRow.Description -ne $expectedRepairCommandSlotItem.Description) {
-            throw "面板入口验收传令 修复固定槽位漂移：$($expectedRepairCommandSlotItem.Name) 期望 $($expectedRepairCommandSlotItem.Description)，实际 $($matchedRepairCommandSlotRow.Description)"
-        }
-    }
-
-    $panelAcceptanceCommandSlotSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 传令 验板固定槽位' -SectionEndMarker '## 固定人工验收步骤'
-    if ([string]::IsNullOrWhiteSpace($panelAcceptanceCommandSlotSection)) {
-        throw "面板入口验收未解析到传令 验板固定槽位：$acceptanceDocPath"
-    }
-
-    $panelAcceptanceCommandSlotRows = @(
-        [regex]::Matches($panelAcceptanceCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($panelAcceptanceCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedPanelAcceptanceCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板入口验收传令 验板固定槽位序列'
-    foreach ($expectedPanelAcceptanceCommandSlotItem in $expectedPanelAcceptanceCommandSlotItems) {
-        $matchedPanelAcceptanceCommandSlotRow = @(
-            $panelAcceptanceCommandSlotRows |
-                Where-Object { $_.Name -eq $expectedPanelAcceptanceCommandSlotItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedPanelAcceptanceCommandSlotRow) {
-            throw "面板入口验收缺少传令 验板固定槽位：$($expectedPanelAcceptanceCommandSlotItem.Name)"
-        }
-
-        if ($matchedPanelAcceptanceCommandSlotRow.Description -ne $expectedPanelAcceptanceCommandSlotItem.Description) {
-            throw "面板入口验收传令 验板固定槽位漂移：$($expectedPanelAcceptanceCommandSlotItem.Name) 期望 $($expectedPanelAcceptanceCommandSlotItem.Description)，实际 $($matchedPanelAcceptanceCommandSlotRow.Description)"
-        }
-    }
-
-    $acceptanceStepSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 固定人工验收步骤固定子项' -SectionEndMarker '## 三条核心命令验收口径'
-    if ([string]::IsNullOrWhiteSpace($acceptanceStepSection)) {
-        throw "面板入口验收未解析到固定人工验收步骤固定子项：$acceptanceDocPath"
-    }
-
-    $acceptanceStepRows = @(
-        [regex]::Matches($acceptanceStepSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($acceptanceStepRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedAcceptanceStepItems | ForEach-Object { $_.Name }) -Label '面板入口验收固定人工验收步骤固定子项序列'
-    foreach ($expectedAcceptanceStepItem in $expectedAcceptanceStepItems) {
-        $matchedAcceptanceStepRow = @(
-            $acceptanceStepRows |
-                Where-Object { $_.Name -eq $expectedAcceptanceStepItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedAcceptanceStepRow) {
-            throw "面板入口验收缺少固定人工验收步骤固定子项：$($expectedAcceptanceStepItem.Name)"
-        }
-
-        if ($matchedAcceptanceStepRow.Description -ne $expectedAcceptanceStepItem.Description) {
-            throw "面板入口验收固定人工验收步骤固定子项漂移：$($expectedAcceptanceStepItem.Name) 期望 $($expectedAcceptanceStepItem.Description)，实际 $($matchedAcceptanceStepRow.Description)"
-        }
-    }
-
-    $acceptanceSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 三条核心命令验收口径' -SectionEndMarker '## 传令 版本固定槽位'
-    if ([string]::IsNullOrWhiteSpace($acceptanceSection)) {
-        throw "面板入口验收未解析到三条核心命令验收口径：$acceptanceDocPath"
-    }
-
-    $acceptanceRows = @(
-        [regex]::Matches($acceptanceSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Command = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($acceptanceRows | ForEach-Object { $_.Command }) -ExpectedValues $expectedChecklistCommands -Label '面板入口验收核心命令序列'
-    foreach ($expectedAcceptanceRow in $expectedAcceptanceRows) {
-        $matchedAcceptanceRow = @(
-            $acceptanceRows |
-                Where-Object { $_.Command -eq $expectedAcceptanceRow.Command }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedAcceptanceRow) {
-            throw "面板入口验收缺少核心命令口径：$($expectedAcceptanceRow.Command)"
-        }
-
-        if ($matchedAcceptanceRow.Description -ne $expectedAcceptanceRow.Description) {
-            throw "面板入口验收命令口径漂移：$($expectedAcceptanceRow.Command) 期望 $($expectedAcceptanceRow.Description)，实际 $($matchedAcceptanceRow.Description)"
-        }
-    }
-
-    $acceptancePassSummarySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 通过标准' -SectionEndMarker '## 通过标准固定子项'
-    if ([string]::IsNullOrWhiteSpace($acceptancePassSummarySection)) {
-        throw "面板入口验收未解析到通过标准摘要：$acceptanceDocPath"
-    }
-
-    $acceptancePassSummaryItems = @(
-        [regex]::Matches($acceptancePassSummarySection, '(?m)^- (.+?)\r?$') |
-            ForEach-Object {
-                ($_.Groups[1].Value.Trim() -replace '。$','')
-            }
-    )
-    if ($acceptancePassSummaryItems.Count -eq 0) {
-        throw "面板入口验收未解析到通过标准摘要列点：$acceptanceDocPath"
-    }
-    Assert-ExactOrderedValues -SourceValues $acceptancePassSummaryItems -ExpectedValues $expectedAcceptancePassSummaryItems -Label '面板入口验收通过标准摘要序列'
-
-    $acceptancePassSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 通过标准固定子项' -SectionEndMarker '## 失败信号'
-    if ([string]::IsNullOrWhiteSpace($acceptancePassSection)) {
-        throw "面板入口验收未解析到通过标准固定子项：$acceptanceDocPath"
-    }
-
-    $acceptancePassRows = @(
-        [regex]::Matches($acceptancePassSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($acceptancePassRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedAcceptancePassItems | ForEach-Object { $_.Name }) -Label '面板入口验收通过标准固定子项序列'
-    foreach ($expectedAcceptancePassItem in $expectedAcceptancePassItems) {
-        $matchedAcceptancePassRow = @(
-            $acceptancePassRows |
-                Where-Object { $_.Name -eq $expectedAcceptancePassItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedAcceptancePassRow) {
-            throw "面板入口验收缺少通过标准固定子项：$($expectedAcceptancePassItem.Name)"
-        }
-
-        if ($matchedAcceptancePassRow.Description -ne $expectedAcceptancePassItem.Description) {
-            throw "面板入口验收通过标准固定子项漂移：$($expectedAcceptancePassItem.Name) 期望 $($expectedAcceptancePassItem.Description)，实际 $($matchedAcceptancePassRow.Description)"
-        }
-    }
-
-    $acceptanceFailSummarySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 失败信号' -SectionEndMarker '## 失败信号固定子项'
-    if ([string]::IsNullOrWhiteSpace($acceptanceFailSummarySection)) {
-        throw "面板入口验收未解析到失败信号摘要：$acceptanceDocPath"
-    }
-
-    $acceptanceFailSummaryItems = @(
-        [regex]::Matches($acceptanceFailSummarySection, '(?m)^- (.+?)\r?$') |
-            ForEach-Object {
-                ($_.Groups[1].Value.Trim() -replace '。$','')
-            }
-    )
-    if ($acceptanceFailSummaryItems.Count -eq 0) {
-        throw "面板入口验收未解析到失败信号摘要列点：$acceptanceDocPath"
-    }
-    Assert-ExactOrderedValues -SourceValues $acceptanceFailSummaryItems -ExpectedValues $expectedAcceptanceFailSummaryItems -Label '面板入口验收失败信号摘要序列'
-
-    $acceptanceFailItemSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 失败信号固定子项' -SectionEndMarker '## 失败后的处置动作'
-    if ([string]::IsNullOrWhiteSpace($acceptanceFailItemSection)) {
-        throw "面板入口验收未解析到失败信号固定子项：$acceptanceDocPath"
-    }
-
-    $acceptanceFailItemRows = @(
-        [regex]::Matches($acceptanceFailItemSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($acceptanceFailItemRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedAcceptanceFailItems | ForEach-Object { $_.Name }) -Label '面板入口验收失败信号固定子项序列'
-    foreach ($expectedAcceptanceFailItem in $expectedAcceptanceFailItems) {
-        $matchedAcceptanceFailItemRow = @(
-            $acceptanceFailItemRows |
-                Where-Object { $_.Name -eq $expectedAcceptanceFailItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedAcceptanceFailItemRow) {
-            throw "面板入口验收缺少失败信号固定子项：$($expectedAcceptanceFailItem.Name)"
-        }
-
-        if ($matchedAcceptanceFailItemRow.Description -ne $expectedAcceptanceFailItem.Description) {
-            throw "面板入口验收失败信号固定子项漂移：$($expectedAcceptanceFailItem.Name) 期望 $($expectedAcceptanceFailItem.Description)，实际 $($matchedAcceptanceFailItemRow.Description)"
-        }
-    }
-
-    $acceptanceRecoverySummarySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 失败后的处置动作' -SectionEndMarker '## 失败后的处置动作固定子项'
-    if ([string]::IsNullOrWhiteSpace($acceptanceRecoverySummarySection)) {
-        throw "面板入口验收未解析到失败后的处置动作摘要：$acceptanceDocPath"
-    }
-
-    $acceptanceRecoverySummaryItems = @(
-        [regex]::Matches($acceptanceRecoverySummarySection, '(?m)^\d+\. (.+?)\r?$') |
-            ForEach-Object {
-                ($_.Groups[1].Value.Trim() -replace '。$','')
-            }
-    )
-    if ($acceptanceRecoverySummaryItems.Count -eq 0) {
-        throw "面板入口验收未解析到失败后的处置动作摘要列点：$acceptanceDocPath"
-    }
-    Assert-ExactOrderedValues -SourceValues $acceptanceRecoverySummaryItems -ExpectedValues $expectedAcceptanceRecoverySummaryItems -Label '面板入口验收失败后的处置动作摘要序列'
-
-    $acceptanceRecoverySection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 失败后的处置动作固定子项' -SectionEndMarker '## 与试跑阶段的关系'
-    if ([string]::IsNullOrWhiteSpace($acceptanceRecoverySection)) {
-        throw "面板入口验收未解析到失败后的处置动作固定子项：$acceptanceDocPath"
-    }
-
-    $acceptanceRecoveryRows = @(
-        [regex]::Matches($acceptanceRecoverySection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($acceptanceRecoveryRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedAcceptanceRecoveryItems | ForEach-Object { $_.Name }) -Label '面板入口验收失败后的处置动作固定子项序列'
-    foreach ($expectedAcceptanceRecoveryItem in $expectedAcceptanceRecoveryItems) {
-        $matchedAcceptanceRecoveryRow = @(
-            $acceptanceRecoveryRows |
-                Where-Object { $_.Name -eq $expectedAcceptanceRecoveryItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedAcceptanceRecoveryRow) {
-            throw "面板入口验收缺少失败后的处置动作固定子项：$($expectedAcceptanceRecoveryItem.Name)"
-        }
-
-        if ($matchedAcceptanceRecoveryRow.Description -ne $expectedAcceptanceRecoveryItem.Description) {
-            throw "面板入口验收失败后的处置动作固定子项漂移：$($expectedAcceptanceRecoveryItem.Name) 期望 $($expectedAcceptanceRecoveryItem.Description)，实际 $($matchedAcceptanceRecoveryRow.Description)"
-        }
-    }
-
-    $acceptanceTrialGateSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 与试跑阶段的关系固定槽位'
-    if ([string]::IsNullOrWhiteSpace($acceptanceTrialGateSection)) {
-        throw "面板入口验收未解析到与试跑阶段的关系固定槽位：$acceptanceDocPath"
-    }
-
-    $acceptanceTrialGateRows = @(
-        [regex]::Matches($acceptanceTrialGateSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($acceptanceTrialGateRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedAcceptanceTrialGateItems | ForEach-Object { $_.Name }) -Label '面板入口验收与试跑阶段的关系固定槽位序列'
-    foreach ($expectedAcceptanceTrialGateItem in $expectedAcceptanceTrialGateItems) {
-        $matchedAcceptanceTrialGateRow = @(
-            $acceptanceTrialGateRows |
-                Where-Object { $_.Name -eq $expectedAcceptanceTrialGateItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedAcceptanceTrialGateRow) {
-            throw "面板入口验收缺少与试跑阶段的关系固定槽位：$($expectedAcceptanceTrialGateItem.Name)"
-        }
-
-        if ($matchedAcceptanceTrialGateRow.Description -ne $expectedAcceptanceTrialGateItem.Description) {
-            throw "面板入口验收与试跑阶段的关系固定槽位漂移：$($expectedAcceptanceTrialGateItem.Name) 期望 $($expectedAcceptanceTrialGateItem.Description)，实际 $($matchedAcceptanceTrialGateRow.Description)"
-        }
-    }
-
-    $versionCommandSlotSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 传令 版本固定槽位' -SectionEndMarker '## 传令 检查固定槽位'
-    if ([string]::IsNullOrWhiteSpace($versionCommandSlotSection)) {
-        throw "面板入口验收未解析到传令 版本固定槽位：$acceptanceDocPath"
-    }
-
-    $versionCommandSlotRows = @(
-        [regex]::Matches($versionCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($versionCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedVersionCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板入口验收传令 版本固定槽位序列'
-    foreach ($expectedVersionCommandSlotItem in $expectedVersionCommandSlotItems) {
-        $matchedVersionCommandSlotRow = @(
-            $versionCommandSlotRows |
-                Where-Object { $_.Name -eq $expectedVersionCommandSlotItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedVersionCommandSlotRow) {
-            throw "面板入口验收缺少传令 版本固定槽位：$($expectedVersionCommandSlotItem.Name)"
-        }
-
-        if ($matchedVersionCommandSlotRow.Description -ne $expectedVersionCommandSlotItem.Description) {
-            throw "面板入口验收传令 版本固定槽位漂移：$($expectedVersionCommandSlotItem.Name) 期望 $($expectedVersionCommandSlotItem.Description)，实际 $($matchedVersionCommandSlotRow.Description)"
-        }
-    }
-
-    $checkCommandSlotSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 传令 检查固定槽位' -SectionEndMarker '## 传令 状态固定槽位'
-    if ([string]::IsNullOrWhiteSpace($checkCommandSlotSection)) {
-        throw "面板入口验收未解析到传令 检查固定槽位：$acceptanceDocPath"
-    }
-
-    $checkCommandSlotRows = @(
-        [regex]::Matches($checkCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checkCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedCheckCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板入口验收传令 检查固定槽位序列'
-    foreach ($expectedCheckCommandSlotItem in $expectedCheckCommandSlotItems) {
-        $matchedCheckCommandSlotRow = @(
-            $checkCommandSlotRows |
-                Where-Object { $_.Name -eq $expectedCheckCommandSlotItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedCheckCommandSlotRow) {
-            throw "面板入口验收缺少传令 检查固定槽位：$($expectedCheckCommandSlotItem.Name)"
-        }
-
-        if ($matchedCheckCommandSlotRow.Description -ne $expectedCheckCommandSlotItem.Description) {
-            throw "面板入口验收传令 检查固定槽位漂移：$($expectedCheckCommandSlotItem.Name) 期望 $($expectedCheckCommandSlotItem.Description)，实际 $($matchedCheckCommandSlotRow.Description)"
-        }
-    }
-
-    $statusCommandSlotSection = Get-FileSectionContent -FilePath $acceptanceDocPath -SectionStartMarker '## 传令 状态固定槽位' -SectionEndMarker '## 通过标准'
-    if ([string]::IsNullOrWhiteSpace($statusCommandSlotSection)) {
-        throw "面板入口验收未解析到传令 状态固定槽位：$acceptanceDocPath"
-    }
-
-    $statusCommandSlotRows = @(
-        [regex]::Matches($statusCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($statusCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedStatusCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板入口验收传令 状态固定槽位序列'
-    foreach ($expectedStatusCommandSlotItem in $expectedStatusCommandSlotItems) {
-        $matchedStatusCommandSlotRow = @(
-            $statusCommandSlotRows |
-                Where-Object { $_.Name -eq $expectedStatusCommandSlotItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedStatusCommandSlotRow) {
-            throw "面板入口验收缺少传令 状态固定槽位：$($expectedStatusCommandSlotItem.Name)"
-        }
-
-        if ($matchedStatusCommandSlotRow.Description -ne $expectedStatusCommandSlotItem.Description) {
-            throw "面板入口验收传令 状态固定槽位漂移：$($expectedStatusCommandSlotItem.Name) 期望 $($expectedStatusCommandSlotItem.Description)，实际 $($matchedStatusCommandSlotRow.Description)"
-        }
-    }
-
-    if (-not (Test-Path $checklistPath)) {
-        throw "缺少面板人工验板清单：$checklistPath"
-    }
-
-    $checklistIntroSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '# 面板人工验板清单' -SectionEndMarker '## 帮助命令公开用法'
-    if ([string]::IsNullOrWhiteSpace($checklistIntroSection)) {
-        throw "面板人工验板清单未解析到头部引导说明：$checklistPath"
-    }
-
-    $checklistIntroLines = @(
-        ($checklistIntroSection -split "`r?`n") |
-            ForEach-Object { $_.Trim() } |
-            Where-Object { $_ -ne '' }
-    )
-    if ($checklistIntroLines.Count -eq 0) {
-        throw "面板人工验板清单未解析到头部引导列点：$checklistPath"
-    }
-    Assert-ExactOrderedValues -SourceValues $checklistIntroLines -ExpectedValues $expectedChecklistIntroLines -Label '面板人工验板清单头部引导序列'
-
-    $checklistHelpSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 帮助命令公开用法' -SectionEndMarker '## 帮助命令固定结构'
-    if ([string]::IsNullOrWhiteSpace($checklistHelpSection)) {
-        throw "面板人工验板清单未解析到帮助命令公开用法：$checklistPath"
-    }
-
-    $checklistHelpRows = @(
-        [regex]::Matches($checklistHelpSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Command = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistHelpRows | ForEach-Object { $_.Command }) -ExpectedValues $expectedHelpCommands -Label '面板人工验板清单帮助命令用法序列'
-    foreach ($expectedHelpRow in $expectedHelpRows) {
-        $matchedChecklistHelpRow = @(
-            $checklistHelpRows |
-                Where-Object { $_.Command -eq $expectedHelpRow.Command }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistHelpRow) {
-            throw "面板人工验板清单缺少帮助命令用法：$($expectedHelpRow.Command)"
-        }
-
-        if ($matchedChecklistHelpRow.Description -ne $expectedHelpRow.Description) {
-            throw "面板人工验板清单帮助命令用法漂移：$($expectedHelpRow.Command) 期望 $($expectedHelpRow.Description)，实际 $($matchedChecklistHelpRow.Description)"
-        }
-    }
-
-    $checklistHelpTemplateSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 帮助命令固定结构' -SectionEndMarker '## 当前用法固定子项'
-    if ([string]::IsNullOrWhiteSpace($checklistHelpTemplateSection)) {
-        throw "面板人工验板清单未解析到帮助命令固定结构：$checklistPath"
-    }
-
-    $checklistHelpTemplateRows = @(
-        [regex]::Matches($checklistHelpTemplateSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistHelpTemplateRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedHelpTemplateItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单帮助命令固定结构序列'
-    foreach ($expectedHelpTemplateItem in $expectedHelpTemplateItems) {
-        $matchedChecklistHelpTemplateRow = @(
-            $checklistHelpTemplateRows |
-                Where-Object { $_.Name -eq $expectedHelpTemplateItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistHelpTemplateRow) {
-            throw "面板人工验板清单缺少帮助命令固定结构项：$($expectedHelpTemplateItem.Name)"
-        }
-
-        if ($matchedChecklistHelpTemplateRow.Description -ne $expectedHelpTemplateItem.Description) {
-            throw "面板人工验板清单帮助命令固定结构漂移：$($expectedHelpTemplateItem.Name) 期望 $($expectedHelpTemplateItem.Description)，实际 $($matchedChecklistHelpTemplateRow.Description)"
-        }
-    }
-
-    $checklistHelpUsageSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 当前用法固定子项' -SectionEndMarker '## 面板命令固定子项'
-    if ([string]::IsNullOrWhiteSpace($checklistHelpUsageSection)) {
-        throw "面板人工验板清单未解析到当前用法固定子项：$checklistPath"
-    }
-
-    $checklistHelpUsageRows = @(
-        [regex]::Matches($checklistHelpUsageSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistHelpUsageRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedHelpUsageItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单当前用法固定子项序列'
-    foreach ($expectedHelpUsageItem in $expectedHelpUsageItems) {
-        $matchedChecklistHelpUsageRow = @(
-            $checklistHelpUsageRows |
-                Where-Object { $_.Name -eq $expectedHelpUsageItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistHelpUsageRow) {
-            throw "面板人工验板清单缺少当前用法固定子项：$($expectedHelpUsageItem.Name)"
-        }
-
-        if ($matchedChecklistHelpUsageRow.Description -ne $expectedHelpUsageItem.Description) {
-            throw "面板人工验板清单当前用法固定子项漂移：$($expectedHelpUsageItem.Name) 期望 $($expectedHelpUsageItem.Description)，实际 $($matchedChecklistHelpUsageRow.Description)"
-        }
-    }
-
-    $checklistHelpPanelCommandSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 面板命令固定子项' -SectionEndMarker '## 注意事项固定子项'
-    if ([string]::IsNullOrWhiteSpace($checklistHelpPanelCommandSection)) {
-        throw "面板人工验板清单未解析到面板命令固定子项：$checklistPath"
-    }
-
-    $checklistHelpPanelCommandRows = @(
-        [regex]::Matches($checklistHelpPanelCommandSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistHelpPanelCommandRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedHelpPanelCommandItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单面板命令固定子项序列'
-    foreach ($expectedHelpPanelCommandItem in $expectedHelpPanelCommandItems) {
-        $matchedChecklistHelpPanelCommandRow = @(
-            $checklistHelpPanelCommandRows |
-                Where-Object { $_.Name -eq $expectedHelpPanelCommandItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistHelpPanelCommandRow) {
-            throw "面板人工验板清单缺少面板命令固定子项：$($expectedHelpPanelCommandItem.Name)"
-        }
-
-        if ($matchedChecklistHelpPanelCommandRow.Description -ne $expectedHelpPanelCommandItem.Description) {
-            throw "面板人工验板清单面板命令固定子项漂移：$($expectedHelpPanelCommandItem.Name) 期望 $($expectedHelpPanelCommandItem.Description)，实际 $($matchedChecklistHelpPanelCommandRow.Description)"
-        }
-    }
-
-    $checklistHelpNoticeSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 注意事项固定子项' -SectionEndMarker '## 相关维护命令边界'
-    if ([string]::IsNullOrWhiteSpace($checklistHelpNoticeSection)) {
-        throw "面板人工验板清单未解析到注意事项固定子项：$checklistPath"
-    }
-
-    $checklistHelpNoticeRows = @(
-        [regex]::Matches($checklistHelpNoticeSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistHelpNoticeRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedHelpNoticeItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单注意事项固定子项序列'
-    foreach ($expectedHelpNoticeItem in $expectedHelpNoticeItems) {
-        $matchedChecklistHelpNoticeRow = @(
-            $checklistHelpNoticeRows |
-                Where-Object { $_.Name -eq $expectedHelpNoticeItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistHelpNoticeRow) {
-            throw "面板人工验板清单缺少注意事项固定子项：$($expectedHelpNoticeItem.Name)"
-        }
-
-        if ($matchedChecklistHelpNoticeRow.Description -ne $expectedHelpNoticeItem.Description) {
-            throw "面板人工验板清单注意事项固定子项漂移：$($expectedHelpNoticeItem.Name) 期望 $($expectedHelpNoticeItem.Description)，实际 $($matchedChecklistHelpNoticeRow.Description)"
-        }
-    }
-
-    $checklistBoundarySection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 相关维护命令边界' -SectionEndMarker '## 传令 修复固定槽位'
-    if ([string]::IsNullOrWhiteSpace($checklistBoundarySection)) {
-        throw "面板人工验板清单未解析到相关维护命令边界：$checklistPath"
-    }
-
-    $checklistBoundaryRows = @(
-        [regex]::Matches($checklistBoundarySection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Command = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistBoundaryRows | ForEach-Object { $_.Command }) -ExpectedValues $expectedBoundaryCommands -Label '面板人工验板清单维护命令边界序列'
-    foreach ($expectedBoundaryRow in $expectedBoundaryRows) {
-        $matchedChecklistBoundaryRow = @(
-            $checklistBoundaryRows |
-                Where-Object { $_.Command -eq $expectedBoundaryRow.Command }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistBoundaryRow) {
-            throw "面板人工验板清单缺少维护命令边界：$($expectedBoundaryRow.Command)"
-        }
-
-        if ($matchedChecklistBoundaryRow.Description -ne $expectedBoundaryRow.Description) {
-            throw "面板人工验板清单维护命令边界漂移：$($expectedBoundaryRow.Command) 期望 $($expectedBoundaryRow.Description)，实际 $($matchedChecklistBoundaryRow.Description)"
-        }
+    if ($versionInfo.opening_line -ne '🪶 军令已达。亮，接管全盘。') {
+        throw "生产母体版本文件 opening_line 漂移：期望 🪶 军令已达。亮，接管全盘。，实际 $($versionInfo.opening_line)"
     }
-
-    $checklistRepairCommandSlotSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 传令 修复固定槽位' -SectionEndMarker '## 传令 验板固定槽位'
-    if ([string]::IsNullOrWhiteSpace($checklistRepairCommandSlotSection)) {
-        throw "面板人工验板清单未解析到传令 修复固定槽位：$checklistPath"
-    }
-
-    $checklistRepairCommandSlotRows = @(
-        [regex]::Matches($checklistRepairCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistRepairCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedRepairCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单传令 修复固定槽位序列'
-    foreach ($expectedRepairCommandSlotItem in $expectedRepairCommandSlotItems) {
-        $matchedChecklistRepairCommandSlotRow = @(
-            $checklistRepairCommandSlotRows |
-                Where-Object { $_.Name -eq $expectedRepairCommandSlotItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistRepairCommandSlotRow) {
-            throw "面板人工验板清单缺少传令 修复固定槽位：$($expectedRepairCommandSlotItem.Name)"
-        }
-
-        if ($matchedChecklistRepairCommandSlotRow.Description -ne $expectedRepairCommandSlotItem.Description) {
-            throw "面板人工验板清单传令 修复固定槽位漂移：$($expectedRepairCommandSlotItem.Name) 期望 $($expectedRepairCommandSlotItem.Description)，实际 $($matchedChecklistRepairCommandSlotRow.Description)"
-        }
-    }
-
-    $checklistPanelAcceptanceCommandSlotSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 传令 验板固定槽位' -SectionEndMarker '## 验板步骤'
-    if ([string]::IsNullOrWhiteSpace($checklistPanelAcceptanceCommandSlotSection)) {
-        throw "面板人工验板清单未解析到传令 验板固定槽位：$checklistPath"
-    }
-
-    $checklistPanelAcceptanceCommandSlotRows = @(
-        [regex]::Matches($checklistPanelAcceptanceCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistPanelAcceptanceCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedPanelAcceptanceCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单传令 验板固定槽位序列'
-    foreach ($expectedPanelAcceptanceCommandSlotItem in $expectedPanelAcceptanceCommandSlotItems) {
-        $matchedChecklistPanelAcceptanceCommandSlotRow = @(
-            $checklistPanelAcceptanceCommandSlotRows |
-                Where-Object { $_.Name -eq $expectedPanelAcceptanceCommandSlotItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistPanelAcceptanceCommandSlotRow) {
-            throw "面板人工验板清单缺少传令 验板固定槽位：$($expectedPanelAcceptanceCommandSlotItem.Name)"
-        }
-
-        if ($matchedChecklistPanelAcceptanceCommandSlotRow.Description -ne $expectedPanelAcceptanceCommandSlotItem.Description) {
-            throw "面板人工验板清单传令 验板固定槽位漂移：$($expectedPanelAcceptanceCommandSlotItem.Name) 期望 $($expectedPanelAcceptanceCommandSlotItem.Description)，实际 $($matchedChecklistPanelAcceptanceCommandSlotRow.Description)"
-        }
-    }
-
-    $checklistStepsSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 验板步骤' -SectionEndMarker '## 验板步骤固定子项'
-    if ([string]::IsNullOrWhiteSpace($checklistStepsSection)) {
-        throw "面板人工验板清单未解析到验板步骤区块：$checklistPath"
-    }
-
-    $checklistStepSummaryItems = @(
-        [regex]::Matches($checklistStepsSection, '(?m)^\d+\. (.+?)\r?$') |
-            ForEach-Object {
-                ($_.Groups[1].Value.Trim() -replace '。$','')
-            }
-    )
-    if ($checklistStepSummaryItems.Count -eq 0) {
-        throw "面板人工验板清单未解析到验板步骤摘要列点：$checklistPath"
-    }
-    Assert-ExactOrderedValues -SourceValues $checklistStepSummaryItems -ExpectedValues $expectedChecklistStepSummaryItems -Label '面板人工验板清单验板步骤摘要序列'
-
-    $checklistCommands = @(
-        Get-OrderedUniqueValues -Values @(
-            [regex]::Matches($checklistStepsSection, '传令 (?:帮助|状态|检查|修复|验板|版本)') |
-                ForEach-Object { $_.Value }
-        )
-    )
-    if ($checklistCommands.Count -eq 0) {
-        throw "面板人工验板清单未解析到传令命令：$checklistPath"
-    }
-    Assert-ExactOrderedValues -SourceValues $checklistCommands -ExpectedValues $expectedChecklistCommands -Label '面板人工验板清单命令序列'
-
-    $checklistStepSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 验板步骤固定子项' -SectionEndMarker '## 传令 版本固定槽位'
-    if ([string]::IsNullOrWhiteSpace($checklistStepSection)) {
-        throw "面板人工验板清单未解析到验板步骤固定子项：$checklistPath"
-    }
-
-    $checklistStepRows = @(
-        [regex]::Matches($checklistStepSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistStepRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedChecklistStepItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单验板步骤固定子项序列'
-    foreach ($expectedChecklistStepItem in $expectedChecklistStepItems) {
-        $matchedChecklistStepRow = @(
-            $checklistStepRows |
-                Where-Object { $_.Name -eq $expectedChecklistStepItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistStepRow) {
-            throw "面板人工验板清单缺少验板步骤固定子项：$($expectedChecklistStepItem.Name)"
-        }
-
-        if ($matchedChecklistStepRow.Description -ne $expectedChecklistStepItem.Description) {
-            throw "面板人工验板清单验板步骤固定子项漂移：$($expectedChecklistStepItem.Name) 期望 $($expectedChecklistStepItem.Description)，实际 $($matchedChecklistStepRow.Description)"
-        }
-    }
-
-    $checklistVersionCommandSlotSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 传令 版本固定槽位' -SectionEndMarker '## 传令 检查固定槽位'
-    if ([string]::IsNullOrWhiteSpace($checklistVersionCommandSlotSection)) {
-        throw "面板人工验板清单未解析到传令 版本固定槽位：$checklistPath"
-    }
-
-    $checklistVersionCommandSlotRows = @(
-        [regex]::Matches($checklistVersionCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistVersionCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedVersionCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单传令 版本固定槽位序列'
-    foreach ($expectedVersionCommandSlotItem in $expectedVersionCommandSlotItems) {
-        $matchedChecklistVersionCommandSlotRow = @(
-            $checklistVersionCommandSlotRows |
-                Where-Object { $_.Name -eq $expectedVersionCommandSlotItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistVersionCommandSlotRow) {
-            throw "面板人工验板清单缺少传令 版本固定槽位：$($expectedVersionCommandSlotItem.Name)"
-        }
-
-        if ($matchedChecklistVersionCommandSlotRow.Description -ne $expectedVersionCommandSlotItem.Description) {
-            throw "面板人工验板清单传令 版本固定槽位漂移：$($expectedVersionCommandSlotItem.Name) 期望 $($expectedVersionCommandSlotItem.Description)，实际 $($matchedChecklistVersionCommandSlotRow.Description)"
-        }
+    if ($versionInfo.new_chat_hint -ne '例如：传令：计算1+1=?') {
+        throw "生产母体版本文件 new_chat_hint 漂移：期望 例如：传令：计算1+1=?，实际 $($versionInfo.new_chat_hint)"
     }
-
-    $checklistCheckCommandSlotSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 传令 检查固定槽位' -SectionEndMarker '## 传令 状态固定槽位'
-    if ([string]::IsNullOrWhiteSpace($checklistCheckCommandSlotSection)) {
-        throw "面板人工验板清单未解析到传令 检查固定槽位：$checklistPath"
-    }
-
-    $checklistCheckCommandSlotRows = @(
-        [regex]::Matches($checklistCheckCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistCheckCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedCheckCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单传令 检查固定槽位序列'
-    foreach ($expectedCheckCommandSlotItem in $expectedCheckCommandSlotItems) {
-        $matchedChecklistCheckCommandSlotRow = @(
-            $checklistCheckCommandSlotRows |
-                Where-Object { $_.Name -eq $expectedCheckCommandSlotItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistCheckCommandSlotRow) {
-            throw "面板人工验板清单缺少传令 检查固定槽位：$($expectedCheckCommandSlotItem.Name)"
-        }
-
-        if ($matchedChecklistCheckCommandSlotRow.Description -ne $expectedCheckCommandSlotItem.Description) {
-            throw "面板人工验板清单传令 检查固定槽位漂移：$($expectedCheckCommandSlotItem.Name) 期望 $($expectedCheckCommandSlotItem.Description)，实际 $($matchedChecklistCheckCommandSlotRow.Description)"
-        }
-    }
-
-    $checklistStatusCommandSlotSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 传令 状态固定槽位' -SectionEndMarker '## 通过标准'
-    if ([string]::IsNullOrWhiteSpace($checklistStatusCommandSlotSection)) {
-        throw "面板人工验板清单未解析到传令 状态固定槽位：$checklistPath"
-    }
-
-    $checklistStatusCommandSlotRows = @(
-        [regex]::Matches($checklistStatusCommandSlotSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistStatusCommandSlotRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedStatusCommandSlotItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单传令 状态固定槽位序列'
-    foreach ($expectedStatusCommandSlotItem in $expectedStatusCommandSlotItems) {
-        $matchedChecklistStatusCommandSlotRow = @(
-            $checklistStatusCommandSlotRows |
-                Where-Object { $_.Name -eq $expectedStatusCommandSlotItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistStatusCommandSlotRow) {
-            throw "面板人工验板清单缺少传令 状态固定槽位：$($expectedStatusCommandSlotItem.Name)"
-        }
-
-        if ($matchedChecklistStatusCommandSlotRow.Description -ne $expectedStatusCommandSlotItem.Description) {
-            throw "面板人工验板清单传令 状态固定槽位漂移：$($expectedStatusCommandSlotItem.Name) 期望 $($expectedStatusCommandSlotItem.Description)，实际 $($matchedChecklistStatusCommandSlotRow.Description)"
-        }
-    }
-
-    $checklistPassSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 通过标准' -SectionEndMarker '## 通过标准固定子项'
-    if ([string]::IsNullOrWhiteSpace($checklistPassSection)) {
-        throw "面板人工验板清单未解析到通过标准区块：$checklistPath"
-    }
-
-    $checklistPassSummaryItems = @(
-        [regex]::Matches($checklistPassSection, '(?m)^- (.+?)\r?$') |
-            ForEach-Object {
-                ($_.Groups[1].Value.Trim() -replace '。$','')
-            }
-    )
-    if ($checklistPassSummaryItems.Count -eq 0) {
-        throw "面板人工验板清单未解析到通过标准摘要列点：$checklistPath"
+    Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.panel_commands)) -ExpectedValues @($expectedAgentRows | Where-Object { $_.Command -ne '传令：XXXX' } | ForEach-Object { $_.Command }) -Label '生产母体 panel_commands'
+    Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.task_entry_flow)) -ExpectedValues $expectedTaskEntryFlow -Label '生产母体 task_entry_flow'
+    Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.status_bar_slots)) -ExpectedValues $expectedStatusBarSlots -Label '生产母体 status_bar_slots'
+    if ($versionInfo.boundary_prompt -ne $expectedBoundaryPrompt) {
+        throw "生产母体版本文件 boundary_prompt 漂移：期望 $expectedBoundaryPrompt，实际 $($versionInfo.boundary_prompt)"
     }
-    Assert-ExactOrderedValues -SourceValues $checklistPassSummaryItems -ExpectedValues $expectedChecklistPassSummaryItems -Label '面板人工验板清单通过标准摘要序列'
 
-    $checklistAcceptanceRows = @(
-        [regex]::Matches($checklistPassSection, '(?m)^- `([^`]+)` 能(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Command = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistAcceptanceRows | ForEach-Object { $_.Command }) -ExpectedValues $expectedChecklistCommands -Label '面板人工验板清单通过标准命令序列'
-    foreach ($expectedAcceptanceRow in $expectedAcceptanceRows) {
-        $matchedChecklistAcceptanceRow = @(
-            $checklistAcceptanceRows |
-                Where-Object { $_.Command -eq $expectedAcceptanceRow.Command }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistAcceptanceRow) {
-            throw "面板人工验板清单缺少通过标准：$($expectedAcceptanceRow.Command)"
-        }
-
-        if ($matchedChecklistAcceptanceRow.Description -ne $expectedAcceptanceRow.Description) {
-            throw "面板人工验板清单通过标准漂移：$($expectedAcceptanceRow.Command) 期望 $($expectedAcceptanceRow.Description)，实际 $($matchedChecklistAcceptanceRow.Description)"
-        }
-    }
-
-    $checklistPassItemSection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 通过标准固定子项' -SectionEndMarker '## 若不通过'
-    if ([string]::IsNullOrWhiteSpace($checklistPassItemSection)) {
-        throw "面板人工验板清单未解析到通过标准固定子项：$checklistPath"
-    }
-
-    $checklistPassItemRows = @(
-        [regex]::Matches($checklistPassItemSection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistPassItemRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedChecklistPassItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单通过标准固定子项序列'
-    foreach ($expectedChecklistPassItem in $expectedChecklistPassItems) {
-        $matchedChecklistPassItemRow = @(
-            $checklistPassItemRows |
-                Where-Object { $_.Name -eq $expectedChecklistPassItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistPassItemRow) {
-            throw "面板人工验板清单缺少通过标准固定子项：$($expectedChecklistPassItem.Name)"
-        }
-
-        if ($matchedChecklistPassItemRow.Description -ne $expectedChecklistPassItem.Description) {
-            throw "面板人工验板清单通过标准固定子项漂移：$($expectedChecklistPassItem.Name) 期望 $($expectedChecklistPassItem.Description)，实际 $($matchedChecklistPassItemRow.Description)"
-        }
+    $acceptanceLines = @(Get-Content $acceptanceDocPath)
+    $acceptanceContent = [System.IO.File]::ReadAllText($acceptanceDocPath)
+    foreach ($expectedAcceptanceLine in $expectedAcceptanceLines) {
+        Assert-LineSetContains -Lines $acceptanceLines -ExpectedLine $expectedAcceptanceLine -Label '面板入口验收'
     }
-
-    $checklistRecoverySummarySection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 若不通过' -SectionEndMarker '## 若不通过固定子项'
-    if ([string]::IsNullOrWhiteSpace($checklistRecoverySummarySection)) {
-        throw "面板人工验板清单未解析到若不通过摘要：$checklistPath"
-    }
-
-    $checklistRecoverySummaryItems = @(
-        [regex]::Matches($checklistRecoverySummarySection, '(?m)^\d+\. (.+?)\r?$') |
-            ForEach-Object {
-                ($_.Groups[1].Value.Trim() -replace '。$','')
-            }
-    )
-    if ($checklistRecoverySummaryItems.Count -eq 0) {
-        throw "面板人工验板清单未解析到若不通过摘要列点：$checklistPath"
-    }
-    Assert-ExactOrderedValues -SourceValues $checklistRecoverySummaryItems -ExpectedValues $expectedChecklistRecoverySummaryItems -Label '面板人工验板清单若不通过摘要序列'
-
-    $checklistRecoverySection = Get-FileSectionContent -FilePath $checklistPath -SectionStartMarker '## 若不通过固定子项'
-    if ([string]::IsNullOrWhiteSpace($checklistRecoverySection)) {
-        throw "面板人工验板清单未解析到若不通过固定子项：$checklistPath"
-    }
-
-    $checklistRecoveryRows = @(
-        [regex]::Matches($checklistRecoverySection, '(?m)^- `([^`]+)`：(.+?)。?\r?$') |
-            ForEach-Object {
-                [pscustomobject]@{
-                    Name = $_.Groups[1].Value
-                    Description = ($_.Groups[2].Value.Trim() -replace '。$','')
-                }
-            }
-    )
-    Assert-ExactOrderedValues -SourceValues @($checklistRecoveryRows | ForEach-Object { $_.Name }) -ExpectedValues @($expectedChecklistRecoveryItems | ForEach-Object { $_.Name }) -Label '面板人工验板清单若不通过固定子项序列'
-    foreach ($expectedChecklistRecoveryItem in $expectedChecklistRecoveryItems) {
-        $matchedChecklistRecoveryRow = @(
-            $checklistRecoveryRows |
-                Where-Object { $_.Name -eq $expectedChecklistRecoveryItem.Name }
-        ) | Select-Object -First 1
-        if ($null -eq $matchedChecklistRecoveryRow) {
-            throw "面板人工验板清单缺少若不通过固定子项：$($expectedChecklistRecoveryItem.Name)"
-        }
+    Assert-ContentHasNoLegacyMarker -Content $acceptanceContent -Label '面板入口验收' -Markers $legacyMarkers
 
-        if ($matchedChecklistRecoveryRow.Description -ne $expectedChecklistRecoveryItem.Description) {
-            throw "面板人工验板清单若不通过固定子项漂移：$($expectedChecklistRecoveryItem.Name) 期望 $($expectedChecklistRecoveryItem.Description)，实际 $($matchedChecklistRecoveryRow.Description)"
-        }
+    $checklistLines = @(Get-Content $checklistPath)
+    $checklistContent = [System.IO.File]::ReadAllText($checklistPath)
+    foreach ($expectedChecklistLine in $expectedChecklistLines) {
+        Assert-LineSetContains -Lines $checklistLines -ExpectedLine $expectedChecklistLine -Label '面板人工验板清单'
     }
+    Assert-ContentHasNoLegacyMarker -Content $checklistContent -Label '面板人工验板清单' -Markers $legacyMarkers
 
     return [pscustomobject]@{
-        PanelCommands = $expectedPanelCommands
-        ChecklistCommands = $expectedChecklistCommands
-        AcceptanceRows = @($expectedAcceptanceRows)
+        PanelCommands = @($expectedAgentRows | ForEach-Object { $_.Command })
+        TaskEntryFlow = $expectedTaskEntryFlow
+        StatusBarSlots = $expectedStatusBarSlots
     }
 }
-
 function Get-CanonicalMaintenanceMatrixConclusionLine {
     $maintenanceMatrixPath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
     $expectedMaintenanceMatrixConclusionLine = '先用动作矩阵判断该走哪条维护路径，再按收口检查表完成留痕、导航同步、提交与推送。'

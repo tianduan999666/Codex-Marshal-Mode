@@ -111,7 +111,7 @@ $verifySkipped = $false
 $verifyErrorMessage = ''
 if ($canSkipVerify) {
     $verifySkipped = $true
-    Write-Info ("检测到当前版本 {0} 的轻量检查已通过，本次跳过完整验真，直接建任务。" -f $currentSourceVersion)
+    Write-Info ("检测到当前版本 {0} 已完成上次自检，本次直接进入记任务与执行。" -f $currentSourceVersion)
 }
 else {
     try {
@@ -176,22 +176,22 @@ $activeTaskId = Get-ActiveTaskId -Path $activeTaskFilePath
 Write-Host ''
 Write-Ok '一句话开工已完成。'
 if ($verifySkipped) {
-    Write-Output '- 轻量检查：通过（当前版本与关键文件一致）。'
-    Write-Output '- 完整验真：已跳过（当前版本本机已验过）。'
-    Write-Output '- 自动修复：未触发。'
+    Write-Output '- 丞相接令：正常。'
+    Write-Output '- 丞相状态：沿用上次已通过状态。'
+    Write-Output '- 丞相调整：本次未触发额外修整。'
 }
 elseif ($repairUsed) {
-    Write-Output '- 轻量检查：发现需复核，已转入完整验真。'
-    Write-Output '- 完整验真：通过。'
-    Write-Output '- 自动修复：已执行并复查通过。'
+    Write-Output '- 丞相接令：正常。'
+    Write-Output '- 丞相状态：已复核通过。'
+    Write-Output '- 丞相调整：已执行一次必要修整，并复查通过。'
 }
 else {
-    Write-Output '- 轻量检查：已转入完整验真。'
-    Write-Output '- 完整验真：通过。'
-    Write-Output '- 自动修复：未触发。'
+    Write-Output '- 丞相接令：正常。'
+    Write-Output '- 丞相状态：已复核通过。'
+    Write-Output '- 丞相调整：本次未触发额外修整。'
 }
-Write-Output ('- 自动建任务：{0}' -f $Title)
+Write-Output ('- 任务记录：{0}' -f $Title)
 if (-not [string]::IsNullOrWhiteSpace($activeTaskId)) {
     Write-Output ('- 当前激活任务：{0}' -f $activeTaskId)
 }
-Write-Output '- 进入执行模式：留在当前会话，直接判断瓶颈并开始，不用切到 PowerShell。'
+Write-Output '- 开始执行：留在当前会话，直接判断瓶颈并开始，不用切到 PowerShell。'
