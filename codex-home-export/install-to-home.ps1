@@ -9,27 +9,9 @@ $resolvedTargetCodexHome = [System.IO.Path]::GetFullPath($TargetCodexHome)
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $versionSourcePath = Join-Path $sourceRoot 'VERSION.json'
 $manifestSourcePath = Join-Path $sourceRoot 'manifest.json'
-$readmeSourcePath = Join-Path $sourceRoot 'README.md'
-$agentsSourcePath = Join-Path $sourceRoot 'AGENTS.md'
-$configTomlSourcePath = Join-Path $sourceRoot 'config.toml'
-$startPanelTaskSourcePath = Join-Path $sourceRoot 'start-panel-task.ps1'
-$runtimeVersionTargetPath = Join-Path $resolvedTargetCodexHome 'config\cx-version.json'
-$runtimeAgentsTargetPath = Join-Path $resolvedTargetCodexHome 'AGENTS.md'
-$runtimeConfigTomlTargetPath = Join-Path $resolvedTargetCodexHome 'config.toml'
 $runtimeMetaRoot = Join-Path $resolvedTargetCodexHome 'config\marshal-mode'
-$runtimeManifestTargetPath = Join-Path $runtimeMetaRoot 'manifest.json'
-$runtimeReadmeTargetPath = Join-Path $runtimeMetaRoot 'README.md'
-$runtimeStartPanelTaskTargetPath = Join-Path $runtimeMetaRoot 'start-panel-task.ps1'
 $runtimeInstallRecordPath = Join-Path $runtimeMetaRoot 'install-record.json'
 $backupRoot = Join-Path $resolvedTargetCodexHome "backup\local-production-cutover-$timestamp"
-$managedFileMappings = @(
-    @{ SourcePath = $versionSourcePath; TargetPath = $runtimeVersionTargetPath; RelativeName = 'config/cx-version.json' }
-    @{ SourcePath = $manifestSourcePath; TargetPath = $runtimeManifestTargetPath; RelativeName = 'config/marshal-mode/manifest.json' }
-    @{ SourcePath = $readmeSourcePath; TargetPath = $runtimeReadmeTargetPath; RelativeName = 'config/marshal-mode/README.md' }
-    @{ SourcePath = $startPanelTaskSourcePath; TargetPath = $runtimeStartPanelTaskTargetPath; RelativeName = 'config/marshal-mode/start-panel-task.ps1' }
-    @{ SourcePath = $agentsSourcePath; TargetPath = $runtimeAgentsTargetPath; RelativeName = 'AGENTS.md' }
-    @{ SourcePath = $configTomlSourcePath; TargetPath = $runtimeConfigTomlTargetPath; RelativeName = 'config.toml' }
-)
 
 function Write-Info([string]$Message) {
     Write-Host "[INFO] $Message" -ForegroundColor Cyan
@@ -76,13 +58,67 @@ function Get-Sha256Text([string]$Path) {
     return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
 }
 
-foreach ($sourcePath in @($versionSourcePath, $manifestSourcePath, $readmeSourcePath, $startPanelTaskSourcePath, $agentsSourcePath, $configTomlSourcePath)) {
+function Get-ManagedFileMappings {
+    param(
+        [string]$SourceRoot,
+        [string]$ResolvedTargetCodexHome,
+        [string]$RuntimeMetaRoot,
+        [object]$ManifestInfo
+    )
+
+    $specialTargetByIncludedPath = @{
+        'VERSION.json' = @{
+            TargetPath = Join-Path $ResolvedTargetCodexHome 'config\cx-version.json'
+            RelativeName = 'config/cx-version.json'
+        }
+        'AGENTS.md' = @{
+            TargetPath = Join-Path $ResolvedTargetCodexHome 'AGENTS.md'
+            RelativeName = 'AGENTS.md'
+        }
+        'config.toml' = @{
+            TargetPath = Join-Path $ResolvedTargetCodexHome 'config.toml'
+            RelativeName = 'config.toml'
+        }
+    }
+
+    $fileMappings = @()
+    foreach ($includedPathValue in @($ManifestInfo.included)) {
+        $includedPath = [string]$includedPathValue
+        if ([string]::IsNullOrWhiteSpace($includedPath)) {
+            continue
+        }
+
+        $normalizedIncludedPath = $includedPath -replace '/', '\'
+        $sourcePath = Join-Path $SourceRoot $normalizedIncludedPath
+        if ($specialTargetByIncludedPath.ContainsKey($includedPath)) {
+            $targetInfo = $specialTargetByIncludedPath[$includedPath]
+        }
+        else {
+            $targetInfo = @{
+                TargetPath = Join-Path $RuntimeMetaRoot $normalizedIncludedPath
+                RelativeName = 'config/marshal-mode/{0}' -f (($includedPath -replace '\\', '/').TrimStart('/'))
+            }
+        }
+
+        $fileMappings += [ordered]@{
+            SourcePath = $sourcePath
+            TargetPath = $targetInfo.TargetPath
+            RelativeName = $targetInfo.RelativeName
+        }
+    }
+
+    return @($fileMappings)
+}
+
+$versionInfo = Read-JsonFile -Path $versionSourcePath
+$manifestInfo = Read-JsonFile -Path $manifestSourcePath
+$managedFileMappings = Get-ManagedFileMappings -SourceRoot $sourceRoot -ResolvedTargetCodexHome $resolvedTargetCodexHome -RuntimeMetaRoot $runtimeMetaRoot -ManifestInfo $manifestInfo
+
+foreach ($sourcePath in @($versionSourcePath, $manifestSourcePath) + @($managedFileMappings | ForEach-Object { $_.SourcePath })) {
     if (-not (Test-Path $sourcePath)) {
         throw "缺少源文件：$sourcePath"
     }
 }
-$versionInfo = Read-JsonFile -Path $versionSourcePath
-$manifestInfo = Read-JsonFile -Path $manifestSourcePath
 
 if (-not $versionInfo.cx_version) {
     throw "VERSION.json 缺少 cx_version：$versionSourcePath"
@@ -91,7 +127,7 @@ if (-not $versionInfo.cx_version) {
 Write-Info "SourceRoot=$sourceRoot"
 Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info "CxVersion=$($versionInfo.cx_version)"
-Write-Info '当前脚本会同步最小主链所需的元数据与运行件，不覆盖 auth.json、sessions 或其他用户隐私文件。'
+Write-Info ("当前脚本会按 manifest 受管清单同步 {0} 个文件，不覆盖 auth.json、sessions 或其他用户隐私文件。" -f $managedFileMappings.Count)
 
 if ($DryRun) {
     foreach ($fileMapping in $managedFileMappings) {
@@ -138,6 +174,6 @@ $installRecord = [ordered]@{
 }
 
 Set-Utf8NoBomContent -Path $runtimeInstallRecordPath -Content ($installRecord | ConvertTo-Json -Depth 5)
-Write-Ok '已同步最小主链所需元数据、运行件与安装记录。'
+Write-Ok '已同步生产母体受管文件与安装记录。'
 Write-Info "安装记录：$runtimeInstallRecordPath"
 Write-WarnLine '如需验证生产真源是否接管成功，请继续执行 verify-cutover.ps1。'

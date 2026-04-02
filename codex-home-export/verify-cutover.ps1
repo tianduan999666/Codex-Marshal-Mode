@@ -9,14 +9,10 @@ $ErrorActionPreference = 'Stop'
 $sourceRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $resolvedTargetCodexHome = [System.IO.Path]::GetFullPath($TargetCodexHome)
 $versionSourcePath = Join-Path $sourceRoot 'VERSION.json'
-$agentsSourcePath = Join-Path $sourceRoot 'AGENTS.md'
-$configSourcePath = Join-Path $sourceRoot 'config.toml'
+$manifestSourcePath = Join-Path $sourceRoot 'manifest.json'
+$runtimeMetaRoot = Join-Path $resolvedTargetCodexHome 'config\marshal-mode'
 $runtimeVersionPath = Join-Path $resolvedTargetCodexHome 'config\cx-version.json'
-$runtimeManifestPath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode\manifest.json'
-$runtimeReadmePath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode\README.md'
-$runtimeStartPanelTaskPath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode\start-panel-task.ps1'
-$runtimeAgentsPath = Join-Path $resolvedTargetCodexHome 'AGENTS.md'
-$runtimeConfigPath = Join-Path $resolvedTargetCodexHome 'config.toml'
+$runtimeManifestPath = Join-Path $runtimeMetaRoot 'manifest.json'
 $runtimeInstallRecordPath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode\install-record.json'
 $authPath = Join-Path $resolvedTargetCodexHome 'auth.json'
 
@@ -32,18 +28,85 @@ function Get-Sha256Text([string]$Path) {
     return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
 }
 
-foreach ($requiredPath in @($versionSourcePath, $agentsSourcePath, $configSourcePath, $runtimeVersionPath, $runtimeManifestPath, $runtimeReadmePath, $runtimeStartPanelTaskPath, $runtimeAgentsPath, $runtimeConfigPath, $runtimeInstallRecordPath)) {
+function Read-JsonFile([string]$Path) {
+    return (Get-Content -Raw -Path $Path | ConvertFrom-Json)
+}
+
+function Get-ManagedFileMappings {
+    param(
+        [string]$SourceRoot,
+        [string]$ResolvedTargetCodexHome,
+        [string]$RuntimeMetaRoot,
+        [object]$ManifestInfo
+    )
+
+    $specialTargetByIncludedPath = @{
+        'VERSION.json' = @{
+            TargetPath = Join-Path $ResolvedTargetCodexHome 'config\cx-version.json'
+            RelativeName = 'config/cx-version.json'
+        }
+        'AGENTS.md' = @{
+            TargetPath = Join-Path $ResolvedTargetCodexHome 'AGENTS.md'
+            RelativeName = 'AGENTS.md'
+        }
+        'config.toml' = @{
+            TargetPath = Join-Path $ResolvedTargetCodexHome 'config.toml'
+            RelativeName = 'config.toml'
+        }
+    }
+
+    $fileMappings = @()
+    foreach ($includedPathValue in @($ManifestInfo.included)) {
+        $includedPath = [string]$includedPathValue
+        if ([string]::IsNullOrWhiteSpace($includedPath)) {
+            continue
+        }
+
+        $normalizedIncludedPath = $includedPath -replace '/', '\'
+        $sourcePath = Join-Path $SourceRoot $normalizedIncludedPath
+        if ($specialTargetByIncludedPath.ContainsKey($includedPath)) {
+            $targetInfo = $specialTargetByIncludedPath[$includedPath]
+        }
+        else {
+            $targetInfo = @{
+                TargetPath = Join-Path $RuntimeMetaRoot $normalizedIncludedPath
+                RelativeName = 'config/marshal-mode/{0}' -f (($includedPath -replace '\\', '/').TrimStart('/'))
+            }
+        }
+
+        $fileMappings += [ordered]@{
+            SourcePath = $sourcePath
+            TargetPath = $targetInfo.TargetPath
+            RelativeName = $targetInfo.RelativeName
+        }
+    }
+
+    return @($fileMappings)
+}
+
+foreach ($requiredPath in @($versionSourcePath, $manifestSourcePath, $runtimeVersionPath, $runtimeManifestPath, $runtimeInstallRecordPath)) {
     if (-not (Test-Path $requiredPath)) {
         throw "缺少必需文件：$requiredPath"
     }
 }
 
-$sourceVersionInfo = Get-Content -Raw -Path $versionSourcePath | ConvertFrom-Json
-$runtimeVersionInfo = Get-Content -Raw -Path $runtimeVersionPath | ConvertFrom-Json
-$runtimeManifestInfo = Get-Content -Raw -Path $runtimeManifestPath | ConvertFrom-Json
-$runtimeInstallRecord = Get-Content -Raw -Path $runtimeInstallRecordPath | ConvertFrom-Json
+$sourceVersionInfo = Read-JsonFile -Path $versionSourcePath
+$sourceManifestInfo = Read-JsonFile -Path $manifestSourcePath
+$runtimeVersionInfo = Read-JsonFile -Path $runtimeVersionPath
+$runtimeManifestInfo = Read-JsonFile -Path $runtimeManifestPath
+$runtimeInstallRecord = Read-JsonFile -Path $runtimeInstallRecordPath
+$managedFileMappings = Get-ManagedFileMappings -SourceRoot $sourceRoot -ResolvedTargetCodexHome $resolvedTargetCodexHome -RuntimeMetaRoot $runtimeMetaRoot -ManifestInfo $sourceManifestInfo
+$managedRelativeNames = @($managedFileMappings | ForEach-Object { $_.RelativeName })
+$requiredRuntimePaths = @($managedFileMappings | ForEach-Object { $_.TargetPath }) + @($runtimeInstallRecordPath)
+$requiredSourcePaths = @($managedFileMappings | ForEach-Object { $_.SourcePath })
 $expectedVersionValue = if ([string]::IsNullOrWhiteSpace($ExpectedVersion)) { $sourceVersionInfo.cx_version } else { $ExpectedVersion }
 $expectedSourceRootValue = if ([string]::IsNullOrWhiteSpace($ExpectedSourceRoot)) { $sourceRoot } else { $ExpectedSourceRoot }
+
+foreach ($requiredPath in $requiredSourcePaths + $requiredRuntimePaths) {
+    if (-not (Test-Path $requiredPath)) {
+        throw "缺少必需文件：$requiredPath"
+    }
+}
 
 if ($runtimeVersionInfo.cx_version -ne $expectedVersionValue) {
     throw "cx-version 不匹配：期望 $expectedVersionValue，实际 $($runtimeVersionInfo.cx_version)"
@@ -65,26 +128,21 @@ if ($runtimeManifestInfo.version -ne $expectedVersionValue) {
     throw "运行态 manifest 版本不匹配：期望 $expectedVersionValue，实际 $($runtimeManifestInfo.version)"
 }
 
-foreach ($requiredManagedFile in @('config/cx-version.json', 'config/marshal-mode/manifest.json', 'config/marshal-mode/README.md', 'config/marshal-mode/start-panel-task.ps1', 'AGENTS.md', 'config.toml', 'config/marshal-mode/install-record.json')) {
+foreach ($requiredManagedFile in $managedRelativeNames + @('config/marshal-mode/install-record.json')) {
     if (-not ($runtimeInstallRecord.managed_files -contains $requiredManagedFile)) {
         throw "安装记录缺少 managed_files 项：$requiredManagedFile"
     }
 }
 
-$expectedHashByPath = @{
-    'config/cx-version.json' = Get-Sha256Text -Path $versionSourcePath
-    'AGENTS.md' = Get-Sha256Text -Path $agentsSourcePath
-    'config.toml' = Get-Sha256Text -Path $configSourcePath
-    'config/marshal-mode/start-panel-task.ps1' = Get-Sha256Text -Path (Join-Path $sourceRoot 'start-panel-task.ps1')
+$expectedHashByPath = @{}
+foreach ($fileMapping in $managedFileMappings) {
+    $expectedHashByPath[$fileMapping.RelativeName] = Get-Sha256Text -Path $fileMapping.SourcePath
 }
-$runtimeHashByPath = @{
-    'config/cx-version.json' = Get-Sha256Text -Path $runtimeVersionPath
-    'AGENTS.md' = Get-Sha256Text -Path $runtimeAgentsPath
-    'config.toml' = Get-Sha256Text -Path $runtimeConfigPath
-    'config/marshal-mode/start-panel-task.ps1' = Get-Sha256Text -Path $runtimeStartPanelTaskPath
-}
-foreach ($hashPath in $expectedHashByPath.Keys) {
-    if ($runtimeHashByPath[$hashPath] -ne $expectedHashByPath[$hashPath]) {
+
+foreach ($fileMapping in $managedFileMappings) {
+    $hashPath = $fileMapping.RelativeName
+    $runtimeHash = Get-Sha256Text -Path $fileMapping.TargetPath
+    if ($runtimeHash -ne $expectedHashByPath[$hashPath]) {
         throw "运行件哈希不匹配：$hashPath"
     }
 
@@ -117,7 +175,8 @@ if (-not (Test-Path $authPath)) {
 Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info "CxVersion=$($runtimeVersionInfo.cx_version)"
 Write-Info "BackupRoot=$($runtimeInstallRecord.backup_root)"
-Write-Ok '最小主链验真通过。'
+Write-Info ("ManagedFileCount={0}" -f $managedFileMappings.Count)
+Write-Ok '生产母体受管文件验真通过。'
 Write-Info '默认日常入口：回官方 Codex 面板直接说 `传令：我要做 XX`。'
 Write-Info '对外流程：先确认丞相能正常接到传令 → 再确认丞相自身状态良好 → 接着把丞相调整到最佳工作状态 → 丞相记录这次要做的任务 → 丞相开始执行任务。'
 Write-Info '固定边界：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。'
