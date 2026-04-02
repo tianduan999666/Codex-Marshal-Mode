@@ -36,5 +36,6 @@ Write-Info "打勾单：$passFailSheetPath"
 Write-Info "结果模板：$resultTemplatePath"
 Write-Info "结果稿：$resultDraftPath"
 Write-Info "结果复核：填完结果稿后，执行 `verify-panel-acceptance-result.ps1 -ResultPath \"$resultDraftPath\"`。"
-Write-Info '现在进入官方 Codex 面板，新开会话后先输入：`传令：测试入口是否稳态`，再按顺序输入：`传令 版本` → `传令 检查` → 必要时 `传令 状态`。'
+Write-Info '现在进入官方 Codex 面板，新开会话后先看是否出现示例：`例如：传令：计算1+1=?`。'
+Write-Info '然后按顺序输入：`传令：测试入口是否稳态` → `传令：版本` → `传令：状态`；如需确认升级口径，再输入 `传令：升级`。'
 Write-Output $resultDraftPath
