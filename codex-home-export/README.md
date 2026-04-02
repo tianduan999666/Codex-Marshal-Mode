@@ -43,11 +43,12 @@
 
 ## 使用原则
 
-### 当前唯一主线（先看这 3 条）
+### 当前唯一主线（先看这 4 条）
 
 1. 日常开工优先回官方 `Codex` 面板，直接说：`丞相：我要做 XX`。
-2. 面板内默认先走 `start-panel-task.ps1`：先验真；若发现可修复漂移，先安全修复；然后自动建任务，并留在当前会话继续。
-3. 第一次准备或维护层排障时，再执行 `initialize-workspace.ps1`、`install-to-home.ps1`、`verify-cutover.ps1` 与 `new-task.ps1`。
+2. 面板内默认先走 `start-panel-task.ps1`：同版本第一次开工先验真；若发现可修复漂移，先安全修复；通过后写入本机验真状态。
+3. 若当前版本在本机已经验过，后续任务默认跳过重复验真，直接建任务，并留在当前会话继续。
+4. 第一次准备或维护层排障时，再执行 `initialize-workspace.ps1`、`install-to-home.ps1`、`verify-cutover.ps1` 与 `new-task.ps1`。
 
 ### 当前次级材料（先不作为日常主路径）
 
