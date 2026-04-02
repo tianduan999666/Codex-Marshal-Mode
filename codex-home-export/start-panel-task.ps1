@@ -60,6 +60,15 @@ function Read-JsonFileOrNull([string]$Path) {
     return (Get-Content -Raw -Path $Path | ConvertFrom-Json)
 }
 
+function Resolve-TemplateLine([string]$Template, [hashtable]$TokenMap) {
+    $resolved = $Template
+    foreach ($tokenName in $TokenMap.Keys) {
+        $resolved = $resolved.Replace('<' + $tokenName + '>', [string]$TokenMap[$tokenName])
+    }
+
+    return $resolved
+}
+
 function Write-Utf8NoBomJson([string]$Path, [object]$Payload) {
     $parentPath = Split-Path -Parent $Path
     if (-not [string]::IsNullOrWhiteSpace($parentPath)) {
@@ -172,26 +181,68 @@ if (-not [string]::IsNullOrWhiteSpace($Goal)) {
 & $newTaskScriptPath @newTaskArguments
 
 $activeTaskId = Get-ActiveTaskId -Path $activeTaskFilePath
+$taskEntryTemplate = if (($null -ne $sourceVersionInfo.standard_response_templates) -and ($null -ne $sourceVersionInfo.standard_response_templates.task_entry)) {
+    @($sourceVersionInfo.standard_response_templates.task_entry)
+}
+else {
+    @(
+        '🪶 军令入帐。亮，即刻接管全局。'
+        '提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。'
+        '军令已明，亮先接手。'
+    )
+}
+$statusTemplate = if (($null -ne $sourceVersionInfo.standard_response_templates) -and ($null -ne $sourceVersionInfo.standard_response_templates.status)) {
+    @($sourceVersionInfo.standard_response_templates.status)
+}
+else {
+    @(
+        '版本：<cx_version>'
+        '上次检查：<last_check>'
+        '自动修复：<auto_repair>'
+        '关键文件一致性：<key_file_consistency>'
+        '当前模式：<current_mode>'
+        '当前任务：<current_task>'
+    )
+}
+$closeoutSections = if (($null -ne $sourceVersionInfo.standard_response_templates) -and ($null -ne $sourceVersionInfo.standard_response_templates.closeout_sections)) {
+    @($sourceVersionInfo.standard_response_templates.closeout_sections)
+}
+else {
+    @('已完成', '结果', '下一步')
+}
+$closeoutLead = if (($null -ne $sourceVersionInfo.process_quotes_minimal) -and (-not [string]::IsNullOrWhiteSpace($sourceVersionInfo.process_quotes_minimal.closeout))) {
+    [string]$sourceVersionInfo.process_quotes_minimal.closeout
+}
+else {
+    '此事已交卷，现呈结果。'
+}
+$lastCheckValue = if ($verifySkipped) { '沿用上次已通过状态' } else { '已通过' }
+$autoRepairValue = if ($repairUsed) { '已执行一次必要修整，并复查通过' } else { '无' }
+$keyFileConsistencyValue = if (($currentSourceAgentsHash -eq $currentRuntimeAgentsHash) -and ($currentSourceConfigHash -eq $currentRuntimeConfigHash)) { '一致' } else { '待复核' }
+$currentTaskValue = if (-not [string]::IsNullOrWhiteSpace($activeTaskId)) { '{0}（{1}）' -f $activeTaskId, $Title } else { $Title }
+$templateTokens = @{
+    cx_version = $currentSourceVersion
+    last_check = $lastCheckValue
+    auto_repair = $autoRepairValue
+    key_file_consistency = $keyFileConsistencyValue
+    current_mode = '丞相'
+    current_task = $currentTaskValue
+}
 
 Write-Host ''
 Write-Ok '一句话开工已完成。'
-if ($verifySkipped) {
-    Write-Output '- 丞相接令：正常。'
-    Write-Output '- 丞相状态：沿用上次已通过状态。'
-    Write-Output '- 丞相调整：本次未触发额外修整。'
+foreach ($templateLine in $taskEntryTemplate) {
+    Write-Output (Resolve-TemplateLine -Template $templateLine -TokenMap $templateTokens)
 }
-elseif ($repairUsed) {
-    Write-Output '- 丞相接令：正常。'
-    Write-Output '- 丞相状态：已复核通过。'
-    Write-Output '- 丞相调整：已执行一次必要修整，并复查通过。'
+foreach ($templateLine in $statusTemplate) {
+    Write-Output (Resolve-TemplateLine -Template $templateLine -TokenMap $templateTokens)
+}
+Write-Output $closeoutLead
+Write-Output ('{0}：已完成“{1}”的开工准备。' -f $closeoutSections[0], $Title)
+if (-not [string]::IsNullOrWhiteSpace($activeTaskId)) {
+    Write-Output ('{0}：当前任务已记录为 {1}。' -f $closeoutSections[1], $currentTaskValue)
 }
 else {
-    Write-Output '- 丞相接令：正常。'
-    Write-Output '- 丞相状态：已复核通过。'
-    Write-Output '- 丞相调整：本次未触发额外修整。'
+    Write-Output ('{0}：当前任务已记录为 {1}。' -f $closeoutSections[1], $Title)
 }
-Write-Output ('- 任务记录：{0}' -f $Title)
-if (-not [string]::IsNullOrWhiteSpace($activeTaskId)) {
-    Write-Output ('- 当前激活任务：{0}' -f $activeTaskId)
-}
-Write-Output '- 开始执行：留在当前会话，直接判断瓶颈并开始，不用切到 PowerShell。'
+Write-Output ('{0}：留在当前会话，直接判断瓶颈并开始，不用切到 PowerShell。' -f $closeoutSections[2])

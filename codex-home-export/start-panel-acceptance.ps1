@@ -11,6 +11,7 @@ $resultDraftScriptPath = Join-Path $sourceRoot 'new-panel-acceptance-result.ps1'
 $threeStepCardPath = Join-Path $sourceRoot 'panel-acceptance-three-step-card.md'
 $passFailSheetPath = Join-Path $sourceRoot 'panel-acceptance-pass-fail-sheet.md'
 $resultTemplatePath = Join-Path $sourceRoot 'panel-acceptance-result-template.md'
+$versionSourcePath = Join-Path $sourceRoot 'VERSION.json'
 
 function Write-Info([string]$Message) {
     Write-Host "[INFO] $Message" -ForegroundColor Cyan
@@ -20,11 +21,29 @@ function Write-Ok([string]$Message) {
     Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
-foreach ($requiredPath in @($verifyScriptPath, $resultDraftScriptPath, $threeStepCardPath, $passFailSheetPath, $resultTemplatePath)) {
+function Read-JsonFile([string]$Path) {
+    return (Get-Content -Raw -Path $Path | ConvertFrom-Json)
+}
+
+foreach ($requiredPath in @($verifyScriptPath, $resultDraftScriptPath, $threeStepCardPath, $passFailSheetPath, $resultTemplatePath, $versionSourcePath)) {
     if (-not (Test-Path $requiredPath)) {
         throw "缺少验板准备文件：$requiredPath"
     }
 }
+
+$versionInfo = Read-JsonFile -Path $versionSourcePath
+$taskEntryPrefix = if ([string]::IsNullOrWhiteSpace($versionInfo.task_entry_prefix)) { '传令：' } else { [string]$versionInfo.task_entry_prefix }
+$newChatHint = if ([string]::IsNullOrWhiteSpace($versionInfo.new_chat_hint)) { '例如：传令：计算1+1=?' } else { [string]$versionInfo.new_chat_hint }
+$openingLine = if ([string]::IsNullOrWhiteSpace($versionInfo.opening_line)) { '🪶 军令入帐。亮，即刻接管全局。' } else { [string]$versionInfo.opening_line }
+$boundaryPrompt = if ([string]::IsNullOrWhiteSpace($versionInfo.boundary_prompt)) { '提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。' } else { [string]$versionInfo.boundary_prompt }
+$taskEntryQuote = if (($null -ne $versionInfo.process_quotes_minimal) -and (-not [string]::IsNullOrWhiteSpace($versionInfo.process_quotes_minimal.task_entry))) { [string]$versionInfo.process_quotes_minimal.task_entry } else { '军令已明，亮先接手。' }
+$versionCommand = @($versionInfo.panel_commands | Where-Object { $_ -match '版本$' } | Select-Object -First 1)
+$statusCommand = @($versionInfo.panel_commands | Where-Object { $_ -match '状态$' } | Select-Object -First 1)
+$upgradeCommand = @($versionInfo.panel_commands | Where-Object { $_ -match '升级$' } | Select-Object -First 1)
+if ($versionCommand.Count -eq 0) { $versionCommand = @('{0}版本' -f $taskEntryPrefix) }
+if ($statusCommand.Count -eq 0) { $statusCommand = @('{0}状态' -f $taskEntryPrefix) }
+if ($upgradeCommand.Count -eq 0) { $upgradeCommand = @('{0}升级' -f $taskEntryPrefix) }
+$taskProbeCommand = '{0}测试入口是否稳态' -f $taskEntryPrefix
 
 Write-Info '开始准备人工验板：先做自动验板，再生成结果稿。'
 & $verifyScriptPath -TargetCodexHome $TargetCodexHome -RequireBackupRoot:$RequireBackupRoot
@@ -36,6 +55,8 @@ Write-Info "打勾单：$passFailSheetPath"
 Write-Info "结果模板：$resultTemplatePath"
 Write-Info "结果稿：$resultDraftPath"
 Write-Info "结果复核：填完结果稿后，执行 `verify-panel-acceptance-result.ps1 -ResultPath \"$resultDraftPath\"`。"
-Write-Info '现在进入官方 Codex 面板，新开会话后先看是否出现示例：`例如：传令：计算1+1=?`。'
-Write-Info '然后按顺序输入：`传令：测试入口是否稳态` → `传令：版本` → `传令：状态`；如需确认升级口径，再输入 `传令：升级`。'
+Write-Info ("当前官句：`{0}`。" -f $openingLine)
+Write-Info ("当前开工骨架：`{0} → {1} → {2}`。" -f $openingLine, $boundaryPrompt, $taskEntryQuote)
+Write-Info ("现在进入官方 Codex 面板，新开会话后先看是否出现示例：`{0}`。" -f $newChatHint)
+Write-Info ("然后按顺序输入：`{0}` → `{1}` → `{2}`；如需确认升级口径，再输入 `{3}`。" -f $taskProbeCommand, $versionCommand[0], $statusCommand[0], $upgradeCommand[0])
 Write-Output $resultDraftPath

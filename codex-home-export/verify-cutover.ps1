@@ -72,11 +72,13 @@ foreach ($requiredManagedFile in @('config/cx-version.json', 'config/marshal-mod
 }
 
 $expectedHashByPath = @{
+    'config/cx-version.json' = Get-Sha256Text -Path $versionSourcePath
     'AGENTS.md' = Get-Sha256Text -Path $agentsSourcePath
     'config.toml' = Get-Sha256Text -Path $configSourcePath
     'config/marshal-mode/start-panel-task.ps1' = Get-Sha256Text -Path (Join-Path $sourceRoot 'start-panel-task.ps1')
 }
 $runtimeHashByPath = @{
+    'config/cx-version.json' = Get-Sha256Text -Path $runtimeVersionPath
     'AGENTS.md' = Get-Sha256Text -Path $runtimeAgentsPath
     'config.toml' = Get-Sha256Text -Path $runtimeConfigPath
     'config/marshal-mode/start-panel-task.ps1' = Get-Sha256Text -Path $runtimeStartPanelTaskPath
