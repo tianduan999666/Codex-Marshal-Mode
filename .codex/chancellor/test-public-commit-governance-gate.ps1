@@ -2304,20 +2304,27 @@ finally {
 
 $agentsTaskEntryLineText = '| `传令：XXXX` | 唯一做事入口；`XXXX` 直接写自然语言需求 |'
 $agentsUpgradeLineText = '| `传令：升级` | 仅在用户主动要求时，再处理升级动作 |'
+$agentsReplySkeletonLineText = '- 开工默认骨架固定为：`开场白 → 固定边界提示 → 接令句`'
 $panelProtocolLineText = '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
 $panelBoundaryLineText = '- 固定边界提示：`提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。`'
+$panelReplySkeletonLineText = '- 固定开工骨架：`开场白 → 固定边界提示 → 接令句`'
+$panelProcessQuoteLineText = '- `收口`：`此事已交卷，现呈结果。`'
 $panelStatusSlotLineText = '- `关键文件一致性`：关键文件是否一致。'
 $panelUpgradeStepLineText = '9. 如需确认升级口径，再输入 `传令：升级`，检查是否明确“默认不自动升级，需用户主动提出”。'
 $checklistCommandSourceLineText = '当前验板命令口径以 `codex-home-export/VERSION.json` 为准。'
 $checklistProtocolLineText = '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
 $checklistBoundaryLineText = '- 固定边界提示：`提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。`'
+$checklistReplySkeletonLineText = '- 固定开工骨架：`开场白 → 固定边界提示 → 接令句`'
+$checklistCloseoutLineText = '- `收口顺不顺`：如触发收口，能否按 `已完成 / 结果 / 下一步`'
 $checklistStepLineText = '7. 如需确认升级口径，再输入：`传令：升级`'
 $checklistLegacyGuardLineText = '- 入口口径没有回退为旧的多命令体系。'
 $legacyPanelCommandText = '传令 检查'
 $legacyOpeningLineText = '丞相亮启奏：谨呈本次事宜。'
+$codexHomeAgentsPath = Join-Path $repoRootPath 'codex-home-export/AGENTS.md'
 $codexHomeExportPanelChecklistPath = Join-Path $repoRootPath 'codex-home-export/panel-acceptance-checklist.md'
 $panelAcceptanceDocPath = Join-Path $repoRootPath 'docs/40-执行/03-面板入口验收.md'
 $originalAgentsPanelBytes = [System.IO.File]::ReadAllBytes($agentsPath)
+$originalCodexHomeAgentsBytes = [System.IO.File]::ReadAllBytes($codexHomeAgentsPath)
 $originalCodexHomeExportPanelChecklistBytes = [System.IO.File]::ReadAllBytes($codexHomeExportPanelChecklistPath)
 $originalPanelAcceptanceDocBytes = [System.IO.File]::ReadAllBytes($panelAcceptanceDocPath)
 
@@ -2329,12 +2336,24 @@ if ($agentsLines -notcontains $agentsUpgradeLineText) {
     throw "测试前置条件不满足：$agentsPath 中缺少 $agentsUpgradeLineText"
 }
 
+if ($agentsLines -notcontains $agentsReplySkeletonLineText) {
+    throw "测试前置条件不满足：$agentsPath 中缺少 $agentsReplySkeletonLineText"
+}
+
 if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelProtocolLineText) {
     throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelProtocolLineText"
 }
 
 if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelBoundaryLineText) {
     throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelBoundaryLineText"
+}
+
+if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelReplySkeletonLineText) {
+    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelReplySkeletonLineText"
+}
+
+if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelProcessQuoteLineText) {
+    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelProcessQuoteLineText"
 }
 
 if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelStatusSlotLineText) {
@@ -2355,6 +2374,14 @@ if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistProt
 
 if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistBoundaryLineText) {
     throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistBoundaryLineText"
+}
+
+if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistReplySkeletonLineText) {
+    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistReplySkeletonLineText"
+}
+
+if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistCloseoutLineText) {
+    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistCloseoutLineText"
 }
 
 if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistStepLineText) {
@@ -2391,6 +2418,30 @@ finally {
 
 try {
     $driftedVersionInfo = Get-Content $codexHomeExportVersionPath -Raw | ConvertFrom-Json
+    $driftedVersionInfo.quote_system_version = '1.0'
+    $driftedVersionContent = ($driftedVersionInfo | ConvertTo-Json -Depth 10)
+    [System.IO.File]::WriteAllText($codexHomeExportVersionPath, $driftedVersionContent + [Environment]::NewLine, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/VERSION.json') -ExpectedExitCode 1 -TestName 'block-panel-version-quote-system-version-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportVersionPath, $originalCodexHomeExportVersionBytes)
+}
+
+try {
+    $driftedVersionInfo = Get-Content $codexHomeExportVersionPath -Raw | ConvertFrom-Json
+    $driftedVersionInfo.standard_response_templates.task_entry[2] = '军令已明，亮先随便看看。'
+    $driftedVersionContent = ($driftedVersionInfo | ConvertTo-Json -Depth 10)
+    [System.IO.File]::WriteAllText($codexHomeExportVersionPath, $driftedVersionContent + [Environment]::NewLine, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/VERSION.json') -ExpectedExitCode 1 -TestName 'block-panel-version-task-entry-template-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportVersionPath, $originalCodexHomeExportVersionBytes)
+}
+
+try {
+    $driftedVersionInfo = Get-Content $codexHomeExportVersionPath -Raw | ConvertFrom-Json
     $driftedVersionInfo.boundary_prompt = '提示：先检查你的项目，再决定是否执行。'
     $driftedVersionContent = ($driftedVersionInfo | ConvertTo-Json -Depth 10)
     [System.IO.File]::WriteAllText($codexHomeExportVersionPath, $driftedVersionContent + [Environment]::NewLine, $utf8NoBom)
@@ -2412,6 +2463,16 @@ finally {
 }
 
 try {
+    $driftedAgentsContent = (Get-Content $agentsPath -Raw).Replace($agentsReplySkeletonLineText, '- 开工默认骨架固定为：`开场白 → 先解释一大段内部流程 → 接令句`')
+    [System.IO.File]::WriteAllText($agentsPath, $driftedAgentsContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('AGENTS.md') -ExpectedExitCode 1 -TestName 'block-panel-agents-reply-skeleton-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($agentsPath, $originalAgentsPanelBytes)
+}
+
+try {
     $driftedAgentsContent = (Get-Content $agentsPath -Raw).Replace($agentsUpgradeLineText, '| `传令 检查` | 做最小必要检查 |')
     [System.IO.File]::WriteAllText($agentsPath, $driftedAgentsContent, $utf8NoBom)
 
@@ -2422,10 +2483,40 @@ finally {
 }
 
 try {
+    $driftedCodexHomeAgentsContent = (Get-Content $codexHomeAgentsPath -Raw).Replace($agentsReplySkeletonLineText, '- 开工默认骨架固定为：`开场白 → 先解释一大段内部流程 → 接令句`')
+    [System.IO.File]::WriteAllText($codexHomeAgentsPath, $driftedCodexHomeAgentsContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/AGENTS.md') -ExpectedExitCode 1 -TestName 'block-codex-home-agents-reply-skeleton-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeAgentsPath, $originalCodexHomeAgentsBytes)
+}
+
+try {
     $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelProtocolLineText, '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：检查`')
     [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-command-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
+}
+
+try {
+    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelReplySkeletonLineText, '- 固定开工骨架：`开场白 → 先解释一大段内部流程 → 接令句`')
+    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-reply-skeleton-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
+}
+
+try {
+    $driftedPanelAcceptanceDocContent = (Get-Content $panelAcceptanceDocPath -Raw).Replace($panelProcessQuoteLineText, '- `收口`：`这事差不多就这样吧。`')
+    [System.IO.File]::WriteAllText($panelAcceptanceDocPath, $driftedPanelAcceptanceDocContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/40-执行/03-面板入口验收.md') -ExpectedExitCode 1 -TestName 'block-panel-acceptance-doc-process-quote-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($panelAcceptanceDocPath, $originalPanelAcceptanceDocBytes)
@@ -2476,6 +2567,26 @@ try {
     [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-command-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
+}
+
+try {
+    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistReplySkeletonLineText, '- 固定开工骨架：`开场白 → 先解释一大段内部流程 → 接令句`')
+    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-reply-skeleton-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)
+}
+
+try {
+    $driftedChecklistContent = (Get-Content $codexHomeExportPanelChecklistPath -Raw).Replace($checklistCloseoutLineText, '- `收口顺不顺`：收口随便说几句也行')
+    [System.IO.File]::WriteAllText($codexHomeExportPanelChecklistPath, $driftedChecklistContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/panel-acceptance-checklist.md') -ExpectedExitCode 1 -TestName 'block-panel-checklist-closeout-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($codexHomeExportPanelChecklistPath, $originalCodexHomeExportPanelChecklistBytes)

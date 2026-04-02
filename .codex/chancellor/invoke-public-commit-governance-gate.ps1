@@ -699,6 +699,7 @@ function Get-CodexHomeExportConsistencyState {
 
 function Get-CanonicalPanelCommandState {
     $agentsPath = 'AGENTS.md'
+    $codexHomeAgentsPath = 'codex-home-export/AGENTS.md'
     $versionPath = 'codex-home-export/VERSION.json'
     $acceptanceDocPath = 'docs/40-执行/03-面板入口验收.md'
     $checklistPath = 'codex-home-export/panel-acceptance-checklist.md'
@@ -724,14 +725,62 @@ function Get-CanonicalPanelCommandState {
         '当前任务'
     )
     $expectedBoundaryPrompt = '提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。'
+    $expectedQuoteSystemVersion = '2.0'
+    $expectedTaskEntryTemplate = @(
+        '🪶 军令入帐。亮，即刻接管全局。'
+        $expectedBoundaryPrompt
+        '军令已明，亮先接手。'
+    )
+    $expectedVersionTemplate = @(
+        '版本号：<cx_version>'
+        '版本来源：codex-home-export'
+        '真源路径：codex-home-export/VERSION.json'
+    )
+    $expectedStatusTemplate = @(
+        '版本：<cx_version>'
+        '上次检查：<last_check>'
+        '自动修复：<auto_repair>'
+        '关键文件一致性：<key_file_consistency>'
+        '当前模式：<current_mode>'
+        '当前任务：<current_task>'
+    )
+    $expectedCloseoutSections = @(
+        '已完成'
+        '结果'
+        '下一步'
+    )
+    $expectedProcessQuotes = [ordered]@{
+        task_entry = '军令已明，亮先接手。'
+        analysis = '亮先看清症结，再动手。'
+        breakdown = '此事可拆，亮按最短路径推进。'
+        dispatch = '所需动作已排定，开始推进。'
+        wrap_up = '主干已稳，亮正在收束余项。'
+        closeout = '此事已交卷，现呈结果。'
+    }
+    $expectedReplySkeletonLines = @(
+        '## 标准回复骨架'
+        '- 开工默认骨架固定为：`开场白 → 固定边界提示 → 接令句`'
+        '- `传令：版本` 固定按 3 行回复：`版本号 / 版本来源 / 真源路径`'
+        '- `传令：状态` 固定按 6 行回复：`版本 / 上次检查 / 自动修复 / 关键文件一致性 / 当前模式 / 当前任务`'
+        '- 收口默认固定为 3 段：`已完成 / 结果 / 下一步`'
+        '- `接令`：`军令已明，亮先接手。`'
+        '- `研判`：`亮先看清症结，再动手。`'
+        '- `拆解`：`此事可拆，亮按最短路径推进。`'
+        '- `调度`：`所需动作已排定，开始推进。`'
+        '- `收束`：`主干已稳，亮正在收束余项。`'
+        '- `收口`：`此事已交卷，现呈结果。`'
+        '- `显示规则`：过程提示一次只显示 1 句，不随机刷屏。'
+    )
     $expectedAcceptanceLines = @(
         '确保主公新开对话时，一眼就懂怎么用；入口不歧义，开场白固定，查看口径稳定，任务入口可以直接开工。'
         '- 唯一做事入口：`传令：XXXX`'
         '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
         '- 新对话自动提示：`例如：传令：计算1+1=?`'
         '- 默认开场白：`🪶 军令入帐。亮，即刻接管全局。`'
+        '- 固定开工骨架：`开场白 → 固定边界提示 → 接令句`'
         ('- 对外流程：`' + ($expectedTaskEntryFlow -join ' → ') + '`')
         ('- 固定边界提示：`' + $expectedBoundaryPrompt + '`')
+        '- 固定收口格式：`已完成 / 结果 / 下一步`'
         '- `传令：版本`：返回当前版本与真源。'
         '- `传令：状态`：汇报当前状态与下一步。'
         '- `传令：升级`：只在用户主动提出时，再处理升级动作。'
@@ -741,14 +790,24 @@ function Get-CanonicalPanelCommandState {
         '- `关键文件一致性`：关键文件是否一致。'
         '- `当前模式`：当前处于丞相还是都督。'
         '- `当前任务`：当前是否存在激活任务。'
+        '- `接令`：`军令已明，亮先接手。`'
+        '- `研判`：`亮先看清症结，再动手。`'
+        '- `拆解`：`此事可拆，亮按最短路径推进。`'
+        '- `调度`：`所需动作已排定，开始推进。`'
+        '- `收束`：`主干已稳，亮正在收束余项。`'
+        '- `收口`：`此事已交卷，现呈结果。`'
+        '- `显示规则`：过程提示一次只显示 1 句，不随机刷屏。'
         '- `触发方式`：只在用户主动输入 `传令：升级` 时触发。'
         '3. 先看系统是否给出示例：`例如：传令：计算1+1=?`'
         '5. 检查回复是否使用固定开场白：`🪶 军令入帐。亮，即刻接管全局。`'
         '7. 输入 `传令：版本`，检查版本号、版本来源、真源路径是否清楚。'
         '8. 输入 `传令：状态`，检查是否能按固定 6 行说清当前状态。'
         '9. 如需确认升级口径，再输入 `传令：升级`，检查是否明确“默认不自动升级，需用户主动提出”。'
+        '- 开工默认骨架稳定，不回退为散乱长段落。'
         '- `传令：版本` 能说清版本号、版本来源、真源路径。'
         '- `传令：状态` 能按固定 6 行说清当前状态。'
+        '- 过程提示一次只显示 1 句，不刷屏。'
+        '- 若触发收口，能按 `已完成 / 结果 / 下一步` 收束。'
         '- `传令：升级` 能明确“用户主动提出才处理，不自动升级”。'
     )
     $expectedChecklistLines = @(
@@ -758,18 +817,23 @@ function Get-CanonicalPanelCommandState {
         '- 唯一做事入口：`传令：XXXX`'
         '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
         '- 默认开场白：`🪶 军令入帐。亮，即刻接管全局。`'
+        '- 固定开工骨架：`开场白 → 固定边界提示 → 接令句`'
         '- 新对话自动提示：`例如：传令：计算1+1=?`'
         ('- 固定边界提示：`' + $expectedBoundaryPrompt + '`')
+        '- 固定收口格式：`已完成 / 结果 / 下一步`'
         '3. 确认是否先看到示例：`例如：传令：计算1+1=?`'
         '4. 首句输入：`传令：测试入口是否稳态`'
         '5. 继续输入：`传令：版本`'
         '6. 再输入：`传令：状态`'
         '7. 如需确认升级口径，再输入：`传令：升级`'
         '- `开场白对不对`：是否固定为 `🪶 军令入帐。亮，即刻接管全局。`'
+        '- `开工骨架顺不顺`：是否先开场白，再边界提示，再接令句'
         '- `提示清不清楚`：是否给出示例 `例如：传令：计算1+1=?`'
         '- `边界稳不稳`：是否明确只检查丞相自己，不检查你的项目'
         '- `版本对不对`：能否说清版本号、版本来源、真源路径'
         '- `状态稳不稳`：能否按固定 6 行说清当前状态'
+        '- `过程句多不多`：是否一次只显示 1 句，不乱刷'
+        '- `收口顺不顺`：如触发收口，能否按 `已完成 / 结果 / 下一步`'
         '- `升级边界清不清楚`：能否明确“默认不自动升级，用户主动提出才处理”'
         '- 命令能正常响应。'
         '- 入口口径没有回退为旧的多命令体系。'
@@ -815,6 +879,16 @@ function Get-CanonicalPanelCommandState {
         }
     }
 
+    $agentsLines = @(Get-Content $agentsPath)
+    foreach ($expectedReplySkeletonLine in $expectedReplySkeletonLines) {
+        Assert-LineSetContains -Lines $agentsLines -ExpectedLine $expectedReplySkeletonLine -Label 'AGENTS 标准回复骨架'
+    }
+
+    $codexHomeAgentsLines = @(Get-Content $codexHomeAgentsPath)
+    foreach ($expectedReplySkeletonLine in $expectedReplySkeletonLines) {
+        Assert-LineSetContains -Lines $codexHomeAgentsLines -ExpectedLine $expectedReplySkeletonLine -Label 'codex-home-export AGENTS 标准回复骨架'
+    }
+
     $agentsSection = Get-FileSectionContent -FilePath $agentsPath -SectionStartMarker '## 面板传令格式' -SectionEndMarker '## 仓库卫生纪律'
     if ([string]::IsNullOrWhiteSpace($agentsSection)) {
         throw "AGENTS 未解析到面板传令格式区块：$agentsPath"
@@ -855,11 +929,23 @@ function Get-CanonicalPanelCommandState {
     if ($versionInfo.new_chat_hint -ne '例如：传令：计算1+1=?') {
         throw "生产母体版本文件 new_chat_hint 漂移：期望 例如：传令：计算1+1=?，实际 $($versionInfo.new_chat_hint)"
     }
+    if ($versionInfo.quote_system_version -ne $expectedQuoteSystemVersion) {
+        throw "生产母体版本文件 quote_system_version 漂移：期望 $expectedQuoteSystemVersion，实际 $($versionInfo.quote_system_version)"
+    }
     Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.panel_commands)) -ExpectedValues @($expectedAgentRows | Where-Object { $_.Command -ne '传令：XXXX' } | ForEach-Object { $_.Command }) -Label '生产母体 panel_commands'
     Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.task_entry_flow)) -ExpectedValues $expectedTaskEntryFlow -Label '生产母体 task_entry_flow'
     Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.status_bar_slots)) -ExpectedValues $expectedStatusBarSlots -Label '生产母体 status_bar_slots'
+    Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.standard_response_templates.task_entry)) -ExpectedValues $expectedTaskEntryTemplate -Label '生产母体 standard_response_templates.task_entry'
+    Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.standard_response_templates.version)) -ExpectedValues $expectedVersionTemplate -Label '生产母体 standard_response_templates.version'
+    Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.standard_response_templates.status)) -ExpectedValues $expectedStatusTemplate -Label '生产母体 standard_response_templates.status'
+    Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.standard_response_templates.closeout_sections)) -ExpectedValues $expectedCloseoutSections -Label '生产母体 standard_response_templates.closeout_sections'
     if ($versionInfo.boundary_prompt -ne $expectedBoundaryPrompt) {
         throw "生产母体版本文件 boundary_prompt 漂移：期望 $expectedBoundaryPrompt，实际 $($versionInfo.boundary_prompt)"
+    }
+    foreach ($quoteKey in $expectedProcessQuotes.Keys) {
+        if ($versionInfo.process_quotes_minimal.$quoteKey -ne $expectedProcessQuotes[$quoteKey]) {
+            throw "生产母体版本文件 process_quotes_minimal.$quoteKey 漂移：期望 $($expectedProcessQuotes[$quoteKey])，实际 $($versionInfo.process_quotes_minimal.$quoteKey)"
+        }
     }
 
     $acceptanceLines = @(Get-Content $acceptanceDocPath)
