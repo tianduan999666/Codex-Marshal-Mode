@@ -54,7 +54,7 @@
 1. 日常开工优先回官方 `Codex` 面板，直接说：`传令：我要做 XX`。
 2. 面板内默认先走 `start-panel-task.ps1`：对外按“先确认丞相能正常接到传令 → 再确认丞相自身状态良好 → 接着把丞相调整到最佳工作状态 → 丞相记录这次要做的任务 → 丞相开始执行任务”解释流程；内部仍按最小必要原则执行轻量检查、必要时完整验真与自动修复。
 3. 若当前版本在本机已经验过，后续任务默认跳过重复验真，直接建任务，并留在当前会话继续。
-4. 跳过前仍会轻量复核 `AGENTS.md` 与 `config.toml` 是否和当前真源一致；若不一致，自动回到验真流程。
+4. 跳过前仍会轻量复核固定轻检清单：`VERSION.json → config/cx-version.json`、`AGENTS.md`、`config.toml`、`start-panel-task.ps1 → config/marshal-mode/start-panel-task.ps1`；若不一致，自动回到验真流程。
 5. 第一次准备或维护层排障时，再执行 `initialize-workspace.ps1`、`install-to-home.ps1`、`verify-cutover.ps1` 与 `new-task.ps1`。
 
 ### 当前对外感知

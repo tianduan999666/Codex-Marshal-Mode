@@ -88,6 +88,102 @@ function Get-Sha256TextOrEmpty([string]$Path) {
     return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
 }
 
+function Get-DefaultLightCheckTargets() {
+    return @(
+        [ordered]@{ name = '版本镜像'; source_path = 'VERSION.json'; runtime_path = 'config/cx-version.json' }
+        [ordered]@{ name = '规则总纲'; source_path = 'AGENTS.md'; runtime_path = 'AGENTS.md' }
+        [ordered]@{ name = '主配置'; source_path = 'config.toml'; runtime_path = 'config.toml' }
+        [ordered]@{ name = '开工脚本'; source_path = 'start-panel-task.ps1'; runtime_path = 'config/marshal-mode/start-panel-task.ps1' }
+    )
+}
+
+function Get-LightCheckTargetDefinitions([object]$SourceVersionInfo) {
+    if (($null -ne $SourceVersionInfo) -and ($null -ne $SourceVersionInfo.light_check_targets) -and (@($SourceVersionInfo.light_check_targets).Count -gt 0)) {
+        return @($SourceVersionInfo.light_check_targets)
+    }
+
+    return @(Get-DefaultLightCheckTargets)
+}
+
+function Resolve-LightCheckTargets([object[]]$TargetDefinitions, [string]$ScriptRootPath, [string]$ResolvedTargetCodexHome) {
+    $resolvedTargets = @()
+    foreach ($targetDefinition in $TargetDefinitions) {
+        $sourceRelativePath = [string]$targetDefinition.source_path
+        $runtimeRelativePath = [string]$targetDefinition.runtime_path
+        $targetName = if ([string]::IsNullOrWhiteSpace([string]$targetDefinition.name)) { $sourceRelativePath } else { [string]$targetDefinition.name }
+        $sourcePath = Join-Path $ScriptRootPath (($sourceRelativePath -replace '/', '\'))
+        $runtimePath = Join-Path $ResolvedTargetCodexHome (($runtimeRelativePath -replace '/', '\'))
+        $resolvedTargets += [pscustomobject]@{
+            Name = $targetName
+            SourceRelativePath = $sourceRelativePath
+            RuntimeRelativePath = $runtimeRelativePath
+            SourcePath = $sourcePath
+            RuntimePath = $runtimePath
+            SourceHash = Get-Sha256TextOrEmpty -Path $sourcePath
+            RuntimeHash = Get-Sha256TextOrEmpty -Path $runtimePath
+        }
+    }
+
+    return @($resolvedTargets)
+}
+
+function Test-LightCheckTargetsSatisfied([object]$TaskStartState, [object[]]$ResolvedTargets) {
+    if ($null -eq $TaskStartState) {
+        return $false
+    }
+
+    if (-not ($TaskStartState.PSObject.Properties.Name -contains 'light_check_hashes')) {
+        return $false
+    }
+
+    $stateItems = @($TaskStartState.light_check_hashes)
+    if ($stateItems.Count -ne $ResolvedTargets.Count) {
+        return $false
+    }
+
+    foreach ($resolvedTarget in $ResolvedTargets) {
+        if ([string]::IsNullOrWhiteSpace($resolvedTarget.SourceHash) -or [string]::IsNullOrWhiteSpace($resolvedTarget.RuntimeHash)) {
+            return $false
+        }
+
+        if ($resolvedTarget.SourceHash -ne $resolvedTarget.RuntimeHash) {
+            return $false
+        }
+
+        $stateItem = @(
+            $stateItems |
+                Where-Object {
+                    ($_.source_path -eq $resolvedTarget.SourceRelativePath) -and
+                    ($_.runtime_path -eq $resolvedTarget.RuntimeRelativePath)
+                } |
+                Select-Object -First 1
+        )
+        if ($stateItem.Count -eq 0) {
+            return $false
+        }
+
+        if (($stateItem[0].source_sha256 -ne $resolvedTarget.SourceHash) -or ($stateItem[0].runtime_sha256 -ne $resolvedTarget.RuntimeHash)) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
+function New-LightCheckHashesPayload([object[]]$ResolvedTargets) {
+    return @(
+        $ResolvedTargets | ForEach-Object {
+            [ordered]@{
+                name = $_.Name
+                source_path = $_.SourceRelativePath
+                runtime_path = $_.RuntimeRelativePath
+                source_sha256 = $_.SourceHash
+                runtime_sha256 = $_.RuntimeHash
+            }
+        }
+    )
+}
+
 foreach ($requiredPath in @($verifyScriptPath, $installScriptPath, $newTaskScriptPath, $versionSourcePath, $agentsSourcePath, $configSourcePath, $runtimeAgentsPath, $runtimeConfigPath)) {
     if (-not (Test-Path $requiredPath)) {
         throw "缺少一句话开工所需脚本：$requiredPath"
@@ -101,6 +197,8 @@ Write-Info ("TaskTitle={0}" -f $Title)
 $sourceVersionInfo = Read-JsonFileOrNull -Path $versionSourcePath
 $runtimeVersionInfo = Read-JsonFileOrNull -Path $runtimeVersionPath
 $taskStartState = Read-JsonFileOrNull -Path $taskStartStatePath
+$lightCheckTargetDefinitions = Get-LightCheckTargetDefinitions -SourceVersionInfo $sourceVersionInfo
+$lightCheckTargets = Resolve-LightCheckTargets -TargetDefinitions $lightCheckTargetDefinitions -ScriptRootPath $scriptRootPath -ResolvedTargetCodexHome $resolvedTargetCodexHome
 $currentSourceVersion = if ($null -ne $sourceVersionInfo) { $sourceVersionInfo.cx_version } else { '' }
 $currentRuntimeVersion = if ($null -ne $runtimeVersionInfo) { $runtimeVersionInfo.cx_version } else { '' }
 $currentSourceRoot = $scriptRootPath
@@ -110,7 +208,7 @@ $currentRuntimeAgentsHash = Get-Sha256TextOrEmpty -Path $runtimeAgentsPath
 $currentRuntimeConfigHash = Get-Sha256TextOrEmpty -Path $runtimeConfigPath
 $canSkipVerify = $false
 if (-not $ForceVerify) {
-    if (($null -ne $taskStartState) -and ($taskStartState.verify_status -eq 'passed') -and ($taskStartState.cx_version -eq $currentSourceVersion) -and ($taskStartState.runtime_version -eq $currentRuntimeVersion) -and ($taskStartState.source_root -eq $currentSourceRoot) -and ($currentSourceVersion -eq $currentRuntimeVersion) -and ($currentSourceAgentsHash -eq $currentRuntimeAgentsHash) -and ($currentSourceConfigHash -eq $currentRuntimeConfigHash)) {
+    if (($null -ne $taskStartState) -and ($taskStartState.verify_status -eq 'passed') -and ($taskStartState.cx_version -eq $currentSourceVersion) -and ($taskStartState.runtime_version -eq $currentRuntimeVersion) -and ($taskStartState.source_root -eq $currentSourceRoot) -and ($currentSourceVersion -eq $currentRuntimeVersion) -and (Test-LightCheckTargetsSatisfied -TaskStartState $taskStartState -ResolvedTargets $lightCheckTargets)) {
         $canSkipVerify = $true
     }
 }
@@ -149,6 +247,7 @@ else {
         $currentRuntimeVersion = if ($null -ne $runtimeVersionInfo) { $runtimeVersionInfo.cx_version } else { '' }
         $currentRuntimeAgentsHash = Get-Sha256TextOrEmpty -Path $runtimeAgentsPath
         $currentRuntimeConfigHash = Get-Sha256TextOrEmpty -Path $runtimeConfigPath
+        $lightCheckTargets = Resolve-LightCheckTargets -TargetDefinitions $lightCheckTargetDefinitions -ScriptRootPath $scriptRootPath -ResolvedTargetCodexHome $resolvedTargetCodexHome
     }
 
     $taskStartStatePayload = [ordered]@{
@@ -163,6 +262,7 @@ else {
         runtime_agents_hash = $currentRuntimeAgentsHash
         runtime_config_hash = $currentRuntimeConfigHash
         repair_used = $repairUsed
+        light_check_hashes = New-LightCheckHashesPayload -ResolvedTargets $lightCheckTargets
     }
     Write-Utf8NoBomJson -Path $taskStartStatePath -Payload $taskStartStatePayload
 }
@@ -218,7 +318,14 @@ else {
 }
 $lastCheckValue = if ($verifySkipped) { '沿用上次已通过状态' } else { '已通过' }
 $autoRepairValue = if ($repairUsed) { '已执行一次必要修整，并复查通过' } else { '无' }
-$keyFileConsistencyValue = if (($currentSourceAgentsHash -eq $currentRuntimeAgentsHash) -and ($currentSourceConfigHash -eq $currentRuntimeConfigHash)) { '一致' } else { '待复核' }
+$matchedLightCheckTargets = @(
+    $lightCheckTargets |
+        Where-Object {
+            (-not [string]::IsNullOrWhiteSpace($_.SourceHash)) -and
+            ($_.SourceHash -eq $_.RuntimeHash)
+        }
+)
+$keyFileConsistencyValue = if ($matchedLightCheckTargets.Count -eq $lightCheckTargets.Count) { '一致' } else { '待复核' }
 $currentTaskValue = if (-not [string]::IsNullOrWhiteSpace($activeTaskId)) { '{0}（{1}）' -f $activeTaskId, $Title } else { $Title }
 $templateTokens = @{
     cx_version = $currentSourceVersion
