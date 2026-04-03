@@ -46,6 +46,20 @@ function Read-PanelResponseJsonFile([string]$Path) {
     return (Get-Content -Raw -Encoding UTF8 -Path $Path | ConvertFrom-Json)
 }
 
+function Stop-FriendlyPanelRender {
+    param(
+        [string]$Summary,
+        [string]$Detail = ''
+    )
+
+    $messageParts = @($Summary)
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        $messageParts += ("原因：{0}" -f $Detail)
+    }
+
+    throw ($messageParts -join ' ')
+}
+
 function Get-PanelResponseStringOrDefault([string]$Value, [string]$Fallback) {
     if ([string]::IsNullOrWhiteSpace($Value)) {
         return $Fallback
@@ -292,16 +306,17 @@ function Get-PanelResponseHintLines([object]$VersionInfo, [hashtable]$BaseTokens
     return @($templateLines | ForEach-Object { Resolve-PanelResponseTemplateLine -Template $_ -TokenMap $BaseTokens })
 }
 
-function Get-PanelResponseTaskEntryLines([object]$VersionInfo, [hashtable]$BaseTokens) {
-    $templateLines = if (($null -ne $VersionInfo.standard_response_templates) -and ($null -ne $VersionInfo.standard_response_templates.task_entry)) {
-        Get-PanelResponseArrayOrDefault -Value $VersionInfo.standard_response_templates.task_entry -Fallback @('<opening_line>', '<boundary_prompt>')
-    }
-    else {
-        @('<opening_line>', '<boundary_prompt>')
-    }
-    $visibleTemplateLines = if ($templateLines.Count -ge 2) { @($templateLines[0], $templateLines[1]) } else { @('<opening_line>', '<boundary_prompt>') }
+function Get-PanelResponseTaskEntryLines([object]$VersionInfo, [hashtable]$BaseTokens, [bool]$NeedsCheck = $false) {
+    $templateKey = if ($NeedsCheck) { 'task_entry_with_check' } else { 'task_entry' }
+    $fallbackLines = @('<opening_line>', '<boundary_prompt>', '军令已明，亮先接手。')
 
-    return @($visibleTemplateLines | ForEach-Object { Resolve-PanelResponseTemplateLine -Template $_ -TokenMap $BaseTokens })
+    if (($null -ne $VersionInfo.standard_response_templates) -and ($null -ne $VersionInfo.standard_response_templates.$templateKey)) {
+        $templateLines = Get-PanelResponseArrayOrDefault -Value $VersionInfo.standard_response_templates.$templateKey -Fallback $fallbackLines
+    } else {
+        $templateLines = $fallbackLines
+    }
+
+    return @($templateLines | ForEach-Object { Resolve-PanelResponseTemplateLine -Template $_ -TokenMap $BaseTokens })
 }
 
 function Get-PanelResponseVersionLines([object]$VersionInfo, [hashtable]$BaseTokens) {
@@ -417,19 +432,24 @@ function Get-PanelResponseCloseoutLines([object]$VersionInfo, [string]$ExplicitC
 }
 
 if (-not (Test-Path $resolvedVersionPath)) {
-    throw "缺少真源版本文件：$resolvedVersionPath"
+    Stop-FriendlyPanelRender `
+        -Summary '渲染口径缺少真源版本文件，当前没法继续。' `
+        -Detail ("缺少文件：{0}" -f $resolvedVersionPath)
 }
 
 $versionInfo = Read-PanelResponseJsonFile -Path $resolvedVersionPath
 $taskStartState = Read-PanelResponseJsonFile -Path $taskStartStatePath
 $baseTokens = Get-PanelResponseBaseTokenMap -VersionInfo $versionInfo -ExplicitCxVersion $CxVersion
+$sourceRootPath = Get-PanelResponseStateSourceRoot -TaskStartState $taskStartState -ScriptRootPath $scriptRootPath
+$targetCodexHomePath = Get-PanelResponseStateTargetCodexHome -TaskStartState $taskStartState -ResolvedTargetCodexHome $resolvedTargetCodexHome
+$needsLightCheck = -not (Test-PanelResponseTaskStartStateLightCheckSatisfied -TaskStartState $taskStartState -SourceRootPath $sourceRootPath -TargetCodexHomePath $targetCodexHomePath)
 
 switch ($Kind) {
     'hint' {
         Write-Output (Get-PanelResponseHintLines -VersionInfo $versionInfo -BaseTokens $baseTokens)
     }
     'task-entry' {
-        Write-Output (Get-PanelResponseTaskEntryLines -VersionInfo $versionInfo -BaseTokens $baseTokens)
+        Write-Output (Get-PanelResponseTaskEntryLines -VersionInfo $versionInfo -BaseTokens $baseTokens -NeedsCheck $needsLightCheck)
     }
     'version' {
         Write-Output (Get-PanelResponseVersionLines -VersionInfo $versionInfo -BaseTokens $baseTokens)
@@ -442,7 +462,9 @@ switch ($Kind) {
     }
     'process-quote' {
         if ([string]::IsNullOrWhiteSpace($Phase)) {
-            throw 'Kind=process-quote 时必须提供 Phase。'
+            Stop-FriendlyPanelRender `
+                -Summary '渲染最小过程提示时缺少阶段参数，当前没法继续。' `
+                -Detail 'Kind=process-quote 时必须提供 Phase。'
         }
 
         Write-Output (Get-PanelResponseProcessQuoteText -VersionInfo $versionInfo -PhaseName $Phase)

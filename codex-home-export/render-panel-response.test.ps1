@@ -18,6 +18,23 @@ function Assert-PanelResponseLineCount([string[]]$ActualLines, [int]$ExpectedCou
     }
 }
 
+function Assert-PanelResponseThrows([scriptblock]$Action, [string]$ExpectedText, [string]$Message) {
+    $caught = $false
+    try {
+        & $Action
+    }
+    catch {
+        $caught = $true
+        if ($_.Exception.Message -notlike ('*' + $ExpectedText + '*')) {
+            throw ('{0}；期望报错包含：{1}；实际：{2}' -f $Message, $ExpectedText, $_.Exception.Message)
+        }
+    }
+
+    if (-not $caught) {
+        throw ('{0}；期望抛错包含：{1}；实际：未抛错' -f $Message, $ExpectedText)
+    }
+}
+
 function Get-TestSha256Text([string]$Path) {
     $fileStream = [System.IO.File]::OpenRead($Path)
     try {
@@ -56,13 +73,18 @@ Assert-PanelResponseLineCount -ActualLines $hintLines -ExpectedCount 1 -Message 
 Assert-PanelResponseEqual -Actual $hintLines[0] -Expected $versionInfo.new_chat_hint -Message 'hint 应返回真源示例句'
 
 $taskEntryLines = @(& $renderScriptPath -Kind 'task-entry' -VersionPath $versionPath)
-Assert-PanelResponseLineCount -ActualLines $taskEntryLines -ExpectedCount 2 -Message 'task-entry 应返回 2 行固定骨架'
+Assert-PanelResponseLineCount -ActualLines $taskEntryLines -ExpectedCount 3 -Message 'task-entry 应返回 3 行固定骨架'
 Assert-PanelResponseEqual -Actual $taskEntryLines[0] -Expected $versionInfo.opening_line -Message 'task-entry 第 1 行应返回真源开场白'
 Assert-PanelResponseEqual -Actual $taskEntryLines[1] -Expected $versionInfo.boundary_prompt -Message 'task-entry 第 2 行应返回真源边界提示'
+Assert-PanelResponseEqual -Actual $taskEntryLines[2] -Expected $versionInfo.process_quotes_minimal.task_entry -Message 'task-entry 第 3 行应返回接令句'
 
 $analysisQuote = @(& $renderScriptPath -Kind 'process-quote' -Phase 'analysis' -VersionPath $versionPath)
 Assert-PanelResponseLineCount -ActualLines $analysisQuote -ExpectedCount 1 -Message 'process-quote 应只返回 1 行'
 Assert-PanelResponseEqual -Actual $analysisQuote[0] -Expected $versionInfo.process_quotes_minimal.analysis -Message 'analysis 过程金句应来自真源'
+Assert-PanelResponseThrows -Action { & $renderScriptPath -Kind 'process-quote' -VersionPath $versionPath } -ExpectedText '渲染最小过程提示时缺少阶段参数' -Message 'process-quote 缺少 Phase 时应报人话'
+
+$missingVersionPath = Join-Path $env:TEMP ('cx-render-missing-' + [guid]::NewGuid().ToString('N') + '.json')
+Assert-PanelResponseThrows -Action { & $renderScriptPath -Kind 'version' -VersionPath $missingVersionPath } -ExpectedText '渲染口径缺少真源版本文件' -Message '缺少版本文件时应报人话'
 
 $versionLines = @(& $renderScriptPath -Kind 'version' -VersionPath $versionPath)
 Assert-PanelResponseLineCount -ActualLines $versionLines -ExpectedCount 3 -Message 'version 应返回 3 行固定槽位'
