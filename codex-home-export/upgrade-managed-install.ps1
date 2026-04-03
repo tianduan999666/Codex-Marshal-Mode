@@ -70,6 +70,83 @@ function Read-JsonFile([string]$Path) {
     return (Get-Content -Raw -Encoding UTF8 -Path $Path | ConvertFrom-Json)
 }
 
+function ConvertTo-NormalizedRepoPath([string]$PathText) {
+    if ([string]::IsNullOrWhiteSpace($PathText)) {
+        return ''
+    }
+
+    return ($PathText.Trim().Trim('"') -replace '\\', '/')
+}
+
+function Get-DirtyWorkingTreePath([string]$StatusLine) {
+    if ([string]::IsNullOrWhiteSpace($StatusLine)) {
+        return ''
+    }
+
+    if ($StatusLine.Length -lt 4) {
+        return ''
+    }
+
+    $repoPath = $StatusLine.Substring(3).Trim()
+    if ($repoPath -match '^.+ -> (.+)$') {
+        $repoPath = $Matches[1].Trim()
+    }
+
+    return ConvertTo-NormalizedRepoPath -PathText $repoPath
+}
+
+function Get-DirtyWorkingTreeGroup([string]$RepoPath) {
+    if ([string]::IsNullOrWhiteSpace($RepoPath)) {
+        return '其他待人工判断'
+    }
+
+    switch -Regex ($RepoPath) {
+        '^\.gitignore$' { return '公开入口/生产母体' }
+        '^codex-home-export/' { return '公开入口/生产母体' }
+        '^\.codex/chancellor/(active-task\.txt|tasks/)' { return '本地任务/运行态' }
+        '^\.codex/chancellor/' { return '维护层在研' }
+        '^docs/' { return '文档/方案' }
+        default { return '其他待人工判断' }
+    }
+}
+
+function Write-DirtyWorkingTreeGroups([string[]]$DirtyWorkingTreeLines) {
+    $groupOrder = @(
+        '公开入口/生产母体',
+        '维护层在研',
+        '本地任务/运行态',
+        '文档/方案',
+        '其他待人工判断'
+    )
+    $groupedPaths = @{}
+
+    foreach ($groupName in $groupOrder) {
+        $groupedPaths[$groupName] = New-Object System.Collections.Generic.List[string]
+    }
+
+    foreach ($dirtyWorkingTreeLine in $DirtyWorkingTreeLines) {
+        $repoPath = Get-DirtyWorkingTreePath -StatusLine $dirtyWorkingTreeLine
+        if ([string]::IsNullOrWhiteSpace($repoPath)) {
+            continue
+        }
+
+        $groupName = Get-DirtyWorkingTreeGroup -RepoPath $repoPath
+        if ($groupedPaths[$groupName] -notcontains $repoPath) {
+            [void]$groupedPaths[$groupName].Add($repoPath)
+        }
+    }
+
+    Write-Info '改动分组：'
+    foreach ($groupName in $groupOrder) {
+        $groupPaths = @($groupedPaths[$groupName])
+        if ($groupPaths.Count -eq 0) {
+            continue
+        }
+
+        Write-Info ("- {0}({1})：{2}" -f $groupName, $groupPaths.Count, ($groupPaths -join ' | '))
+    }
+}
+
 function Write-DirtyWorkingTreeGuidance {
     param(
         [string]$RepoRootPath,
@@ -78,10 +155,11 @@ function Write-DirtyWorkingTreeGuidance {
 
     Write-WarnLine '检测到源仓有未提交改动，本次升级已停止。'
     if ($DirtyWorkingTreeLines.Count -gt 0) {
-        Write-Info ("DirtyFiles={0}" -f ($DirtyWorkingTreeLines -join ' | '))
+        Write-DirtyWorkingTreeGroups -DirtyWorkingTreeLines $DirtyWorkingTreeLines
     }
 
-    Write-Info ("先查看改动：git -C {0} status --short" -f $RepoRootPath)
+    Write-Info '研判：公开入口/生产母体改动先单独核对并收口；其余在研或草稿改动先收起，再做升级。'
+    Write-Info ("先查看改动：git -C {0} status --short --untracked-files=all" -f $RepoRootPath)
     Write-Info ("如需临时收起改动：git -C {0} stash push --include-untracked -m ""cx-upgrade-manual-stash""" -f $RepoRootPath)
     Write-Info ("如需丢弃已跟踪改动：git -C {0} restore ." -f $RepoRootPath)
     Write-Info '如需彻底回到干净状态：请在仓库上级目录重新 git clone 当前仓。'
@@ -149,7 +227,7 @@ if (-not (Test-Path (Join-Path $resolvedRepoRootPath '.git'))) {
         )
 }
 
-$dirtyWorkingTreeLines = @(& git -C $resolvedRepoRootPath status --short)
+$dirtyWorkingTreeLines = @(& git -c core.quotepath=false -C $resolvedRepoRootPath status --short --untracked-files=all)
 if ($LASTEXITCODE -ne 0) {
     Stop-FriendlyUpgrade `
         -Summary '升级前没法读出源仓状态，所以本次先停住。' `
