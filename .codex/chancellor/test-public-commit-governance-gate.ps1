@@ -2257,7 +2257,7 @@ if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistLega
 
 try {
     $driftedVersionInfo = Get-Content $codexHomeExportVersionPath -Raw | ConvertFrom-Json
-    $driftedVersionInfo.task_entry_prefix = '丞相：'
+    $driftedVersionInfo.task_entry_prefix = '开始：'
     $driftedVersionContent = ($driftedVersionInfo | ConvertTo-Json -Depth 10)
     [System.IO.File]::WriteAllText($codexHomeExportVersionPath, $driftedVersionContent + [Environment]::NewLine, $utf8NoBom)
 
@@ -2316,7 +2316,7 @@ finally {
 }
 
 try {
-    $driftedAgentsContent = (Get-Content $agentsPath -Raw).Replace($agentsTaskEntryLineText, '| `丞相：XXXX` | 唯一做事入口；`XXXX` 直接写自然语言需求 |')
+    $driftedAgentsContent = (Get-Content $agentsPath -Raw).Replace($agentsTaskEntryLineText, '| `开始：XXXX` | 唯一做事入口；`XXXX` 直接写自然语言需求 |')
     [System.IO.File]::WriteAllText($agentsPath, $driftedAgentsContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('AGENTS.md') -ExpectedExitCode 1 -TestName 'block-panel-agents-entry-drift'

@@ -527,8 +527,8 @@ function Get-ApprovedTopLevelEntriesFromLockList {
         $approvedEntries.Add($directoryMatch.Groups[1].Value)
     }
 
-    foreach ($fileLine in ($approvedFileBlock -split "`r?`n")) {
-        $trimmedLine = $fileLine.Trim()
+    foreach ($fileMatch in ([regex]::Matches($approvedFileBlock, '(?m)^([^\r\n]+?)\s*$'))) {
+        $trimmedLine = $fileMatch.Groups[1].Value.Trim()
         if ($trimmedLine -eq '') {
             continue
         }
@@ -849,9 +849,9 @@ function Get-CanonicalPanelCommandState {
         '传令 验板'
         '传令 版本'
         '传令 状态'
-        '丞相亮启奏：谨呈本次事宜。'
-        '丞相：'
-        '丞相:'
+        '`开始：XXXX`'
+        '`执行：XXXX`'
+        '`任务：XXXX`'
     )
 
     function Assert-LineSetContains {
