@@ -50,7 +50,7 @@ if (-not (Test-Path $techSpecPath)) {
 $content = Get-Content $techSpecPath -Raw
 
 # 检查 Markdown 表格（改动文件清单）
-$hasTable = $content | Select-String -Pattern '^\|.*\|.*\|' -Quiet
+$hasTable = ($content -split "`n") | Where-Object { $_ -match '^\|.*\|.*\|' }
 if (-not $hasTable) {
     throw "❌ tech-spec.md 缺少 Markdown 表格（改动文件清单）"
 }
