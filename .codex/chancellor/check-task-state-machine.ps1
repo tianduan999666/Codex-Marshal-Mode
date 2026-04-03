@@ -1,4 +1,4 @@
-# 任务包状态机门禁检查
+﻿# 任务包状态机门禁检查
 # 用途：验证任务包状态与修改文件的合法性
 # 规则：
 # - drafting 状态：只能修改任务包内文件，禁止修改任务包外代码文件
@@ -18,12 +18,56 @@ $ErrorActionPreference = 'Stop'
 $statePath = Join-Path $TaskDir 'state.yaml'
 $contractPath = Join-Path $TaskDir 'contract.yaml'
 
+function Throw-FriendlyStateMachineError {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string[]]$Issues = @(),
+        [string[]]$NextSteps = @()
+    )
+
+    $messageLines = @($Summary)
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        $messageLines += ("原因：{0}" -f $Detail)
+    }
+
+    if ($Issues.Count -gt 0) {
+        $messageLines += ''
+        $messageLines += '发现的问题：'
+        foreach ($issue in $Issues) {
+            $messageLines += ("- {0}" -f $issue)
+        }
+    }
+
+    if ($NextSteps.Count -gt 0) {
+        $messageLines += ''
+        $messageLines += '下一步：'
+        foreach ($nextStep in $NextSteps) {
+            $messageLines += ("- {0}" -f $nextStep)
+        }
+    }
+
+    throw ($messageLines -join [Environment]::NewLine)
+}
+
 if (-not (Test-Path $statePath)) {
-    throw "❌ 任务包缺少 state.yaml：$TaskDir"
+    Throw-FriendlyStateMachineError `
+        -Summary '任务包缺少 state.yaml，当前没法判断状态机规则。' `
+        -Detail ("任务目录：{0}" -f $TaskDir) `
+        -NextSteps @(
+            '先补齐 state.yaml。',
+            '补完后再重新跑状态机门禁。'
+        )
 }
 
 if (-not (Test-Path $contractPath)) {
-    throw "❌ 任务包缺少 contract.yaml：$TaskDir"
+    Throw-FriendlyStateMachineError `
+        -Summary '任务包缺少 contract.yaml，当前没法判断任务边界。' `
+        -Detail ("任务目录：{0}" -f $TaskDir) `
+        -NextSteps @(
+            '先补齐 contract.yaml。',
+            '补完后再重新跑状态机门禁。'
+        )
 }
 
 # 解析任务状态
@@ -62,15 +106,15 @@ foreach ($file in $ChangedFiles) {
     switch ($currentStatus) {
         'drafting' {
             if ($isCodeFile) {
-                $violations += "❌ drafting 状态禁止修改代码文件：$file"
+                $violations += ("当前任务还在 drafting，先别改代码文件：{0}" -f $file)
             }
         }
         'planning' {
             if ($isCodeFile) {
-                $violations += "❌ planning 状态禁止修改代码文件：$file"
+                $violations += ("当前任务还在 planning，先别改代码文件：{0}" -f $file)
             }
             if ($isInsideTaskPackage -and $fileNormalized -notmatch 'tech-spec\.md$') {
-                $violations += "⚠️ planning 状态建议只修改 tech-spec.md，当前修改：$file"
+                $violations += ("当前任务还在 planning，任务包内建议先只改 tech-spec.md：{0}" -f $file)
             }
         }
         'running' {
@@ -84,19 +128,15 @@ foreach ($file in $ChangedFiles) {
 
 # 输出结果
 if ($violations.Count -gt 0) {
-    Write-Host "任务包状态机门禁检查失败：" -ForegroundColor Red
-    Write-Host "任务 ID：$taskId" -ForegroundColor Yellow
-    Write-Host "当前状态：$currentStatus" -ForegroundColor Yellow
-    Write-Host ""
-    foreach ($violation in $violations) {
-        Write-Host $violation -ForegroundColor Red
-    }
-    Write-Host ""
-    Write-Host "状态机规则：" -ForegroundColor Cyan
-    Write-Host "  - drafting 状态：只能修改任务包内文件" -ForegroundColor Cyan
-    Write-Host "  - planning 状态：只能修改 tech-spec.md" -ForegroundColor Cyan
-    Write-Host "  - running 状态：允许修改代码文件" -ForegroundColor Cyan
-    throw "状态机门禁未通过"
+    Throw-FriendlyStateMachineError `
+        -Summary '任务包状态机门禁没通过，本次改动先不要继续。' `
+        -Detail ("任务 ID：{0}；当前状态：{1}" -f $taskId, $currentStatus) `
+        -Issues $violations `
+        -NextSteps @(
+            'drafting 状态下，只改任务包内文件。',
+            'planning 状态下，优先只改 tech-spec.md。',
+            '要开始改代码前，先把任务状态切到 running。'
+        )
 }
 
 Write-Host "✓ 任务包状态机门禁检查通过（状态：$currentStatus）" -ForegroundColor Green

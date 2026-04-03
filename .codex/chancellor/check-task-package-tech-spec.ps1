@@ -1,4 +1,4 @@
-# 检查任务包 tech-spec.md 的门禁脚本
+﻿# 检查任务包 tech-spec.md 的门禁脚本
 # 用途：验证 tech-spec.md 是否包含必需章节和格式
 
 param(
@@ -12,9 +12,47 @@ $techSpecPath = Join-Path $TaskDir 'tech-spec.md'
 $contractPath = Join-Path $TaskDir 'contract.yaml'
 $statePath = Join-Path $TaskDir 'state.yaml'
 
+function Throw-FriendlyTechSpecError {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string[]]$Issues = @(),
+        [string[]]$NextSteps = @()
+    )
+
+    $messageLines = @($Summary)
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        $messageLines += ("原因：{0}" -f $Detail)
+    }
+
+    if ($Issues.Count -gt 0) {
+        $messageLines += ''
+        $messageLines += '发现的问题：'
+        foreach ($issue in $Issues) {
+            $messageLines += ("- {0}" -f $issue)
+        }
+    }
+
+    if ($NextSteps.Count -gt 0) {
+        $messageLines += ''
+        $messageLines += '下一步：'
+        foreach ($nextStep in $NextSteps) {
+            $messageLines += ("- {0}" -f $nextStep)
+        }
+    }
+
+    throw ($messageLines -join [Environment]::NewLine)
+}
+
 # 检查是否需要 tech-spec.md
 if (-not (Test-Path $contractPath)) {
-    throw "❌ 任务包缺少 contract.yaml：$TaskDir"
+    Throw-FriendlyTechSpecError `
+        -Summary '任务包缺少 contract.yaml，当前没法判断要不要 tech-spec.md。' `
+        -Detail ("任务目录：{0}" -f $TaskDir) `
+        -NextSteps @(
+            '先补齐 contract.yaml。',
+            '补完后再重新跑 tech-spec 门禁。'
+        )
 }
 
 $contractContent = Get-Content $contractPath -Raw
@@ -38,13 +76,19 @@ if ($estimatedHours -gt 4) {
 
 # 如果不需要技术方案，跳过检查
 if (-not $planningRequired) {
-    Write-Host "✓ 任务包不需要 tech-spec.md，跳过检查"
+    Write-Host "✓ 当前任务不需要 tech-spec.md，这一项已跳过" -ForegroundColor Green
     exit 0
 }
 
 # 检查 tech-spec.md 是否存在
 if (-not (Test-Path $techSpecPath)) {
-    throw "❌ 复杂任务缺少 tech-spec.md：$TaskDir"
+    Throw-FriendlyTechSpecError `
+        -Summary '这是复杂任务，但 tech-spec.md 还没补齐。' `
+        -Detail ("任务目录：{0}" -f $TaskDir) `
+        -NextSteps @(
+            '先补齐 tech-spec.md。',
+            '至少写清改动文件清单、风险评估和验收标准。'
+        )
 }
 
 $content = Get-Content $techSpecPath -Raw
@@ -52,7 +96,12 @@ $content = Get-Content $techSpecPath -Raw
 # 检查 Markdown 表格（改动文件清单）
 $hasTable = ($content -split "`n") | Where-Object { $_ -match '^\|.*\|.*\|' }
 if (-not $hasTable) {
-    throw "❌ tech-spec.md 缺少 Markdown 表格（改动文件清单）"
+    Throw-FriendlyTechSpecError `
+        -Summary 'tech-spec.md 里缺少改动文件清单表格。' `
+        -NextSteps @(
+            '先补一个 Markdown 表格。',
+            '表格里至少写文件路径、改动类型、改动原因和风险等级。'
+        )
 }
 
 # 检查 Mermaid 流程图（建议项，不强制）
@@ -70,7 +119,13 @@ $requiredSections = @(
 
 foreach ($section in $requiredSections) {
     if ($content -notmatch [regex]::Escape($section)) {
-        throw "❌ tech-spec.md 缺少必需章节：$section"
+        Throw-FriendlyTechSpecError `
+            -Summary 'tech-spec.md 还没写完整，当前不能过门禁。' `
+            -Detail ("缺少必需章节：{0}" -f $section) `
+            -NextSteps @(
+                '先补齐缺少的章节。',
+                '补完后再重新跑 tech-spec 门禁。'
+            )
     }
 }
 
@@ -106,19 +161,15 @@ if (Test-Path $statePath) {
             }
 
             if ($codeFiles.Count -gt 0) {
-                throw @"
-❌ 状态机门禁拦截：当前任务状态为 $status，禁止修改代码文件。
-
-检测到以下代码文件被修改：
-$($codeFiles -join "`n")
-
-请先完成以下步骤：
-1. 完成 tech-spec.md 技术方案文档
-2. 将 planning_status 改为 'approved'
-3. 将 status 改为 'running'
-
-然后才能开始编写代码。
-"@
+                Throw-FriendlyTechSpecError `
+                    -Summary '当前任务还没进入 running，先不要改代码文件。' `
+                    -Detail ("当前状态：{0}" -f $status) `
+                    -Issues $codeFiles `
+                    -NextSteps @(
+                        '先把 tech-spec.md 写完整。',
+                        '把 planning_status 改成 approved。',
+                        '再把 status 改成 running，然后再开始写代码。'
+                    )
             }
         }
     }

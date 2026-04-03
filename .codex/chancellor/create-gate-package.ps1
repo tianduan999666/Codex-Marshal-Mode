@@ -28,16 +28,62 @@ $gateGuideRelativePath = 'docs/40-执行/15-拍板包准备与收口规范.md'
 $governanceGuideRelativePath = 'docs/30-方案/08-V4-治理审计候选规范.md'
 $closeoutGuideRelativePath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
 
+function Write-Info([string]$Message) {
+    Write-Host "[INFO] $Message" -ForegroundColor Cyan
+}
+
+function Write-WarnLine([string]$Message) {
+    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+}
+
+function Stop-FriendlyCreateGatePackage {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string[]]$NextSteps = @()
+    )
+
+    Write-Host ''
+    Write-Host "[ERROR] $Summary" -ForegroundColor Red
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        Write-WarnLine ("原因：{0}" -f $Detail)
+    }
+
+    foreach ($nextStep in $NextSteps) {
+        Write-Info $nextStep
+    }
+
+    exit 1
+}
+
 if ($TaskId -notmatch '^v4-trial-\d{3}-.+$') {
-    throw 'TaskId 必须匹配 v4-trial-<三位序号>-<语义名> 格式。'
+    Stop-FriendlyCreateGatePackage `
+        -Summary '任务包编号格式不对，当前没法生成拍板包。' `
+        -Detail 'TaskId 必须匹配 v4-trial-<三位序号>-<语义名> 格式。' `
+        -NextSteps @(
+            '先把任务编号改成例如 v4-trial-001-语义名。',
+            '确认任务编号无误后再重试。'
+        )
 }
 
 if ($GateId -notmatch '^gate-[a-z0-9-]+$') {
-    throw 'GateId 必须匹配 gate-<语义名> 格式。'
+    Stop-FriendlyCreateGatePackage `
+        -Summary '拍板编号格式不对，当前没法生成拍板包。' `
+        -Detail 'GateId 必须匹配 gate-<语义名> 格式。' `
+        -NextSteps @(
+            '先把拍板编号改成例如 gate-confirm-tech-spec。',
+            '只用小写字母、数字和中划线。'
+        )
 }
 
 if (-not (Test-Path $taskDirectoryPath)) {
-    throw "任务目录不存在：$taskDirectoryPath"
+    Stop-FriendlyCreateGatePackage `
+        -Summary '任务目录不存在，当前没法往里写拍板包。' `
+        -Detail ("任务目录不存在：{0}" -f $taskDirectoryPath) `
+        -NextSteps @(
+            '先确认 TaskId 是否写对了。',
+            '确认对应任务包已经创建后再重试。'
+        )
 }
 
 $gatesFilePath = Join-Path $taskDirectoryPath 'gates.yaml'
@@ -47,17 +93,35 @@ $decisionLogFilePath = Join-Path $taskDirectoryPath 'decision-log.md'
 
 foreach ($requiredFilePath in @($gatesFilePath, $stateFilePath, $resultFilePath, $decisionLogFilePath)) {
     if (-not (Test-Path $requiredFilePath)) {
-        throw "缺少必需文件：$requiredFilePath"
+        Stop-FriendlyCreateGatePackage `
+            -Summary '任务包资料还没补齐，当前不能直接生成拍板包。' `
+            -Detail ("缺少必需文件：{0}" -f $requiredFilePath) `
+            -NextSteps @(
+                '先把任务包基础文件补齐。',
+                '至少确认 gates.yaml、state.yaml、result.md、decision-log.md 都存在。'
+            )
     }
 }
 
 if (($OptionCName -eq '') -xor ($OptionCImpact -eq '')) {
-    throw 'OptionCName 与 OptionCImpact 要么同时提供，要么同时留空。'
+    Stop-FriendlyCreateGatePackage `
+        -Summary '方案 C 的信息没填完整，当前没法继续。' `
+        -Detail 'OptionCName 与 OptionCImpact 要么同时提供，要么同时留空。' `
+        -NextSteps @(
+            '如果要提供方案 C，就把名称和影响一起填上。',
+            '如果暂时不需要方案 C，就两项都留空。'
+        )
 }
 
 $gatesYamlText = Get-Content -Raw $gatesFilePath
 if ($gatesYamlText -notmatch '(?m)^items:\s*\[\]\s*$') {
-    throw '当前脚本仅支持从空的 gates.yaml 起包；如已有待拍板项，请手动整理后再继续。'
+    Stop-FriendlyCreateGatePackage `
+        -Summary 'gates.yaml 里已经有内容，本次没有继续自动追加。' `
+        -Detail '当前脚本只支持从空的 gates.yaml 起包。' `
+        -NextSteps @(
+            '先人工整理现有待拍板项。',
+            '确认 gates.yaml 回到空白起包状态后再重试。'
+        )
 }
 
 $gateYamlLines = @(
