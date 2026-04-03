@@ -38,6 +38,24 @@ function Write-WarnLine([string]$Message) {
     Write-Host "[WARN] $Message" -ForegroundColor Yellow
 }
 
+function Stop-FriendlyInitialize {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string]$NextStep = ''
+    )
+
+    Write-Host ("[ERROR] {0}" -f $Summary) -ForegroundColor Red
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        Write-WarnLine ("原因：{0}" -f $Detail)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($NextStep)) {
+        Write-Info ("下一步：{0}" -f $NextStep)
+    }
+
+    exit 1
+}
+
 function Get-ActiveTaskId([string]$Path) {
     if (-not (Test-Path $Path)) {
         return ''
@@ -56,23 +74,46 @@ function Test-HasAnyTask([string]$Path) {
 
 foreach ($requiredPath in @($installScriptPath, $newTaskScriptPath, $verifyScriptPath)) {
     if (-not (Test-Path $requiredPath)) {
-        throw "缺少初始化所需文件：$requiredPath"
+        Stop-FriendlyInitialize `
+            -Summary '初始化缺少必要脚本，当前没法继续。' `
+            -Detail ("缺少初始化所需文件：{0}" -f $requiredPath) `
+            -NextStep '先补齐仓库文件，再重新执行 initialize-workspace.ps1。'
     }
 }
 
 Write-Info "RepoRoot=$resolvedRepoRootPath"
 Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
+Write-Info '本次只初始化丞相自身维护环境，不会改你的项目。'
 Write-Info '开始执行初始化：同步最小主链 → 可选补建任务 → 可选验真。'
 
-& $installScriptPath -TargetCodexHome $resolvedTargetCodexHome
+try {
+    & $installScriptPath -TargetCodexHome $resolvedTargetCodexHome
+}
+catch {
+    Stop-FriendlyInitialize `
+        -Summary '初始化卡在“同步丞相文件”这一步。' `
+        -Detail $_.Exception.Message.Trim() `
+        -NextStep '先把 install-to-home.ps1 提示的问题处理掉，再重新执行 initialize-workspace.ps1。'
+}
 
 if ($InstallGovernanceHook) {
     if (Test-Path $gitHookDirectoryPath) {
         if (-not (Test-Path $hookInstallScriptPath)) {
-            throw "缺少 hook 安装脚本：$hookInstallScriptPath"
+            Stop-FriendlyInitialize `
+                -Summary '你要求安装治理门禁，但 hook 安装脚本不见了。' `
+                -Detail ("缺少 hook 安装脚本：{0}" -f $hookInstallScriptPath) `
+                -NextStep '先补齐 hook 脚本，再重试 `-InstallGovernanceHook`。'
         }
 
-        & $hookInstallScriptPath -RepoRootPath $resolvedRepoRootPath
+        try {
+            & $hookInstallScriptPath -RepoRootPath $resolvedRepoRootPath
+        }
+        catch {
+            Stop-FriendlyInitialize `
+                -Summary '治理门禁安装失败。' `
+                -Detail $_.Exception.Message.Trim() `
+                -NextStep '先处理 hook 安装问题，再重新执行 initialize-workspace.ps1。'
+        }
     }
     else {
         Write-WarnLine '未检测到 .git/hooks，已跳过治理门禁安装；如当前是 ZIP 包，请改用 git clone 后重跑。'
@@ -96,7 +137,15 @@ if ($shouldAttemptExampleTask) {
             $newTaskParameters['Goal'] = $FirstTaskGoal
         }
 
-        & $newTaskScriptPath @newTaskParameters
+        try {
+            & $newTaskScriptPath @newTaskParameters
+        }
+        catch {
+            Stop-FriendlyInitialize `
+                -Summary '示例任务创建失败。' `
+                -Detail $_.Exception.Message.Trim() `
+                -NextStep '先处理起包问题，再决定是否重试示例任务。'
+        }
         $createdExampleTask = $true
     }
     else {
@@ -110,7 +159,15 @@ elseif (-not $SkipExampleTask) {
 
 if (-not $SkipVerify) {
     if (Test-Path $authPath) {
-        & $verifyScriptPath -TargetCodexHome $resolvedTargetCodexHome
+        try {
+            & $verifyScriptPath -TargetCodexHome $resolvedTargetCodexHome
+        }
+        catch {
+            Stop-FriendlyInitialize `
+                -Summary '初始化最后一步验真没通过。' `
+                -Detail $_.Exception.Message.Trim() `
+                -NextStep '先处理 verify-cutover.ps1 提示的问题，再重新初始化；如果已经装坏，再考虑 rollback-from-backup.ps1。'
+        }
     }
     else {
         Write-WarnLine '未检测到 `auth.json`，已跳过自动验板。请先完成 Codex 登录后，再执行 `verify-cutover.ps1`。'
