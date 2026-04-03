@@ -22,6 +22,7 @@
 - `config.toml`
 - `VERSION.json`
 - `manifest.json`
+- `install.cmd`
 - `install-to-home.ps1`
 - `initialize-workspace.ps1`
 - `invoke-panel-command.ps1`
@@ -29,9 +30,16 @@
 - `new-task.ps1`
 - `render-panel-response.ps1`
 - `render-panel-response.test.ps1`
+- `rollback.cmd`
+- `run-managed-install.ps1`
+- `run-managed-self-check.ps1`
 - `start-panel-task.ps1`
 - `rollback-from-backup.ps1`
+- `self-check.cmd`
 - `verify-cutover.ps1`
+- `upgrade-managed-install.ps1`
+- `upgrade.cmd`
+- `verify-panel-command-smoke.ps1`
 - `start-panel-acceptance.ps1`
 - `new-panel-acceptance-result.ps1`
 - `verify-panel-acceptance-result.ps1`
@@ -50,22 +58,34 @@
 - `manifest.json` 的 `included` 是当前生产母体受管文件真源；`install-to-home.ps1` 与 `verify-cutover.ps1` 都按这份清单工作。
 - `install-record.json` 是本机安装记录，属于受管本地记录，会随每次生产同步一起更新。
 - `task-start-state.json` 是本地开工状态缓存，只用于同版本轻量复核；它不属于 `manifest` 受管文件，也不参与公开提交。
+- 当前对普通用户公开的维护层动作只保留 4 个：`install.cmd / upgrade.cmd / self-check.cmd / rollback.cmd`；底层 `.ps1` 退回维护层。
+- 上述 4 个 `.cmd` 会被同步到 `~/.codex` 根目录；升级、自检、回滚都支持不进仓库目录直接执行。
 - 当前仓没有官方面板前端源码；当前真正可控的是官方 Codex 面板的入口层、脚本层与真源层，不单独扩展独立面板。
 - `invoke-panel-command.ps1` 是当前 `传令：XXXX` 的统一脚本路由入口；查询命令与做事命令都先走它。
 - `start-panel-acceptance.ps1` 当前也固定通过 `invoke-panel-command.ps1` 取提示、开工骨架、版本口径、状态口径与升级口径；验板预期与真实入口链保持同源。
 - `render-panel-response.ps1` 是当前面板输出控制面的统一渲染器；开场白、示例句、状态栏顺序、过程金句与收口模板都应先回到它和 `VERSION.json` 验证。
+- 当前可执行 `.ps1/.json` 固定按 Windows PowerShell 5.1 兼容口径治理：文件编码统一 `UTF-8 with BOM`，脚本内部读 JSON 一律显式指定 `UTF-8`。
 
 ## 使用原则
 
+### 普通用户只看这 4 个动作
+
+| 动作 | 命令 | 说明 |
+| --- | --- | --- |
+| 安装 | `.\codex-home-export\install.cmd` | 首次安装到本机 `~/.codex`，并自动做传令冒烟验证 |
+| 升级 | `%USERPROFILE%\.codex\upgrade.cmd` | 从任何目录升级；自动回源仓 `git pull --ff-only` 后重装 |
+| 自检 | `%USERPROFILE%\.codex\self-check.cmd` | 完整验真 + 传令冒烟验证 |
+| 回滚 | `%USERPROFILE%\.codex\rollback.cmd` | 从最近一次备份回滚受管文件 |
+
 ### 当前唯一主线（先看这 4 条）
 
-1. 日常开工优先回官方 `Codex` 面板，直接说：`传令：我要做 XX`。
-2. 面板内默认先走 `start-panel-task.ps1`：对外按“先确认丞相能正常接到传令 → 再确认丞相自身状态良好 → 接着把丞相调整到最佳工作状态 → 丞相记录这次要做的任务 → 丞相开始执行任务”解释流程；内部仍按最小必要原则执行轻量检查、必要时完整验真与自动修复。
+1. 首次安装先执行：`.\codex-home-export\install.cmd`。
+2. 日常开工优先回官方 `Codex` 面板，直接说：`传令：我要做 XX`。
 3. 若当前版本在本机已经验过，后续任务默认跳过重复验真，直接建任务，并留在当前会话继续。
-4. 跳过前仍会轻量复核固定轻检清单：`VERSION.json → config/cx-version.json`、`AGENTS.md`、`config.toml`、`invoke-panel-command.ps1 → config/marshal-mode/invoke-panel-command.ps1`、`start-panel-task.ps1 → config/marshal-mode/start-panel-task.ps1`、`render-panel-response.ps1 → config/marshal-mode/render-panel-response.ps1`；若不一致，自动回到验真流程。
+4. 若要升级、自检、回滚，只用：`upgrade.cmd / self-check.cmd / rollback.cmd`；普通用户不再直接记底层 `.ps1`。
 5. 当前统一入口链固定为：`VERSION.json` → `invoke-panel-command.ps1` → `render-panel-response.ps1 / start-panel-task.ps1`；其中 `传令：状态` 必须按 `status_bar_slots` 顺序渲染，`传令：升级` 必须按真源 3 行口径渲染，不能自行换序或改写边界。
 6. 当前验板链固定为：`start-panel-acceptance.ps1` → `invoke-panel-command.ps1`；不再允许验板脚本绕过统一路由直接拼查询口径。
-7. 第一次准备或维护层排障时，再执行 `initialize-workspace.ps1`、`install-to-home.ps1`、`verify-cutover.ps1` 与 `new-task.ps1`。
+7. 跳过重复验真前仍会轻量复核固定轻检清单：`VERSION.json → config/cx-version.json`、`AGENTS.md`、`config.toml`、`invoke-panel-command.ps1 → config/marshal-mode/invoke-panel-command.ps1`、`start-panel-task.ps1 → config/marshal-mode/start-panel-task.ps1`、`render-panel-response.ps1 → config/marshal-mode/render-panel-response.ps1`；若不一致，自动回到验真流程。
 
 ### 当前对外感知
 
@@ -79,7 +99,8 @@
 
 ### 当前次级材料（先不作为日常主路径）
 
-- `rollback-from-backup.ps1`：只有安装或验真异常时再用。
+- `install-to-home.ps1`、`verify-cutover.ps1`、`rollback-from-backup.ps1`：维护层脚本，普通用户不必直接记。
+- `run-managed-install.ps1`、`run-managed-self-check.ps1`、`upgrade-managed-install.ps1`：给 `.cmd` 包装入口调用的编排层，不作为普通用户公开心智负担。
 - `start-panel-acceptance.ps1`、`new-panel-acceptance-result.ps1`、`verify-panel-acceptance-result.ps1`：保留作维护层补充动作，不作为当前自用 MVP 主路径。
 - `panel-acceptance-*` 文档：保留作补充参考，不作为当前日常必经步骤。
 

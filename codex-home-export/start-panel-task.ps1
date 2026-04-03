@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true, Position = 0)]
     [string]$Title,
     [string]$Goal = '',
@@ -58,7 +58,7 @@ function Read-JsonFileOrNull([string]$Path) {
         return $null
     }
 
-    return (Get-Content -Raw -Path $Path | ConvertFrom-Json)
+    return (Get-Content -Raw -Encoding UTF8 -Path $Path | ConvertFrom-Json)
 }
 
 function Write-RenderedPanelLines([hashtable]$Arguments) {
@@ -69,15 +69,15 @@ function Write-RenderedPanelLines([hashtable]$Arguments) {
     }
 }
 
-function Write-Utf8NoBomJson([string]$Path, [object]$Payload) {
+function Write-Utf8BomJson([string]$Path, [object]$Payload) {
     $parentPath = Split-Path -Parent $Path
     if (-not [string]::IsNullOrWhiteSpace($parentPath)) {
         New-Item -ItemType Directory -Force -Path $parentPath | Out-Null
     }
 
-    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    $utf8Bom = New-Object System.Text.UTF8Encoding($true)
     $jsonText = ($Payload | ConvertTo-Json -Depth 6)
-    [System.IO.File]::WriteAllText($Path, $jsonText, $utf8NoBom)
+    [System.IO.File]::WriteAllText($Path, $jsonText, $utf8Bom)
 }
 
 function Get-Sha256TextOrEmpty([string]$Path) {
@@ -85,7 +85,21 @@ function Get-Sha256TextOrEmpty([string]$Path) {
         return ''
     }
 
-    return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
+    $fileStream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $hashBytes = $sha256.ComputeHash($fileStream)
+        }
+        finally {
+            $sha256.Dispose()
+        }
+    }
+    finally {
+        $fileStream.Dispose()
+    }
+
+    return ([System.BitConverter]::ToString($hashBytes) -replace '-', '').ToLowerInvariant()
 }
 
 function Get-DefaultLightCheckTargets() {
@@ -290,7 +304,7 @@ else {
         repair_used = $repairUsed
         light_check_hashes = New-LightCheckHashesPayload -ResolvedTargets $lightCheckTargets
     }
-    Write-Utf8NoBomJson -Path $taskStartStatePath -Payload $taskStartStatePayload
+    Write-Utf8BomJson -Path $taskStartStatePath -Payload $taskStartStatePayload
 }
 
 $newTaskArguments = @{

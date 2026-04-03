@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true, Position = 0, ParameterSetName = 'command')]
     [string]$CommandText,
     [Parameter(Mandatory = $true, ParameterSetName = 'hint')]

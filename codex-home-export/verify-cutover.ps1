@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$TargetCodexHome = (Join-Path $env:USERPROFILE '.codex'),
     [string]$ExpectedVersion,
     [string]$ExpectedSourceRoot,
@@ -25,11 +25,25 @@ function Write-Ok([string]$Message) {
 }
 
 function Get-Sha256Text([string]$Path) {
-    return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
+    $fileStream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $hashBytes = $sha256.ComputeHash($fileStream)
+        }
+        finally {
+            $sha256.Dispose()
+        }
+    }
+    finally {
+        $fileStream.Dispose()
+    }
+
+    return ([System.BitConverter]::ToString($hashBytes) -replace '-', '').ToLowerInvariant()
 }
 
 function Read-JsonFile([string]$Path) {
-    return (Get-Content -Raw -Path $Path | ConvertFrom-Json)
+    return (Get-Content -Raw -Encoding UTF8 -Path $Path | ConvertFrom-Json)
 }
 
 function Get-ManagedFileMappings {
@@ -52,6 +66,22 @@ function Get-ManagedFileMappings {
         'config.toml' = @{
             TargetPath = Join-Path $ResolvedTargetCodexHome 'config.toml'
             RelativeName = 'config.toml'
+        }
+        'install.cmd' = @{
+            TargetPath = Join-Path $ResolvedTargetCodexHome 'install.cmd'
+            RelativeName = 'install.cmd'
+        }
+        'upgrade.cmd' = @{
+            TargetPath = Join-Path $ResolvedTargetCodexHome 'upgrade.cmd'
+            RelativeName = 'upgrade.cmd'
+        }
+        'self-check.cmd' = @{
+            TargetPath = Join-Path $ResolvedTargetCodexHome 'self-check.cmd'
+            RelativeName = 'self-check.cmd'
+        }
+        'rollback.cmd' = @{
+            TargetPath = Join-Path $ResolvedTargetCodexHome 'rollback.cmd'
+            RelativeName = 'rollback.cmd'
         }
     }
 
@@ -179,7 +209,8 @@ Write-Info ("ManagedFileCount={0}" -f $managedFileMappings.Count)
 Write-Info '运行态说明：`task-start-state.json` 只用于同版本轻量复核缓存；不属于 manifest 受管文件，也不参与公开提交。'
 Write-Ok '生产母体受管文件验真通过。'
 Write-Info '默认日常入口：回官方 Codex 面板直接说 `传令：我要做 XX`。'
+Write-Info ("维护层四个动作：{0} / {1} / {2} / {3}" -f 'install.cmd', 'upgrade.cmd', 'self-check.cmd', 'rollback.cmd')
 Write-Info '对外流程：先确认丞相能正常接到传令 → 再确认丞相自身状态良好 → 接着把丞相调整到最佳工作状态 → 丞相记录这次要做的任务 → 丞相开始执行任务。'
 Write-Info '固定边界：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。'
 Write-Info '若当前就在维护层，也可执行 `new-task.ps1 -Title "你的任务标题"` 直接起任务。'
-Write-Info '若发现异常：先重跑 `verify-cutover.ps1`，仍异常再执行 `rollback-from-backup.ps1`。'
+Write-Info '若发现异常：先重跑 `self-check.cmd`，仍异常再执行 `rollback.cmd`。'

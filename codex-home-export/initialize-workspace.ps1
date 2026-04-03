@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$RepoRootPath = '',
     [string]$TargetCodexHome = (Join-Path $env:USERPROFILE '.codex'),
     [string]$FirstTaskTitle = '第一个示例任务',

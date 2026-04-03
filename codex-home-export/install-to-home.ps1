@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$TargetCodexHome = (Join-Path $env:USERPROFILE '.codex'),
     [switch]$DryRun
 )
@@ -32,10 +32,10 @@ function Ensure-ParentDirectory([string]$Path) {
     }
 }
 
-function Set-Utf8NoBomContent([string]$Path, [string]$Content) {
+function Set-Utf8BomContent([string]$Path, [string]$Content) {
     Ensure-ParentDirectory -Path $Path
-    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-    [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
+    $utf8Bom = New-Object System.Text.UTF8Encoding($true)
+    [System.IO.File]::WriteAllText($Path, $Content, $utf8Bom)
 }
 
 function Backup-FileIfExists([string]$PathToBackup, [string]$RelativeName) {
@@ -51,11 +51,25 @@ function Backup-FileIfExists([string]$PathToBackup, [string]$RelativeName) {
 }
 
 function Read-JsonFile([string]$Path) {
-    return (Get-Content -Raw -Path $Path | ConvertFrom-Json)
+    return (Get-Content -Raw -Encoding UTF8 -Path $Path | ConvertFrom-Json)
 }
 
 function Get-Sha256Text([string]$Path) {
-    return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
+    $fileStream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $hashBytes = $sha256.ComputeHash($fileStream)
+        }
+        finally {
+            $sha256.Dispose()
+        }
+    }
+    finally {
+        $fileStream.Dispose()
+    }
+
+    return ([System.BitConverter]::ToString($hashBytes) -replace '-', '').ToLowerInvariant()
 }
 
 function Get-ManagedFileMappings {
@@ -78,6 +92,22 @@ function Get-ManagedFileMappings {
         'config.toml' = @{
             TargetPath = Join-Path $ResolvedTargetCodexHome 'config.toml'
             RelativeName = 'config.toml'
+        }
+        'install.cmd' = @{
+            TargetPath = Join-Path $ResolvedTargetCodexHome 'install.cmd'
+            RelativeName = 'install.cmd'
+        }
+        'upgrade.cmd' = @{
+            TargetPath = Join-Path $ResolvedTargetCodexHome 'upgrade.cmd'
+            RelativeName = 'upgrade.cmd'
+        }
+        'self-check.cmd' = @{
+            TargetPath = Join-Path $ResolvedTargetCodexHome 'self-check.cmd'
+            RelativeName = 'self-check.cmd'
+        }
+        'rollback.cmd' = @{
+            TargetPath = Join-Path $ResolvedTargetCodexHome 'rollback.cmd'
+            RelativeName = 'rollback.cmd'
         }
     }
 
@@ -174,7 +204,8 @@ $installRecord = [ordered]@{
     )
 }
 
-Set-Utf8NoBomContent -Path $runtimeInstallRecordPath -Content ($installRecord | ConvertTo-Json -Depth 5)
+Set-Utf8BomContent -Path $runtimeInstallRecordPath -Content ($installRecord | ConvertTo-Json -Depth 5)
 Write-Ok '已同步生产母体受管文件与安装记录。'
 Write-Info "安装记录：$runtimeInstallRecordPath"
-Write-WarnLine '如需验证生产真源是否接管成功，请继续执行 verify-cutover.ps1。'
+Write-Info ("对外入口已落地：{0}" -f (Join-Path $resolvedTargetCodexHome 'install.cmd'))
+Write-WarnLine '如需验证生产真源是否接管成功，请继续执行 self-check.cmd 或 verify-cutover.ps1。'

@@ -52,7 +52,8 @@ F:\260328大都督模式
 
 ## 现在默认怎么开工
 
-- 第一次准备环境，仍用维护层脚本。
+- 第一次准备环境，普通用户只执行：`.\codex-home-export\install.cmd`。
+- 安装完成后，升级 / 自检 / 回滚只执行：`%USERPROFILE%\.codex\upgrade.cmd`、`%USERPROFILE%\.codex\self-check.cmd`、`%USERPROFILE%\.codex\rollback.cmd`。
 - 日常开工，优先回官方 Codex 面板直接说：`传令：我要做 XX`。
 - 面板内会先走 `codex-home-export/start-panel-task.ps1`。
 - 系统对外固定流程是：`先确认丞相能正常接到传令 → 再确认丞相自身状态良好 → 接着把丞相调整到最佳工作状态 → 丞相记录这次要做的任务 → 丞相开始执行任务`。

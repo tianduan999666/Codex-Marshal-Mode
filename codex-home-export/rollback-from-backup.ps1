@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$TargetCodexHome = (Join-Path $env:USERPROFILE '.codex'),
     [string]$InstallRecordPath,
     [string]$BackupRoot,
@@ -34,7 +34,7 @@ if (-not (Test-Path $InstallRecordPath)) {
     throw "缺少安装记录：$InstallRecordPath"
 }
 
-$installRecord = Get-Content -Raw -Path $InstallRecordPath | ConvertFrom-Json
+$installRecord = Get-Content -Raw -Encoding UTF8 -Path $InstallRecordPath | ConvertFrom-Json
 $resolvedBackupRoot = if ([string]::IsNullOrWhiteSpace($BackupRoot)) { $installRecord.backup_root } else { $BackupRoot }
 if ([string]::IsNullOrWhiteSpace($resolvedBackupRoot)) {
     throw '安装记录缺少 backup_root，且未显式传入 -BackupRoot。'

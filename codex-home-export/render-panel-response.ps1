@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('hint', 'task-entry', 'version', 'status', 'upgrade', 'process-quote', 'closeout')]
     [string]$Kind,
@@ -43,7 +43,7 @@ function Read-PanelResponseJsonFile([string]$Path) {
         return $null
     }
 
-    return (Get-Content -Raw -Path $Path | ConvertFrom-Json)
+    return (Get-Content -Raw -Encoding UTF8 -Path $Path | ConvertFrom-Json)
 }
 
 function Get-PanelResponseStringOrDefault([string]$Value, [string]$Fallback) {
@@ -72,7 +72,21 @@ function Get-PanelResponseSha256OrEmpty([string]$Path) {
         return ''
     }
 
-    return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
+    $fileStream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $hashBytes = $sha256.ComputeHash($fileStream)
+        }
+        finally {
+            $sha256.Dispose()
+        }
+    }
+    finally {
+        $fileStream.Dispose()
+    }
+
+    return ([System.BitConverter]::ToString($hashBytes) -replace '-', '').ToLowerInvariant()
 }
 
 function Resolve-PanelResponseTemplateLine([string]$Template, [hashtable]$TokenMap) {

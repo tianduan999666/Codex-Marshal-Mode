@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$TargetCodexHome = (Join-Path $env:USERPROFILE '.codex'),
     [string]$OutputDirectory = (Join-Path (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)) 'logs'),
     [switch]$RequireBackupRoot
@@ -23,7 +23,7 @@ function Write-Ok([string]$Message) {
 }
 
 function Read-JsonFile([string]$Path) {
-    return (Get-Content -Raw -Path $Path | ConvertFrom-Json)
+    return (Get-Content -Raw -Encoding UTF8 -Path $Path | ConvertFrom-Json)
 }
 
 function Get-RoutedPanelLines([hashtable]$Arguments) {

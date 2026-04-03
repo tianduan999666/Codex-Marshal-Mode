@@ -1,10 +1,10 @@
-param()
+﻿param()
 
 $ErrorActionPreference = 'Stop'
 $scriptRootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $invokeScriptPath = Join-Path $scriptRootPath 'invoke-panel-command.ps1'
 $versionPath = Join-Path $scriptRootPath 'VERSION.json'
-$versionInfo = Get-Content -Raw -Path $versionPath | ConvertFrom-Json
+$versionInfo = Get-Content -Raw -Encoding UTF8 -Path $versionPath | ConvertFrom-Json
 
 function Assert-PanelCommandEqual([string]$Actual, [string]$Expected, [string]$Message) {
     if ($Actual -ne $Expected) {
