@@ -10,10 +10,10 @@ $sourceRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $resolvedTargetCodexHome = [System.IO.Path]::GetFullPath($TargetCodexHome)
 $versionSourcePath = Join-Path $sourceRoot 'VERSION.json'
 $manifestSourcePath = Join-Path $sourceRoot 'manifest.json'
-$runtimeMetaRoot = Join-Path $resolvedTargetCodexHome 'config\marshal-mode'
+$runtimeMetaRoot = Join-Path $resolvedTargetCodexHome 'config\chancellor-mode'
 $runtimeVersionPath = Join-Path $resolvedTargetCodexHome 'config\cx-version.json'
 $runtimeManifestPath = Join-Path $runtimeMetaRoot 'manifest.json'
-$runtimeInstallRecordPath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode\install-record.json'
+$runtimeInstallRecordPath = Join-Path $resolvedTargetCodexHome 'config\chancellor-mode\install-record.json'
 $authPath = Join-Path $resolvedTargetCodexHome 'auth.json'
 
 function Write-Info([string]$Message) {
@@ -100,7 +100,7 @@ function Get-ManagedFileMappings {
         else {
             $targetInfo = @{
                 TargetPath = Join-Path $RuntimeMetaRoot $normalizedIncludedPath
-                RelativeName = 'config/marshal-mode/{0}' -f (($includedPath -replace '\\', '/').TrimStart('/'))
+                RelativeName = 'config/chancellor-mode/{0}' -f (($includedPath -replace '\\', '/').TrimStart('/'))
             }
         }
 
@@ -158,7 +158,7 @@ if ($runtimeManifestInfo.version -ne $expectedVersionValue) {
     throw "运行态 manifest 版本不匹配：期望 $expectedVersionValue，实际 $($runtimeManifestInfo.version)"
 }
 
-foreach ($requiredManagedFile in $managedRelativeNames + @('config/marshal-mode/install-record.json')) {
+foreach ($requiredManagedFile in $managedRelativeNames + @('config/chancellor-mode/install-record.json')) {
     if (-not ($runtimeInstallRecord.managed_files -contains $requiredManagedFile)) {
         throw "安装记录缺少 managed_files 项：$requiredManagedFile"
     }

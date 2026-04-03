@@ -11,7 +11,7 @@ $resolvedRepoRootPath = [System.IO.Path]::GetFullPath((Join-Path $scriptRootPath
 $installScriptPath = Join-Path $scriptRootPath 'install-to-home.ps1'
 $verifyScriptPath = Join-Path $scriptRootPath 'verify-cutover.ps1'
 $smokeScriptPath = Join-Path $scriptRootPath 'verify-panel-command-smoke.ps1'
-$runtimeScriptsRootPath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode'
+$runtimeScriptsRootPath = Join-Path $resolvedTargetCodexHome 'config\chancellor-mode'
 $authPath = Join-Path $resolvedTargetCodexHome 'auth.json'
 
 function Write-Info([string]$Message) {

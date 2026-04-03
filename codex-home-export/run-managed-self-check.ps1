@@ -5,7 +5,7 @@
 $ErrorActionPreference = 'Stop'
 $scriptRootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $resolvedTargetCodexHome = [System.IO.Path]::GetFullPath($TargetCodexHome)
-$runtimeMetaRootPath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode'
+$runtimeMetaRootPath = Join-Path $resolvedTargetCodexHome 'config\chancellor-mode'
 $runtimeInstallRecordPath = Join-Path $runtimeMetaRootPath 'install-record.json'
 $runtimeScriptsRootPath = $runtimeMetaRootPath
 

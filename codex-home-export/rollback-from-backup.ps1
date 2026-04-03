@@ -8,7 +8,7 @@
 $ErrorActionPreference = 'Stop'
 $resolvedTargetCodexHome = [System.IO.Path]::GetFullPath($TargetCodexHome)
 if ([string]::IsNullOrWhiteSpace($InstallRecordPath)) {
-    $InstallRecordPath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode\install-record.json'
+    $InstallRecordPath = Join-Path $resolvedTargetCodexHome 'config\chancellor-mode\install-record.json'
 }
 
 function Write-Info([string]$Message) {
@@ -44,14 +44,14 @@ $managedFiles = @()
 if ($installRecord.managed_files) {
     $managedFiles = @($installRecord.managed_files)
 } elseif ($installRecord.synced_files) {
-    $managedFiles = @($installRecord.synced_files) + @('config/marshal-mode/install-record.json')
+    $managedFiles = @($installRecord.synced_files) + @('config/chancellor-mode/install-record.json')
 } else {
     $managedFiles = @(
         'config/cx-version.json'
-        'config/marshal-mode/manifest.json'
-        'config/marshal-mode/README.md'
-        'config/marshal-mode/start-panel-task.ps1'
-        'config/marshal-mode/install-record.json'
+        'config/chancellor-mode/manifest.json'
+        'config/chancellor-mode/README.md'
+        'config/chancellor-mode/start-panel-task.ps1'
+        'config/chancellor-mode/install-record.json'
     )
 }
 

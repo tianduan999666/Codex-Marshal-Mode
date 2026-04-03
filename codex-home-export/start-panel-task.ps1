@@ -29,7 +29,7 @@ $configSourcePath = Join-Path $scriptRootPath 'config.toml'
 $runtimeVersionPath = Join-Path $resolvedTargetCodexHome 'config\cx-version.json'
 $runtimeAgentsPath = Join-Path $resolvedTargetCodexHome 'AGENTS.md'
 $runtimeConfigPath = Join-Path $resolvedTargetCodexHome 'config.toml'
-$runtimeMetaRootPath = Join-Path $resolvedTargetCodexHome 'config\marshal-mode'
+$runtimeMetaRootPath = Join-Path $resolvedTargetCodexHome 'config\chancellor-mode'
 $taskStartStatePath = Join-Path $runtimeMetaRootPath 'task-start-state.json'
 $activeTaskFilePath = Join-Path $resolvedRepoRootPath '.codex\chancellor\active-task.txt'
 
@@ -107,9 +107,9 @@ function Get-DefaultLightCheckTargets() {
         [ordered]@{ name = '版本镜像'; source_path = 'VERSION.json'; runtime_path = 'config/cx-version.json' }
         [ordered]@{ name = '规则总纲'; source_path = 'AGENTS.md'; runtime_path = 'AGENTS.md' }
         [ordered]@{ name = '主配置'; source_path = 'config.toml'; runtime_path = 'config.toml' }
-        [ordered]@{ name = '入口路由脚本'; source_path = 'invoke-panel-command.ps1'; runtime_path = 'config/marshal-mode/invoke-panel-command.ps1' }
-        [ordered]@{ name = '开工脚本'; source_path = 'start-panel-task.ps1'; runtime_path = 'config/marshal-mode/start-panel-task.ps1' }
-        [ordered]@{ name = '渲染脚本'; source_path = 'render-panel-response.ps1'; runtime_path = 'config/marshal-mode/render-panel-response.ps1' }
+        [ordered]@{ name = '入口路由脚本'; source_path = 'invoke-panel-command.ps1'; runtime_path = 'config/chancellor-mode/invoke-panel-command.ps1' }
+        [ordered]@{ name = '开工脚本'; source_path = 'start-panel-task.ps1'; runtime_path = 'config/chancellor-mode/start-panel-task.ps1' }
+        [ordered]@{ name = '渲染脚本'; source_path = 'render-panel-response.ps1'; runtime_path = 'config/chancellor-mode/render-panel-response.ps1' }
     )
 }
 
