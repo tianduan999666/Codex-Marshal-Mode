@@ -57,6 +57,7 @@
 
 ## 面板真源渲染规则
 - 面板入口层与输出层的公开真源，固定以 `codex-home-export/VERSION.json` 为准。
+- `传令：XXXX` 的统一脚本路由入口固定为 `codex-home-export/invoke-panel-command.ps1`；查询命令与做事命令都先走这一层，再分发到渲染器或开工脚本。
 - 开场白、示例句、边界提示、版本 3 行、收口 3 段，固定按 `standard_response_templates` 与顶层真源字段渲染，不准另起一套硬编码口径。
 - 最小过程金句固定按 `process_quotes_minimal` 取值；一次只显示 1 句，按阶段推进，不随机刷屏。
 - `传令：状态` 的 6 行顺序固定按 `status_bar_slots` 渲染，不准自行换序、并行拼接或省槽位。

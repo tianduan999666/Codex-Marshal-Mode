@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('hint', 'task-entry', 'version', 'status', 'process-quote', 'closeout')]
+    [ValidateSet('hint', 'task-entry', 'version', 'status', 'upgrade', 'process-quote', 'closeout')]
     [string]$Kind,
     [ValidateSet('', 'task_entry', 'analysis', 'breakdown', 'dispatch', 'wrap_up', 'closeout')]
     [string]$Phase = '',
@@ -24,7 +24,14 @@ if ([string]::IsNullOrWhiteSpace($RepoRootPath)) {
     $RepoRootPath = Join-Path $scriptRootPath '..'
 }
 if ([string]::IsNullOrWhiteSpace($VersionPath)) {
-    $VersionPath = Join-Path $scriptRootPath 'VERSION.json'
+    $sourceVersionPath = Join-Path $scriptRootPath 'VERSION.json'
+    $runtimeVersionPath = Join-Path (Split-Path -Parent $scriptRootPath) 'cx-version.json'
+    if (Test-Path $sourceVersionPath) {
+        $VersionPath = $sourceVersionPath
+    }
+    else {
+        $VersionPath = $runtimeVersionPath
+    }
 }
 $resolvedRepoRootPath = [System.IO.Path]::GetFullPath($RepoRootPath)
 $resolvedTargetCodexHome = [System.IO.Path]::GetFullPath($TargetCodexHome)
@@ -93,6 +100,7 @@ function Get-PanelResponseDefaultLightCheckTargets() {
         [ordered]@{ name = '版本镜像'; source_path = 'VERSION.json'; runtime_path = 'config/cx-version.json' }
         [ordered]@{ name = '规则总纲'; source_path = 'AGENTS.md'; runtime_path = 'AGENTS.md' }
         [ordered]@{ name = '主配置'; source_path = 'config.toml'; runtime_path = 'config.toml' }
+        [ordered]@{ name = '入口路由脚本'; source_path = 'invoke-panel-command.ps1'; runtime_path = 'config/marshal-mode/invoke-panel-command.ps1' }
         [ordered]@{ name = '开工脚本'; source_path = 'start-panel-task.ps1'; runtime_path = 'config/marshal-mode/start-panel-task.ps1' }
         [ordered]@{ name = '渲染脚本'; source_path = 'render-panel-response.ps1'; runtime_path = 'config/marshal-mode/render-panel-response.ps1' }
     )
@@ -229,6 +237,25 @@ function Get-PanelResponseVersionLines([object]$VersionInfo, [hashtable]$BaseTok
     return @($templateLines | ForEach-Object { Resolve-PanelResponseTemplateLine -Template $_ -TokenMap $BaseTokens })
 }
 
+function Get-PanelResponseUpgradeLines([object]$VersionInfo, [hashtable]$BaseTokens) {
+    $templateLines = if (($null -ne $VersionInfo.standard_response_templates) -and ($null -ne $VersionInfo.standard_response_templates.upgrade)) {
+        Get-PanelResponseArrayOrDefault -Value $VersionInfo.standard_response_templates.upgrade -Fallback @(
+            '触发方式：只在用户主动输入 `传令：升级` 时触发'
+            '处理边界：只处理丞相自身升级或同步，不擅自升级用户项目'
+            '默认策略：未收到明确升级传令时，不自动升级'
+        )
+    }
+    else {
+        @(
+            '触发方式：只在用户主动输入 `传令：升级` 时触发'
+            '处理边界：只处理丞相自身升级或同步，不擅自升级用户项目'
+            '默认策略：未收到明确升级传令时，不自动升级'
+        )
+    }
+
+    return @($templateLines | ForEach-Object { Resolve-PanelResponseTemplateLine -Template $_ -TokenMap $BaseTokens })
+}
+
 function Get-PanelResponseStatusFallbackTemplateLine([string]$SlotName) {
     $slotTokenMap = @{
         '版本' = 'cx_version'
@@ -331,6 +358,9 @@ switch ($Kind) {
     }
     'status' {
         Write-Output (Get-PanelResponseStatusLines -VersionInfo $versionInfo -TaskStartState $taskStartState -ScriptRootPath $scriptRootPath -ResolvedTargetCodexHome $resolvedTargetCodexHome -ResolvedRepoRootPath $resolvedRepoRootPath -BaseTokens $baseTokens -ExplicitLastCheck $LastCheck -ExplicitAutoRepair $AutoRepair -ExplicitKeyFileConsistency $KeyFileConsistency -ExplicitCurrentMode $CurrentMode -ExplicitCurrentTask $CurrentTask)
+    }
+    'upgrade' {
+        Write-Output (Get-PanelResponseUpgradeLines -VersionInfo $versionInfo -BaseTokens $baseTokens)
     }
     'process-quote' {
         if ([string]::IsNullOrWhiteSpace($Phase)) {

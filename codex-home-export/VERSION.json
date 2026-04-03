@@ -1,6 +1,6 @@
 {
-  "cx_version": "CX-202604030910",
-  "released_at": "2026-04-03 09:10",
+  "cx_version": "CX-202604031015",
+  "released_at": "2026-04-03 10:15",
   "mode": "panel-only",
   "display_name": "丞相",
   "task_entry_prefix": "传令：",
@@ -28,6 +28,11 @@
       "name": "主配置",
       "source_path": "config.toml",
       "runtime_path": "config.toml"
+    },
+    {
+      "name": "入口路由脚本",
+      "source_path": "invoke-panel-command.ps1",
+      "runtime_path": "config/marshal-mode/invoke-panel-command.ps1"
     },
     {
       "name": "开工脚本",
@@ -69,6 +74,11 @@
       "版本来源：codex-home-export",
       "真源路径：codex-home-export/VERSION.json"
     ],
+    "upgrade": [
+      "触发方式：只在用户主动输入 `传令：升级` 时触发",
+      "处理边界：只处理丞相自身升级或同步，不擅自升级用户项目",
+      "默认策略：未收到明确升级传令时，不自动升级"
+    ],
     "status": [
       "版本：<cx_version>",
       "上次检查：<last_check>",
@@ -92,5 +102,5 @@
     "closeout": "此事已交卷，现呈结果。"
   },
   "boundary_prompt": "提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。",
-  "notes": "当前默认日常入口统一为 `传令：XXXX`；默认开场白固定为“🪶 军令入帐。亮，即刻接管全局。”；用户可选查询命令只保留 `传令：状态 / 传令：版本 / 传令：升级`；新对话优先展示示例“例如：传令：计算1+1=?”；状态查看固定六行：版本 / 上次检查 / 自动修复 / 关键文件一致性 / 当前模式 / 当前任务；表达真源当前固定为“开工骨架 + 版本 3 行 + 状态 6 行 + 收口 3 段 + 最小过程金句 6 句”，并统一由 `render-panel-response.ps1` 渲染；同版本轻量复核固定对象为“版本镜像 / AGENTS.md / config.toml / start-panel-task.ps1 / render-panel-response.ps1”；升级必须由用户主动提出，不自动升级。"
+  "notes": "当前默认日常入口统一为 `传令：XXXX`；默认开场白固定为“🪶 军令入帐。亮，即刻接管全局。”；用户可选查询命令只保留 `传令：状态 / 传令：版本 / 传令：升级`；新对话优先展示示例“例如：传令：计算1+1=?”；状态查看固定六行：版本 / 上次检查 / 自动修复 / 关键文件一致性 / 当前模式 / 当前任务；表达真源当前固定为“开工骨架 + 版本 3 行 + 升级 3 行 + 状态 6 行 + 收口 3 段 + 最小过程金句 6 句”，并统一由 `render-panel-response.ps1` 渲染；传令入口当前统一由 `invoke-panel-command.ps1` 路由；同版本轻量复核固定对象为“版本镜像 / AGENTS.md / config.toml / invoke-panel-command.ps1 / start-panel-task.ps1 / render-panel-response.ps1”；升级必须由用户主动提出，不自动升级。"
 }

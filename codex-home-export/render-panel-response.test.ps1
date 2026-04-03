@@ -41,6 +41,11 @@ Assert-PanelResponseEqual -Actual $versionLines[0] -Expected ('版本号：{0}' 
 Assert-PanelResponseEqual -Actual $versionLines[1] -Expected ('版本来源：{0}' -f $versionInfo.source_of_truth) -Message 'version 第 2 行应返回版本来源'
 Assert-PanelResponseEqual -Actual $versionLines[2] -Expected '真源路径：codex-home-export/VERSION.json' -Message 'version 第 3 行应返回真源路径'
 
+$upgradeLines = @(& $renderScriptPath -Kind 'upgrade' -VersionPath $versionPath)
+Assert-PanelResponseLineCount -ActualLines $upgradeLines -ExpectedCount 3 -Message 'upgrade 应返回 3 行固定槽位'
+Assert-PanelResponseEqual -Actual $upgradeLines[0] -Expected '触发方式：只在用户主动输入 `传令：升级` 时触发' -Message 'upgrade 第 1 行应返回触发方式'
+Assert-PanelResponseEqual -Actual $upgradeLines[2] -Expected '默认策略：未收到明确升级传令时，不自动升级' -Message 'upgrade 第 3 行应返回默认策略'
+
 $statusLines = @(& $renderScriptPath -Kind 'status' -VersionPath $versionPath -CxVersion 'VX' -LastCheck 'LC' -AutoRepair 'AR' -KeyFileConsistency 'KC' -CurrentMode 'CM' -CurrentTask 'CT')
 Assert-PanelResponseLineCount -ActualLines $statusLines -ExpectedCount 6 -Message 'status 应返回 6 行固定状态栏'
 $expectedStatusLines = @(

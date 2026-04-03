@@ -24,6 +24,8 @@
 - `manifest.json`
 - `install-to-home.ps1`
 - `initialize-workspace.ps1`
+- `invoke-panel-command.ps1`
+- `invoke-panel-command.test.ps1`
 - `new-task.ps1`
 - `render-panel-response.ps1`
 - `render-panel-response.test.ps1`
@@ -49,6 +51,7 @@
 - `install-record.json` 是本机安装记录，属于受管本地记录，会随每次生产同步一起更新。
 - `task-start-state.json` 是本地开工状态缓存，只用于同版本轻量复核；它不属于 `manifest` 受管文件，也不参与公开提交。
 - 当前仓没有官方面板前端源码；当前真正可控的是官方 Codex 面板的入口层、脚本层与真源层，不单独扩展独立面板。
+- `invoke-panel-command.ps1` 是当前 `传令：XXXX` 的统一脚本路由入口；查询命令与做事命令都先走它。
 - `render-panel-response.ps1` 是当前面板输出控制面的统一渲染器；开场白、示例句、状态栏顺序、过程金句与收口模板都应先回到它和 `VERSION.json` 验证。
 
 ## 使用原则
@@ -58,8 +61,8 @@
 1. 日常开工优先回官方 `Codex` 面板，直接说：`传令：我要做 XX`。
 2. 面板内默认先走 `start-panel-task.ps1`：对外按“先确认丞相能正常接到传令 → 再确认丞相自身状态良好 → 接着把丞相调整到最佳工作状态 → 丞相记录这次要做的任务 → 丞相开始执行任务”解释流程；内部仍按最小必要原则执行轻量检查、必要时完整验真与自动修复。
 3. 若当前版本在本机已经验过，后续任务默认跳过重复验真，直接建任务，并留在当前会话继续。
-4. 跳过前仍会轻量复核固定轻检清单：`VERSION.json → config/cx-version.json`、`AGENTS.md`、`config.toml`、`start-panel-task.ps1 → config/marshal-mode/start-panel-task.ps1`、`render-panel-response.ps1 → config/marshal-mode/render-panel-response.ps1`；若不一致，自动回到验真流程。
-5. 当前统一渲染链固定为：`VERSION.json` → `render-panel-response.ps1` → `start-panel-task.ps1 / start-panel-acceptance.ps1`；其中 `传令：状态` 必须按 `status_bar_slots` 顺序渲染，不能自行换序。
+4. 跳过前仍会轻量复核固定轻检清单：`VERSION.json → config/cx-version.json`、`AGENTS.md`、`config.toml`、`invoke-panel-command.ps1 → config/marshal-mode/invoke-panel-command.ps1`、`start-panel-task.ps1 → config/marshal-mode/start-panel-task.ps1`、`render-panel-response.ps1 → config/marshal-mode/render-panel-response.ps1`；若不一致，自动回到验真流程。
+5. 当前统一入口链固定为：`VERSION.json` → `invoke-panel-command.ps1` → `render-panel-response.ps1 / start-panel-task.ps1`；其中 `传令：状态` 必须按 `status_bar_slots` 顺序渲染，`传令：升级` 必须按真源 3 行口径渲染，不能自行换序或改写边界。
 6. 第一次准备或维护层排障时，再执行 `initialize-workspace.ps1`、`install-to-home.ps1`、`verify-cutover.ps1` 与 `new-task.ps1`。
 
 ### 当前对外感知
@@ -83,6 +86,9 @@
 ```powershell
 # 预览新对话示例句
 powershell.exe -ExecutionPolicy Bypass -File .\codex-home-export\render-panel-response.ps1 -Kind hint
+
+# 模拟完整传令入口
+powershell.exe -ExecutionPolicy Bypass -File .\codex-home-export\invoke-panel-command.ps1 "传令：状态"
 
 # 预览版本 3 行固定口径
 powershell.exe -ExecutionPolicy Bypass -File .\codex-home-export\render-panel-response.ps1 -Kind version
