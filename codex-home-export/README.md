@@ -46,6 +46,7 @@ cd Codex-Chancellor-Mode
 - `start-panel-task.ps1`
 - `run-managed-install.ps1`
 - `run-managed-self-check.ps1`
+- `run-managed-self-check.test.ps1`
 - `rollback-from-backup.ps1`
 - `self-check.cmd`
 - `verify-cutover.ps1`
@@ -90,7 +91,7 @@ cd Codex-Chancellor-Mode
 | 动作 | 命令 | 说明 |
 | --- | --- | --- |
 | 安装 | `.\install.cmd` | 首次安装到本机 `~/.codex`，自动做传令冒烟与真实 provider/auth 探针验证 |
-| 升级 | `%USERPROFILE%\.codex\upgrade.cmd` | 从任何目录升级；若源仓有未提交改动则停止，并给出 `status / stash / restore / 重新 clone` 指引；干净时再执行 `git pull --ff-only` 后重装，并补真实 provider/auth 探针 |
+| 升级 | `%USERPROFILE%\.codex\upgrade.cmd` | 从任何目录升级；若源仓有未提交改动则停止，并先按 `公开入口/生产母体 / 维护层在研 / 本地任务/运行态 / 文档/方案 / 其他待人工判断` 分组提示，再给出 `status / stash / restore / 重新 clone` 指引；干净时再执行 `git pull --ff-only` 后重装，并补真实 provider/auth 探针 |
 | 自检 | `%USERPROFILE%\.codex\self-check.cmd` | 完整验真 + 传令冒烟 + 真实 provider/auth 探针 |
 | 回滚 | `%USERPROFILE%\.codex\rollback.cmd` | 从最近一次备份回滚受管文件 |
 
@@ -98,18 +99,21 @@ cd Codex-Chancellor-Mode
 
 1. 首次安装先执行：`.\install.cmd`。
 2. 日常开工优先回官方 `Codex` 面板，直接说：`传令：修一下登录页`。
-3. 若当前版本在本机已经验过，后续任务默认跳过重复验真，直接建任务，并留在当前会话继续。
+3. 若当前版本在本机已经验过，后续任务默认跳过重复验真，直接建任务；若已有激活任务，也可直接说：`传令：继续` 或 `传令：继续当前任务`。
 4. 若要升级、自检、回滚，只用：`upgrade.cmd / self-check.cmd / rollback.cmd`；普通用户不再直接记底层 `.ps1`。
-5. 当前统一入口链固定为：`VERSION.json` → `invoke-panel-command.ps1` → `render-panel-response.ps1 / start-panel-task.ps1`；其中 `传令：状态` 必须按 `status_bar_slots` 顺序渲染，`传令：升级` 必须按真源 3 行口径渲染，不能自行换序或改写边界。
-6. 当前验板链固定为：`start-panel-acceptance.ps1` → `invoke-panel-command.ps1`；不再允许验板脚本绕过统一路由直接拼查询口径。
-7. 跳过重复验真前仍会轻量复核固定轻检清单：`VERSION.json → config/cx-version.json`、`AGENTS.md`、`invoke-panel-command.ps1 → config/chancellor-mode/invoke-panel-command.ps1`、`start-panel-task.ps1 → config/chancellor-mode/start-panel-task.ps1`、`render-panel-response.ps1 → config/chancellor-mode/render-panel-response.ps1`；若不一致，自动回到验真流程。
-8. 如需显式套用仓内模板 provider，再单独执行：`.\install.cmd -ApplyTemplateConfig`；默认安装与升级都不会替你切 provider / key。
-9. 若当前 provider=`crs` 且统一 `/models` 探针返回 404，脚本会明确提示“需回官方 Codex 面板真人验证一次”；不再把这种情况当成静默通过。
+
+### 维护层补充口径（备用）
+
+1. 当前统一入口链固定为：`VERSION.json` → `invoke-panel-command.ps1` → `render-panel-response.ps1 / start-panel-task.ps1`；其中 `传令：状态` 必须按 `status_bar_slots` 顺序渲染，`传令：升级` 必须按真源 3 行口径渲染，不能自行换序或改写边界。
+2. 当前验板链固定为：`start-panel-acceptance.ps1` → `invoke-panel-command.ps1`；不再允许验板脚本绕过统一路由直接拼查询口径。
+3. 跳过重复验真前仍会轻量复核固定轻检清单：`VERSION.json → config/cx-version.json`、`AGENTS.md`、`invoke-panel-command.ps1 → config/chancellor-mode/invoke-panel-command.ps1`、`start-panel-task.ps1 → config/chancellor-mode/start-panel-task.ps1`、`render-panel-response.ps1 → config/chancellor-mode/render-panel-response.ps1`；若不一致，自动回到验真流程。
+4. 如需显式套用仓内模板 provider，再单独执行：`.\install.cmd -ApplyTemplateConfig`；默认安装与升级都不会替你切 provider / key。
+5. 若当前 provider=`crs` 且统一 `/models` 探针返回 404，脚本会明确提示“需回官方 Codex 面板真人验证一次”；不再把这种情况当成静默通过。
 
 ### 当前对外感知
 
 - 对外统一叫 `丞相`。
-- `传令：XXXX` 是唯一做事入口；`传令：状态 / 传令：版本 / 传令：升级` 是仅保留的 3 个可选查询命令。
+- `传令：XXXX` 是唯一做事入口；若已有激活任务，可直接说 `传令：继续 / 传令：继续当前任务`；`传令：状态 / 传令：版本 / 传令：升级` 是仅保留的 3 个可选查询命令。
 - 默认开场白固定为：`🪶 军令入帐。亮，即刻接管全局。`
 - 新对话优先展示示例：`例如：传令：计算1+1=?`
 - `传令：状态` 固定优先展示 6 行：`版本 / 上次检查 / 自动修复 / 关键文件一致性 / 当前模式 / 当前任务`。
