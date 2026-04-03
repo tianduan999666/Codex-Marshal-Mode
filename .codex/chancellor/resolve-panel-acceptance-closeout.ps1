@@ -41,6 +41,59 @@ function Write-Ok([string]$Message) {
     Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
+function Write-WarnLine([string]$Message) {
+    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+}
+
+function Throw-FriendlyResolveCloseout {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string[]]$NextSteps = @()
+    )
+
+    $messageLines = @($Summary)
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        $messageLines += ("原因：{0}" -f $Detail)
+    }
+
+    if ($NextSteps.Count -gt 0) {
+        $messageLines += ''
+        $messageLines += '下一步：'
+        foreach ($nextStep in $NextSteps) {
+            $messageLines += ("- {0}" -f $nextStep)
+        }
+    }
+
+    throw ($messageLines -join [Environment]::NewLine)
+}
+
+function Invoke-ResolveCloseoutStep {
+    param(
+        [scriptblock]$Action,
+        [string]$Summary,
+        [string[]]$NextSteps = @()
+    )
+
+    $global:LASTEXITCODE = 0
+    try {
+        & $Action
+    }
+    catch {
+        Throw-FriendlyResolveCloseout `
+            -Summary $Summary `
+            -Detail $_.Exception.Message.Trim() `
+            -NextSteps $NextSteps
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        Throw-FriendlyResolveCloseout `
+            -Summary $Summary `
+            -Detail '下层复核步骤已经停止，请先处理上面那条错误。' `
+            -NextSteps $NextSteps
+    }
+}
+
 function Get-BulletValue {
     param(
         [string]$Content,
@@ -50,7 +103,13 @@ function Get-BulletValue {
     $pattern = '(?m)^- ' + [regex]::Escape($Label) + '：[ \t]*(.*)$'
     $match = [regex]::Match($Content, $pattern)
     if (-not $match.Success) {
-        throw "结果稿缺少字段：$Label"
+        Throw-FriendlyResolveCloseout `
+            -Summary '结果稿还没写完整，当前不能继续回写。' `
+            -Detail ("结果稿缺少字段：{0}" -f $Label) `
+            -NextSteps @(
+                '先补齐结果稿里的固定字段。',
+                '补完后再重新执行回写。'
+            )
     }
 
     return $match.Groups[1].Value.Trim()
@@ -81,14 +140,36 @@ function Set-YamlField {
     return ($YamlText.TrimEnd() + [Environment]::NewLine + ("{0}: {1}" -f $Key, $ValueLiteral) + [Environment]::NewLine)
 }
 
-foreach ($requiredPath in @($taskDirectoryPath, $stateFilePath, $resultFilePath, $decisionLogFilePath, $resolvedResultPath)) {
+foreach ($requiredPath in @($taskDirectoryPath, $stateFilePath, $resultFilePath, $decisionLogFilePath, $resolvedResultPath, $verifyScriptPath)) {
     if (-not (Test-Path $requiredPath)) {
-        throw "缺少回写所需文件：$requiredPath"
+        Throw-FriendlyResolveCloseout `
+            -Summary '回写所需文件不齐，当前不能继续。' `
+            -Detail ("缺少回写所需文件：{0}" -f $requiredPath) `
+            -NextSteps @(
+                '先补齐任务包文件和结果稿。',
+                '确认回写脚本依赖都在后再重新执行。'
+            )
     }
 }
 
+if (-not $SkipReview -and -not (Test-Path $reviewScriptPath)) {
+    Throw-FriendlyResolveCloseout `
+        -Summary '结果稿复核脚本不见了，当前不能继续回写。' `
+        -Detail ("缺少结果稿复核脚本：{0}" -f $reviewScriptPath) `
+        -NextSteps @(
+            '先补齐 review-panel-acceptance-closeout.ps1。',
+            '补齐后再重新执行回写。'
+        )
+}
+
 if ($SkipReview) {
-    & $verifyScriptPath -ResultPath $resolvedResultPath
+    Invoke-ResolveCloseoutStep `
+        -Action { & $verifyScriptPath -ResultPath $resolvedResultPath } `
+        -Summary '结果稿格式复核没有通过，当前不能继续回写。' `
+        -NextSteps @(
+            '先按结果稿复核提示补齐字段。',
+            '确认结果稿通过后再重新执行回写。'
+        )
 }
 else {
     $reviewParameters = @{
@@ -104,7 +185,13 @@ else {
         $reviewParameters['AuditReferenceTimeText'] = $AuditReferenceTimeText
     }
 
-    & $reviewScriptPath @reviewParameters
+    Invoke-ResolveCloseoutStep `
+        -Action { & $reviewScriptPath @reviewParameters } `
+        -Summary '结果稿复核没有通过，当前不能继续回写。' `
+        -NextSteps @(
+            '先按收口复盘提示补齐结果稿或任务状态。',
+            '确认复核通过后再重新执行回写。'
+        )
 }
 
 $resultContent = [System.IO.File]::ReadAllText($resolvedResultPath)
