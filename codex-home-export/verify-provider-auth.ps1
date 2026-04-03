@@ -20,6 +20,25 @@ function Write-WarnLine([string]$Message) {
     Write-Host "[WARN] $Message" -ForegroundColor Yellow
 }
 
+function Stop-FriendlyProviderAuthCheck {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string]$NextStep = ''
+    )
+
+    $messageParts = @($Summary)
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        $messageParts += ("原因：{0}" -f $Detail)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($NextStep)) {
+        $messageParts += ("下一步：{0}" -f $NextStep)
+    }
+
+    throw ($messageParts -join ' ')
+}
+
 function Get-TomlScalarValueFromContent([string]$Content, [string]$KeyName) {
     $pattern = '(?m)^\s*' + [regex]::Escape($KeyName) + '\s*=\s*["'']([^"'']+)["'']'
     $match = [regex]::Match($Content, $pattern)
@@ -139,7 +158,7 @@ function Test-ProviderProbeUrl([string]$Uri, [string]$ApiKey) {
 
 if (-not (Test-Path $configPath)) {
     Write-WarnLine "未检测到全局 config.toml：$configPath"
-    Write-WarnLine '已跳过真实 provider/auth 鉴权检查。'
+    Write-WarnLine '当前机器还没有可用于真实探针的全局 provider 配置，本次先跳过。'
     exit 0
 }
 
@@ -148,7 +167,7 @@ $providerName = Get-TomlScalarValueFromContent -Content $configContent -KeyName 
 $preferredAuthMethod = Get-TomlScalarValueFromContent -Content $configContent -KeyName 'preferred_auth_method'
 
 if ([string]::IsNullOrWhiteSpace($providerName)) {
-    Write-WarnLine 'config.toml 未声明 model_provider；已跳过真实 provider/auth 鉴权检查。'
+    Write-WarnLine 'config.toml 没写 model_provider，本次无法判断该验哪个 provider，先跳过。'
     exit 0
 }
 
@@ -157,23 +176,23 @@ $providerBaseUrl = Get-TomlScalarValueFromContent -Content $providerSectionBody 
 $requiresOpenAiAuth = Get-TomlScalarValueFromContent -Content $providerSectionBody -KeyName 'requires_openai_auth'
 
 if ([string]::IsNullOrWhiteSpace($providerBaseUrl)) {
-    Write-WarnLine ("当前 provider={0} 缺少 base_url；已跳过真实 provider/auth 鉴权检查。" -f $providerName)
+    Write-WarnLine ("当前 provider={0} 缺少 base_url，本次没法做真实探针，先跳过。" -f $providerName)
     exit 0
 }
 
 if ((-not [string]::IsNullOrWhiteSpace($preferredAuthMethod)) -and ($preferredAuthMethod -ne 'apikey')) {
-    Write-WarnLine ("当前 preferred_auth_method={0}；脚本暂只支持 apikey 真实鉴权检查。" -f $preferredAuthMethod)
+    Write-WarnLine ("当前 preferred_auth_method={0}；脚本目前只支持 apikey 探针，所以这次先跳过。" -f $preferredAuthMethod)
     exit 0
 }
 
 if (($requiresOpenAiAuth -ne '') -and ($requiresOpenAiAuth -ne 'true')) {
-    Write-WarnLine ("当前 provider={0} 未声明 requires_openai_auth=true；脚本暂跳过真实鉴权检查。" -f $providerName)
+    Write-WarnLine ("当前 provider={0} 没声明 requires_openai_auth=true；脚本这次先跳过。" -f $providerName)
     exit 0
 }
 
 if (-not (Test-Path $authPath)) {
     Write-WarnLine "未检测到 auth.json：$authPath"
-    Write-WarnLine '已跳过真实 provider/auth 鉴权检查。'
+    Write-WarnLine '当前机器还没拿到可用 key，本次先跳过真实鉴权检查。'
     exit 0
 }
 
@@ -184,18 +203,19 @@ if ([string]::IsNullOrWhiteSpace($apiKey) -and (-not [string]::IsNullOrWhiteSpac
 }
 
 if ([string]::IsNullOrWhiteSpace($apiKey)) {
-    Write-WarnLine 'auth.json 中未找到 OPENAI_API_KEY；已跳过真实 provider/auth 鉴权检查。'
+    Write-WarnLine 'auth.json 中没找到 OPENAI_API_KEY，本次先跳过真实鉴权检查。'
     exit 0
 }
 
 $candidateUrls = Get-ProviderCheckCandidateUrls -BaseUrl $providerBaseUrl
 if ($candidateUrls.Count -eq 0) {
-    Write-WarnLine ("当前 provider={0} 没有可探测的候选 URL；已跳过真实 provider/auth 鉴权检查。" -f $providerName)
+    Write-WarnLine ("当前 provider={0} 没有可探测的候选 URL，本次先跳过。" -f $providerName)
     exit 0
 }
 
 Write-Info ("Provider={0}" -f $providerName)
 Write-Info ("ProbeBaseUrl={0}" -f $providerBaseUrl.Trim().TrimEnd('/'))
+Write-Info '本次只检查当前 provider/auth 能不能连通，不会改你的项目。'
 
 $lastResult = $null
 foreach ($candidateUrl in $candidateUrls) {
@@ -211,7 +231,10 @@ foreach ($candidateUrl in $candidateUrls) {
     $responseBody = [string]$probeResult.body
     $lowerBody = $responseBody.ToLowerInvariant()
     if (($probeResult.status_code -in @(401, 403)) -or $lowerBody.Contains('user not found') -or $lowerBody.Contains('invalid') -or $lowerBody.Contains('unauthorized') -or $lowerBody.Contains('forbidden') -or $lowerBody.Contains('api key')) {
-        throw ("真实 provider/auth 鉴权检查失败：provider={0} url={1} status={2} body={3}" -f $providerName, $candidateUrl, $probeResult.status_code, (($responseBody -replace '\s+', ' ').Trim()))
+        Stop-FriendlyProviderAuthCheck `
+            -Summary ("当前 provider={0} 的真实鉴权没通过。" -f $providerName) `
+            -Detail ("url={0} status={1}" -f $candidateUrl, $probeResult.status_code) `
+            -NextStep '先确认 config.toml 里的 provider、base_url 和 auth.json 里的 key 是同一套；确认前先不要直接开始真实开发任务。'
     }
 
     if ($probeResult.status_code -eq 404) {
@@ -229,7 +252,12 @@ if (($null -ne $lastResult) -and ($lastResult.status_code -eq 404)) {
 }
 
 if ($null -ne $lastResult) {
-    throw ("真实 provider/auth 鉴权检查失败：provider={0} status={1} message={2}" -f $providerName, $lastResult.status_code, $lastResult.message)
+    Stop-FriendlyProviderAuthCheck `
+        -Summary ("当前 provider={0} 的真实鉴权检查没拿到可用响应。" -f $providerName) `
+        -Detail ("status={0} message={1}" -f $lastResult.status_code, $lastResult.message) `
+        -NextStep '先确认网络、base_url 和 key，再回官方 Codex 面板做一次真人验证。'
 }
 
-throw ("真实 provider/auth 鉴权检查失败：provider={0} 未得到可用响应。" -f $providerName)
+Stop-FriendlyProviderAuthCheck `
+    -Summary ("当前 provider={0} 的真实鉴权检查没拿到可用响应。" -f $providerName) `
+    -NextStep '先确认当前机器能联网，再检查 provider 配置和 key。'

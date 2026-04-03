@@ -25,6 +25,25 @@ function Write-Ok([string]$Message) {
     Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
+function Stop-FriendlyCutoverCheck {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string]$NextStep = ''
+    )
+
+    $messageParts = @($Summary)
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        $messageParts += ("原因：{0}" -f $Detail)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($NextStep)) {
+        $messageParts += ("下一步：{0}" -f $NextStep)
+    }
+
+    throw ($messageParts -join ' ')
+}
+
 function Get-Sha256Text([string]$Path) {
     $fileStream = [System.IO.File]::OpenRead($Path)
     try {
@@ -167,7 +186,10 @@ function New-LightCheckHashesPayload([object[]]$TargetDefinitions, [string]$Sour
 
 foreach ($requiredPath in @($versionSourcePath, $manifestSourcePath, $runtimeVersionPath, $runtimeManifestPath, $runtimeInstallRecordPath)) {
     if (-not (Test-Path $requiredPath)) {
-        throw "缺少必需文件：$requiredPath"
+        Stop-FriendlyCutoverCheck `
+            -Summary '验真缺少必要文件，说明当前安装还没完整落地。' `
+            -Detail ("缺少必需文件：{0}" -f $requiredPath) `
+            -NextStep '先执行 install.cmd 或 upgrade.cmd，把丞相文件重新同步到本机。'
     }
 }
 
@@ -185,33 +207,54 @@ $expectedSourceRootValue = if ([string]::IsNullOrWhiteSpace($ExpectedSourceRoot)
 
 foreach ($requiredPath in $requiredSourcePaths + $requiredRuntimePaths) {
     if (-not (Test-Path $requiredPath)) {
-        throw "缺少必需文件：$requiredPath"
+        Stop-FriendlyCutoverCheck `
+            -Summary '验真缺少必要文件，说明源仓或运行态文件不完整。' `
+            -Detail ("缺少必需文件：{0}" -f $requiredPath) `
+            -NextStep '先补齐仓库文件或重跑 install.cmd / upgrade.cmd，再重新验真。'
     }
 }
 
 if ($runtimeVersionInfo.cx_version -ne $expectedVersionValue) {
-    throw "cx-version 不匹配：期望 $expectedVersionValue，实际 $($runtimeVersionInfo.cx_version)"
+    Stop-FriendlyCutoverCheck `
+        -Summary '运行态版本和当前真源版本没对齐。' `
+        -Detail ("期望 {0}，实际 {1}" -f $expectedVersionValue, $runtimeVersionInfo.cx_version) `
+        -NextStep '先重跑 install.cmd 或 upgrade.cmd，让运行态版本追上真源。'
 }
 
 if ($runtimeVersionInfo.source_of_truth -ne 'codex-home-export') {
-    throw "source_of_truth 不匹配：$($runtimeVersionInfo.source_of_truth)"
+    Stop-FriendlyCutoverCheck `
+        -Summary '运行态真源标记不对，当前不能算接管完成。' `
+        -Detail ("source_of_truth={0}" -f $runtimeVersionInfo.source_of_truth) `
+        -NextStep '先重新安装当前仓版本，再重新验真。'
 }
 
 if ($runtimeInstallRecord.source_root -ne $expectedSourceRootValue) {
-    throw "安装记录 source_root 不匹配：期望 $expectedSourceRootValue，实际 $($runtimeInstallRecord.source_root)"
+    Stop-FriendlyCutoverCheck `
+        -Summary '安装记录指向的源仓不对，当前运行态可能接的是旧仓。' `
+        -Detail ("期望 {0}，实际 {1}" -f $expectedSourceRootValue, $runtimeInstallRecord.source_root) `
+        -NextStep '先用当前仓重新执行 install.cmd 或 upgrade.cmd。'
 }
 
 if ($runtimeInstallRecord.cx_version -ne $expectedVersionValue) {
-    throw "安装记录 cx_version 不匹配：期望 $expectedVersionValue，实际 $($runtimeInstallRecord.cx_version)"
+    Stop-FriendlyCutoverCheck `
+        -Summary '安装记录里的版本和当前真源版本不一致。' `
+        -Detail ("期望 {0}，实际 {1}" -f $expectedVersionValue, $runtimeInstallRecord.cx_version) `
+        -NextStep '先重跑 install.cmd 或 upgrade.cmd。'
 }
 
 if ($runtimeManifestInfo.version -ne $expectedVersionValue) {
-    throw "运行态 manifest 版本不匹配：期望 $expectedVersionValue，实际 $($runtimeManifestInfo.version)"
+    Stop-FriendlyCutoverCheck `
+        -Summary '运行态 manifest 版本和真源版本不一致。' `
+        -Detail ("期望 {0}，实际 {1}" -f $expectedVersionValue, $runtimeManifestInfo.version) `
+        -NextStep '先重新安装当前版本，再重试验真。'
 }
 
 foreach ($requiredManagedFile in $managedRelativeNames + @('config/chancellor-mode/install-record.json')) {
     if (-not ($runtimeInstallRecord.managed_files -contains $requiredManagedFile)) {
-        throw "安装记录缺少 managed_files 项：$requiredManagedFile"
+        Stop-FriendlyCutoverCheck `
+            -Summary '安装记录不完整，当前没法确认受管文件都已落地。' `
+            -Detail ("缺少 managed_files 项：{0}" -f $requiredManagedFile) `
+            -NextStep '先重跑 install.cmd，让安装记录重新生成。'
     }
 }
 
@@ -224,33 +267,51 @@ foreach ($fileMapping in $managedFileMappings) {
     $hashPath = $fileMapping.RelativeName
     $runtimeHash = Get-Sha256Text -Path $fileMapping.TargetPath
     if ($runtimeHash -ne $expectedHashByPath[$hashPath]) {
-        throw "运行件哈希不匹配：$hashPath"
+        Stop-FriendlyCutoverCheck `
+            -Summary '运行态文件和源仓不同步。' `
+            -Detail ("不同步文件：{0}" -f $hashPath) `
+            -NextStep '先重跑 install.cmd 或 upgrade.cmd；如果仍不通过，再执行 rollback.cmd。'
     }
 
     if ($runtimeInstallRecord.PSObject.Properties.Name -contains 'synced_hashes') {
         $recordHashItem = @($runtimeInstallRecord.synced_hashes | Where-Object { $_.path -eq $hashPath } | Select-Object -First 1)
         if ($recordHashItem.Count -eq 0) {
-            throw "安装记录缺少 synced_hashes 项：$hashPath"
+            Stop-FriendlyCutoverCheck `
+                -Summary '安装记录不完整，当前没法确认同步结果。' `
+                -Detail ("缺少 synced_hashes 项：{0}" -f $hashPath) `
+                -NextStep '先重跑 install.cmd，让安装记录重新生成。'
         }
 
         if ($recordHashItem[0].sha256 -ne $expectedHashByPath[$hashPath]) {
-            throw "安装记录哈希不匹配：$hashPath"
+            Stop-FriendlyCutoverCheck `
+                -Summary '安装记录里的哈希和当前真源不一致。' `
+                -Detail ("哈希不匹配文件：{0}" -f $hashPath) `
+                -NextStep '先重跑 install.cmd 或 upgrade.cmd，再重新验真。'
         }
     }
 }
 
 if ($RequireBackupRoot) {
     if ([string]::IsNullOrWhiteSpace($runtimeInstallRecord.backup_root)) {
-        throw '安装记录缺少 backup_root。'
+        Stop-FriendlyCutoverCheck `
+            -Summary '当前没有可回滚备份，所以这次不能算完整验真通过。' `
+            -Detail '安装记录缺少 backup_root。' `
+            -NextStep '先重新执行 install.cmd，让系统补一份新备份。'
     }
 
     if (-not (Test-Path $runtimeInstallRecord.backup_root)) {
-        throw "backup_root 不存在：$($runtimeInstallRecord.backup_root)"
+        Stop-FriendlyCutoverCheck `
+            -Summary '安装记录里写了备份目录，但这份备份已经找不到了。' `
+            -Detail ("backup_root 不存在：{0}" -f $runtimeInstallRecord.backup_root) `
+            -NextStep '先重新执行 install.cmd，生成新的可回滚备份。'
     }
 }
 
 if (-not (Test-Path $authPath)) {
-    throw "auth.json 不存在：$authPath"
+    Stop-FriendlyCutoverCheck `
+        -Summary '当前还没完成 Codex 登录，所以这次不能算验真通过。' `
+        -Detail ("auth.json 不存在：{0}" -f $authPath) `
+        -NextStep '先完成登录，再重跑 self-check.cmd 或 verify-cutover.ps1。'
 }
 
 $lightCheckTargetDefinitions = Get-LightCheckTargetDefinitions -SourceVersionInfo $sourceVersionInfo
@@ -272,6 +333,7 @@ Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info "CxVersion=$($runtimeVersionInfo.cx_version)"
 Write-Info "BackupRoot=$($runtimeInstallRecord.backup_root)"
 Write-Info ("ManagedFileCount={0}" -f $managedFileMappings.Count)
+Write-Info '本次只检查丞相自身运行态，不会改你的项目。'
 Write-Info '运行态说明：`task-start-state.json` 只用于同版本轻量复核缓存；不属于 manifest 受管文件，也不参与公开提交。'
 Write-Info '全局 config.toml 属于用户自有配置；当前验真不会再把 provider / model / auth 当作丞相模式受管项。'
 Write-Info "健康状态已回写：$runtimeTaskStartStatePath"
