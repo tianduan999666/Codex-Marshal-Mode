@@ -31,6 +31,30 @@ function Write-Ok([string]$Message) {
     Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
+function Write-WarnLine([string]$Message) {
+    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+}
+
+function Stop-FriendlyNewTask {
+    param(
+        [string]$Summary,
+        [string]$Detail,
+        [string[]]$NextSteps = @()
+    )
+
+    Write-Host ''
+    Write-Host "[ERROR] $Summary" -ForegroundColor Red
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        Write-WarnLine ("原始错误：{0}" -f $Detail)
+    }
+
+    foreach ($nextStep in $NextSteps) {
+        Write-Info $nextStep
+    }
+
+    exit 1
+}
+
 function ConvertTo-TaskSlug {
     param([string]$Text)
 
@@ -81,7 +105,13 @@ function Get-NextTaskNumber {
 }
 
 if (-not (Test-Path $createTaskScriptPath)) {
-    throw "缺少起包脚手架：$createTaskScriptPath"
+    Stop-FriendlyNewTask `
+        -Summary '当前无法创建任务包，因为起包脚手架不在仓里。' `
+        -Detail ("缺少起包脚手架：{0}" -f $createTaskScriptPath) `
+        -NextSteps @(
+            '先确认你是在完整仓库根目录发起当前动作。',
+            '如果刚做过清理、切分支或拷文件，先把 `.codex\chancellor\create-task-package.ps1` 补齐后再重试。'
+        )
 }
 
 $resolvedSlug = ConvertTo-TaskSlug -Text $(if ([string]::IsNullOrWhiteSpace($Slug)) { $Title } else { $Slug })
@@ -101,17 +131,29 @@ Write-Info "RepoRoot=$resolvedRepoRootPath"
 Write-Info "TaskNamespace=$TaskNamespace"
 Write-Info "TaskId=$taskId"
 
-& $createTaskScriptPath `
-    -TaskId $taskId `
-    -Title $Title `
-    -Goal $resolvedGoal `
-    -PhaseHint $PhaseHint `
-    -PlanningHint $planningHint `
-    -PlanStep $planStep `
-    -VerifySignal $verifySignal `
-    -InitialStatus running `
-    -RiskLevel $RiskLevel `
-    -SetActiveTask $setActiveTask
+try {
+    & $createTaskScriptPath `
+        -TaskId $taskId `
+        -Title $Title `
+        -Goal $resolvedGoal `
+        -PhaseHint $PhaseHint `
+        -PlanningHint $planningHint `
+        -PlanStep $planStep `
+        -VerifySignal $verifySignal `
+        -InitialStatus running `
+        -RiskLevel $RiskLevel `
+        -SetActiveTask $setActiveTask
+}
+catch {
+    Stop-FriendlyNewTask `
+        -Summary '任务包创建到一半停住了。' `
+        -Detail $_.Exception.Message.Trim() `
+        -NextSteps @(
+            '先不要继续新开任务。',
+            '先核对任务目录和 `active-task.txt` 有没有留下半截结果，确认后再重试当前入口。',
+            '如果问题来自模板或字段校验，先修正脚手架再重新创建。'
+        )
+}
 
 $taskDirectoryPath = Join-Path $tasksRootPath $taskId
 
