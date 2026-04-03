@@ -31,9 +31,9 @@
 - `render-panel-response.ps1`
 - `render-panel-response.test.ps1`
 - `rollback.cmd`
+- `start-panel-task.ps1`
 - `run-managed-install.ps1`
 - `run-managed-self-check.ps1`
-- `start-panel-task.ps1`
 - `rollback-from-backup.ps1`
 - `self-check.cmd`
 - `verify-cutover.ps1`
