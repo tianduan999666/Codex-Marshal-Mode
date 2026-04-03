@@ -19,12 +19,23 @@ function Invoke-GateForTestCase {
     )
     $commandText = "& '{0}' -ChangedPaths @({1})" -f $gateScriptPath, ($quotedPaths -join ', ')
 
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -Command $commandText | Out-Host
+    $commandOutput = (& powershell.exe -NoProfile -ExecutionPolicy Bypass -Command $commandText *>&1 | Out-String)
     $actualExitCode = $LASTEXITCODE
 
     if ($actualExitCode -ne $ExpectedExitCode) {
+        if (-not [string]::IsNullOrWhiteSpace($commandOutput)) {
+            Write-Host $commandOutput.TrimEnd()
+        }
         throw "测试失败：$TestName 期望退出码 $ExpectedExitCode，实际为 $actualExitCode。"
     }
+
+    $caseResultText = if ($ExpectedExitCode -eq 0) {
+        '已按预期放行'
+    }
+    else {
+        '已按预期拦截'
+    }
+    Write-Host ("PASS CASE: {0} -> {1}" -f $TestName, $caseResultText) -ForegroundColor DarkGray
 }
 
 function Find-LineMatch {
