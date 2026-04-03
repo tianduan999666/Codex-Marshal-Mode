@@ -573,17 +573,22 @@ function Get-ApprovedTrackedCodexFilesFromLockList {
     $expectedApprovedCodexFiles = @(
         '.codex/chancellor/README.md'
         '.codex/chancellor/audit-local-task-status.ps1'
+        '.codex/chancellor/check-task-package-tech-spec.ps1'
+        '.codex/chancellor/check-task-state-machine.ps1'
         '.codex/chancellor/finalize-panel-acceptance-closeout.ps1'
         '.codex/chancellor/create-gate-package.ps1'
         '.codex/chancellor/create-task-package.ps1'
         '.codex/chancellor/install-public-commit-governance-hook.ps1'
         '.codex/chancellor/invoke-public-commit-governance-gate.ps1'
+        '.codex/chancellor/Invoke-RateLimitedRequest.ps1'
+        '.codex/chancellor/Invoke-SafeFileAppend.ps1'
         '.codex/chancellor/record-exception-state.ps1'
         '.codex/chancellor/resolve-gate-package.ps1'
         '.codex/chancellor/resolve-panel-acceptance-closeout.ps1'
         '.codex/chancellor/review-panel-acceptance-closeout.ps1'
         '.codex/chancellor/test-panel-acceptance-closeout-review.ps1'
         '.codex/chancellor/tasks/README.md'
+        '.codex/chancellor/Test-Phase2Prerequisites.ps1'
         '.codex/chancellor/test-public-commit-governance-gate.ps1'
         '.codex/chancellor/write-concurrent-status-report.ps1'
         '.codex/chancellor/write-governance-config-review.ps1'
@@ -4080,13 +4085,24 @@ if ($taskPackagePaths.Count -gt 0) {
 
         if (Test-Path $taskDir) {
             try {
+                # 检查 tech-spec.md
                 $checkScriptPath = '.codex/chancellor/check-task-package-tech-spec.ps1'
                 if (Test-Path $checkScriptPath) {
                     & $checkScriptPath -TaskDir $taskDir
                 }
+
+                # 检查状态机门禁
+                $stateMachineCheckPath = '.codex/chancellor/check-task-state-machine.ps1'
+                if (Test-Path $stateMachineCheckPath) {
+                    $taskChangedFiles = @(
+                        $changedPathList |
+                            Where-Object { $_ -match "^\.codex/chancellor/tasks/$taskId/" -or $_ -notmatch '^\.codex/chancellor/tasks/' }
+                    )
+                    & $stateMachineCheckPath -TaskDir $taskDir -ChangedFiles $taskChangedFiles
+                }
             }
             catch {
-                $violationMessages.Add("任务包 $taskId tech-spec.md 检查失败：$($_.Exception.Message)")
+                $violationMessages.Add("任务包 $taskId 检查失败：$($_.Exception.Message)")
             }
         }
     }
