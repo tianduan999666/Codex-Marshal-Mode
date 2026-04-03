@@ -33,6 +33,25 @@ function Write-WarnLine([string]$Message) {
     Write-Host "[WARN] $Message" -ForegroundColor Yellow
 }
 
+function Stop-FriendlySmokeCheck {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string]$NextStep = ''
+    )
+
+    $messageParts = @($Summary)
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        $messageParts += ("原因：{0}" -f $Detail)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($NextStep)) {
+        $messageParts += ("下一步：{0}" -f $NextStep)
+    }
+
+    throw ($messageParts -join ' ')
+}
+
 function Get-NonEmptyLines([object[]]$Lines) {
     return @(
         $Lines |
@@ -43,24 +62,34 @@ function Get-NonEmptyLines([object[]]$Lines) {
 
 function Assert-LinesEqual([string]$Label, [string[]]$ActualLines, [string[]]$ExpectedLines) {
     if ($ActualLines.Count -ne $ExpectedLines.Count) {
-        throw ("{0} 行数不匹配：期望 {1} 行，实际 {2} 行。" -f $Label, $ExpectedLines.Count, $ActualLines.Count)
+        Stop-FriendlySmokeCheck `
+            -Summary ("面板冒烟没通过：{0} 的返回行数不对。" -f $Label) `
+            -Detail ("期望 {0} 行，实际 {1} 行" -f $ExpectedLines.Count, $ActualLines.Count) `
+            -NextStep '先执行 self-check.cmd；如果仍不通过，再执行 rollback.cmd。'
     }
 
     for ($index = 0; $index -lt $ExpectedLines.Count; $index++) {
         if ($ActualLines[$index] -ne $ExpectedLines[$index]) {
-            throw ("{0} 第 {1} 行不匹配：期望 '{2}'，实际 '{3}'。" -f $Label, ($index + 1), $ExpectedLines[$index], $ActualLines[$index])
+            Stop-FriendlySmokeCheck `
+                -Summary ("面板冒烟没通过：{0} 的返回内容和真源不一致。" -f $Label) `
+                -Detail ("第 {0} 行期望 '{1}'，实际 '{2}'" -f ($index + 1), $ExpectedLines[$index], $ActualLines[$index]) `
+                -NextStep '先执行 self-check.cmd；如果仍不通过，再执行 rollback.cmd。'
         }
     }
 }
 
 foreach ($requiredPath in @($invokePanelCommandScriptPath, $renderPanelResponseScriptPath, $resolvedVersionPath)) {
     if (-not (Test-Path $requiredPath)) {
-        throw "缺少冒烟验证所需文件：$requiredPath"
+        Stop-FriendlySmokeCheck `
+            -Summary '面板冒烟缺少必要脚本，当前没法继续验证入口。' `
+            -Detail ("缺少文件：{0}" -f $requiredPath) `
+            -NextStep '先执行 install.cmd 或 upgrade.cmd，把入口文件补齐后再重试。'
     }
 }
 
 Write-Info "ScriptsRoot=$resolvedScriptsRootPath"
 Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
+Write-Info '本次只检查丞相入口返回是否稳定，不会改你的项目。'
 
 $commandMatrix = @(
     [ordered]@{ command = '传令：版本'; kind = 'version' }

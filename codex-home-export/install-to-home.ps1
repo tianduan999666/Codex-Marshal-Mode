@@ -31,6 +31,25 @@ function Write-WarnLine([string]$Message) {
     Write-Host "[WARN] $Message" -ForegroundColor Yellow
 }
 
+function Stop-FriendlyInstallToHome {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string]$NextStep = ''
+    )
+
+    $messageParts = @($Summary)
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        $messageParts += ("原因：{0}" -f $Detail)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($NextStep)) {
+        $messageParts += ("下一步：{0}" -f $NextStep)
+    }
+
+    throw ($messageParts -join ' ')
+}
+
 function Ensure-ParentDirectory([string]$Path) {
     $parent = Split-Path -Parent $Path
     if ($parent) {
@@ -203,6 +222,15 @@ function Get-ManagedFileMappings {
     return @($fileMappings)
 }
 
+foreach ($requiredRootSourcePath in @($versionSourcePath, $manifestSourcePath)) {
+    if (-not (Test-Path $requiredRootSourcePath)) {
+        Stop-FriendlyInstallToHome `
+            -Summary '安装源文件不完整，当前这份仓库还不能直接安装。' `
+            -Detail ("缺少文件：{0}" -f $requiredRootSourcePath) `
+            -NextStep '先确认当前仓库是完整的，再重新执行 install.cmd。'
+    }
+}
+
 $versionInfo = Read-JsonFile -Path $versionSourcePath
 $manifestInfo = Read-JsonFile -Path $manifestSourcePath
 $managedFileMappings = Get-ManagedFileMappings -SourceRoot $sourceRoot -ResolvedTargetCodexHome $resolvedTargetCodexHome -RuntimeMetaRoot $runtimeMetaRoot -ManifestInfo $manifestInfo
@@ -216,17 +244,24 @@ $runtimeConfigBeforeSnapshot = Get-ConfigSnapshot -Path $runtimeConfigPath
 
 foreach ($sourcePath in @($versionSourcePath, $manifestSourcePath) + @($managedFileMappings | ForEach-Object { $_.SourcePath })) {
     if (-not (Test-Path $sourcePath)) {
-        throw "缺少源文件：$sourcePath"
+        Stop-FriendlyInstallToHome `
+            -Summary '安装源文件不完整，当前这份仓库还不能继续安装。' `
+            -Detail ("缺少源文件：{0}" -f $sourcePath) `
+            -NextStep '先补齐仓库文件，再重新执行 install.cmd。'
     }
 }
 
 if (-not $versionInfo.cx_version) {
-    throw "VERSION.json 缺少 cx_version：$versionSourcePath"
+    Stop-FriendlyInstallToHome `
+        -Summary 'VERSION.json 不完整，当前没法确认要装哪个版本。' `
+        -Detail ("VERSION.json 缺少 cx_version：{0}" -f $versionSourcePath) `
+        -NextStep '先修复 VERSION.json，再重新执行 install.cmd。'
 }
 
 Write-Info "SourceRoot=$sourceRoot"
 Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info "CxVersion=$($versionInfo.cx_version)"
+Write-Info '本次只同步丞相自身文件，不会碰你的项目。'
 Write-Info ("当前脚本会按 manifest 受管清单同步 {0} 个文件，不覆盖 auth.json、sessions 或其他用户隐私文件。" -f $managedFileMappings.Count)
 Write-Info '全局 config.toml 已改为用户自有配置；默认只同步模板参考件，不再静默改 provider / model / auth。'
 Write-Info '运行态说明：`task-start-state.json` 属于本地开工状态缓存；不在 manifest 受管清单内，本轮不会覆盖。'

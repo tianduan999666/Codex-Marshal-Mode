@@ -18,8 +18,30 @@ function Write-WarnLine([string]$Message) {
     Write-Host "[WARN] $Message" -ForegroundColor Yellow
 }
 
+function Stop-FriendlyAcceptanceResultCheck {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string]$NextStep = ''
+    )
+
+    $messageParts = @($Summary)
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        $messageParts += ("原因：{0}" -f $Detail)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($NextStep)) {
+        $messageParts += ("下一步：{0}" -f $NextStep)
+    }
+
+    throw ($messageParts -join ' ')
+}
+
 if (-not (Test-Path $resolvedResultPath)) {
-    throw "结果稿不存在：$resolvedResultPath"
+    Stop-FriendlyAcceptanceResultCheck `
+        -Summary '人工验板结果稿还不存在，当前没法做结果复核。' `
+        -Detail ("结果稿不存在：{0}" -f $resolvedResultPath) `
+        -NextStep '先生成或填写结果稿，再重新执行 verify-panel-acceptance-result.ps1。'
 }
 
 $content = [System.IO.File]::ReadAllText($resolvedResultPath)
@@ -28,7 +50,10 @@ function Get-BulletValue([string]$Label) {
     $pattern = '(?m)^- ' + [regex]::Escape($Label) + '：[ \t]*(.*)$'
     $match = [regex]::Match($content, $pattern)
     if (-not $match.Success) {
-        throw "结果稿缺少字段：$Label"
+        Stop-FriendlyAcceptanceResultCheck `
+            -Summary '人工验板结果稿还没填完整。' `
+            -Detail ("缺少字段：{0}" -f $Label) `
+            -NextStep '先把缺的字段补上，再重新复核。'
     }
 
     return $match.Groups[1].Value.Trim()
@@ -45,7 +70,10 @@ $remainingPlaceholders = @(
     $placeholderTokens | Where-Object { $content.Contains($_) }
 )
 if ($remainingPlaceholders.Count -gt 0) {
-    throw "结果稿仍存在未填写占位项：$($remainingPlaceholders -join '、')"
+    Stop-FriendlyAcceptanceResultCheck `
+        -Summary '人工验板结果稿里还有占位项没改成真实结论。' `
+        -Detail ("未填写占位项：{0}" -f ($remainingPlaceholders -join '、')) `
+        -NextStep '先把占位项改成真实结果，再重新复核。'
 }
 
 $finalResult = Get-BulletValue -Label '人工验板最终结果'
@@ -57,27 +85,43 @@ $autoVerifyResult = Get-BulletValue -Label '自动验板结果'
 $minimumGap = Get-BulletValue -Label '若不通过，最小缺口是'
 
 if ([string]::IsNullOrWhiteSpace($executor)) {
-    throw '结果稿缺少执行人。'
+    Stop-FriendlyAcceptanceResultCheck `
+        -Summary '人工验板结果稿还没写执行人。' `
+        -NextStep '先补上执行人，再重新复核。'
 }
 
 if ($finalResult -notin @('通过', '不通过')) {
-    throw ('人工验板最终结果只能是“通过”或“不通过”，实际为：{0}' -f $finalResult)
+    Stop-FriendlyAcceptanceResultCheck `
+        -Summary '人工验板最终结果只能填“通过”或“不通过”。' `
+        -Detail ("实际填写：{0}" -f $finalResult) `
+        -NextStep '先把最终结果改成“通过”或“不通过”，再重新复核。'
 }
 
 if ($needRollback -notin @('是', '否')) {
-    throw ('是否需要回退只能是“是”或“否”，实际为：{0}' -f $needRollback)
+    Stop-FriendlyAcceptanceResultCheck `
+        -Summary '“是否需要回退”只能填“是”或“否”。' `
+        -Detail ("实际填写：{0}" -f $needRollback) `
+        -NextStep '先改成“是”或“否”，再重新复核。'
 }
 
 if ($needFollowup -notin @('是', '否')) {
-    throw ('是否需要补刀只能是“是”或“否”，实际为：{0}' -f $needFollowup)
+    Stop-FriendlyAcceptanceResultCheck `
+        -Summary '“是否需要补刀”只能填“是”或“否”。' `
+        -Detail ("实际填写：{0}" -f $needFollowup) `
+        -NextStep '先改成“是”或“否”，再重新复核。'
 }
 
 if ([string]::IsNullOrWhiteSpace($nextAction)) {
-    throw '结果稿缺少下一步。'
+    Stop-FriendlyAcceptanceResultCheck `
+        -Summary '人工验板结果稿还没写下一步。' `
+        -NextStep '先把下一步补上，再重新复核。'
 }
 
 if ($autoVerifyResult -notmatch '已通过|未通过') {
-    throw "自动验板结果格式不正确：$autoVerifyResult"
+    Stop-FriendlyAcceptanceResultCheck `
+        -Summary '自动验板结果格式不对。' `
+        -Detail ("实际填写：{0}" -f $autoVerifyResult) `
+        -NextStep '先改成“已通过”或“未通过”的表达，再重新复核。'
 }
 
 $blankBulletMatches = [regex]::Matches($content, '(?m)^- ([^：]+)：\s*$')
@@ -90,22 +134,32 @@ $unexpectedBlankLabels = @(
     $blankBulletMatches | ForEach-Object { $_.Groups[1].Value.Trim() } | Where-Object { $_ -notin $allowedBlankLabels }
 )
 if ($unexpectedBlankLabels.Count -gt 0) {
-    throw "结果稿仍存在未填写字段：$($unexpectedBlankLabels -join '、')"
+    Stop-FriendlyAcceptanceResultCheck `
+        -Summary '人工验板结果稿还有空字段没填。' `
+        -Detail ("未填写字段：{0}" -f ($unexpectedBlankLabels -join '、')) `
+        -NextStep '先把空字段补齐，再重新复核。'
 }
 
 if ($finalResult -eq '通过' -and $needRollback -ne '否') {
-    throw '人工验板已通过时，“是否需要回退”必须为“否”。'
+    Stop-FriendlyAcceptanceResultCheck `
+        -Summary '既然人工验板已通过，“是否需要回退”就不能填“是”。' `
+        -NextStep '先把“是否需要回退”改成“否”，再重新复核。'
 }
 
 if ($finalResult -eq '通过' -and $needFollowup -ne '否') {
-    throw '人工验板已通过时，“是否需要补刀”必须为“否”。'
+    Stop-FriendlyAcceptanceResultCheck `
+        -Summary '既然人工验板已通过，“是否需要补刀”就不能填“是”。' `
+        -NextStep '先把“是否需要补刀”改成“否”，再重新复核。'
 }
 
 if ($finalResult -eq '不通过' -and [string]::IsNullOrWhiteSpace($minimumGap)) {
-    throw '人工验板不通过时，必须填写“若不通过，最小缺口是”。'
+    Stop-FriendlyAcceptanceResultCheck `
+        -Summary '人工验板既然不通过，就必须写清最小缺口。' `
+        -NextStep '先补上“若不通过，最小缺口是”，再重新复核。'
 }
 
 Write-Info "ResultPath=$resolvedResultPath"
+Write-Info '本次只检查结果稿是否填完整，不会改你的项目。'
 Write-Info "Executor=$executor"
 Write-Info "AutoVerify=$autoVerifyResult"
 Write-Info "FinalResult=$finalResult"
