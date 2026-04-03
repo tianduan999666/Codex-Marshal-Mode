@@ -8,6 +8,7 @@ $ErrorActionPreference = 'Stop'
 $sourceRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $verifyScriptPath = Join-Path $sourceRoot 'verify-cutover.ps1'
 $resultDraftScriptPath = Join-Path $sourceRoot 'new-panel-acceptance-result.ps1'
+$renderPanelResponseScriptPath = Join-Path $sourceRoot 'render-panel-response.ps1'
 $threeStepCardPath = Join-Path $sourceRoot 'panel-acceptance-three-step-card.md'
 $passFailSheetPath = Join-Path $sourceRoot 'panel-acceptance-pass-fail-sheet.md'
 $resultTemplatePath = Join-Path $sourceRoot 'panel-acceptance-result-template.md'
@@ -25,7 +26,11 @@ function Read-JsonFile([string]$Path) {
     return (Get-Content -Raw -Path $Path | ConvertFrom-Json)
 }
 
-foreach ($requiredPath in @($verifyScriptPath, $resultDraftScriptPath, $threeStepCardPath, $passFailSheetPath, $resultTemplatePath, $versionSourcePath)) {
+function Get-RenderedPanelLines([hashtable]$Arguments) {
+    return @(& $renderPanelResponseScriptPath @Arguments)
+}
+
+foreach ($requiredPath in @($verifyScriptPath, $resultDraftScriptPath, $renderPanelResponseScriptPath, $threeStepCardPath, $passFailSheetPath, $resultTemplatePath, $versionSourcePath)) {
     if (-not (Test-Path $requiredPath)) {
         throw "缺少验板准备文件：$requiredPath"
     }
@@ -33,10 +38,42 @@ foreach ($requiredPath in @($verifyScriptPath, $resultDraftScriptPath, $threeSte
 
 $versionInfo = Read-JsonFile -Path $versionSourcePath
 $taskEntryPrefix = if ([string]::IsNullOrWhiteSpace($versionInfo.task_entry_prefix)) { '传令：' } else { [string]$versionInfo.task_entry_prefix }
-$newChatHint = if ([string]::IsNullOrWhiteSpace($versionInfo.new_chat_hint)) { '例如：传令：计算1+1=?' } else { [string]$versionInfo.new_chat_hint }
-$openingLine = if ([string]::IsNullOrWhiteSpace($versionInfo.opening_line)) { '🪶 军令入帐。亮，即刻接管全局。' } else { [string]$versionInfo.opening_line }
-$boundaryPrompt = if ([string]::IsNullOrWhiteSpace($versionInfo.boundary_prompt)) { '提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。' } else { [string]$versionInfo.boundary_prompt }
-$taskEntryQuote = if (($null -ne $versionInfo.process_quotes_minimal) -and (-not [string]::IsNullOrWhiteSpace($versionInfo.process_quotes_minimal.task_entry))) { [string]$versionInfo.process_quotes_minimal.task_entry } else { '军令已明，亮先接手。' }
+$hintLines = @(Get-RenderedPanelLines @{
+    Kind = 'hint'
+    VersionPath = $versionSourcePath
+})
+$taskEntryLines = @(Get-RenderedPanelLines @{
+    Kind = 'task-entry'
+    VersionPath = $versionSourcePath
+})
+$taskEntryQuoteLines = @(Get-RenderedPanelLines @{
+    Kind = 'process-quote'
+    Phase = 'task_entry'
+    VersionPath = $versionSourcePath
+})
+$versionPreviewLines = @(Get-RenderedPanelLines @{
+    Kind = 'version'
+    VersionPath = $versionSourcePath
+    CxVersion = [string]$versionInfo.cx_version
+})
+$statusPreviewLines = @(Get-RenderedPanelLines @{
+    Kind = 'status'
+    VersionPath = $versionSourcePath
+    CxVersion = [string]$versionInfo.cx_version
+    LastCheck = '示例：最近一次已通过'
+    AutoRepair = '示例：无'
+    KeyFileConsistency = '示例：一致'
+    CurrentMode = '丞相'
+    CurrentTask = '示例：v4-target-001（测试入口是否稳态）'
+})
+$statusLabelOrder = @(
+    $statusPreviewLines |
+        ForEach-Object {
+            if ($_ -match '^\s*([^：:]+)') {
+                $matches[1].Trim()
+            }
+        }
+)
 $versionCommand = @($versionInfo.panel_commands | Where-Object { $_ -match '版本$' } | Select-Object -First 1)
 $statusCommand = @($versionInfo.panel_commands | Where-Object { $_ -match '状态$' } | Select-Object -First 1)
 $upgradeCommand = @($versionInfo.panel_commands | Where-Object { $_ -match '升级$' } | Select-Object -First 1)
@@ -54,9 +91,11 @@ Write-Info "三步入口：$threeStepCardPath"
 Write-Info "打勾单：$passFailSheetPath"
 Write-Info "结果模板：$resultTemplatePath"
 Write-Info "结果稿：$resultDraftPath"
-Write-Info "结果复核：填完结果稿后，执行 `verify-panel-acceptance-result.ps1 -ResultPath \"$resultDraftPath\"`。"
-Write-Info ("当前官句：`{0}`。" -f $openingLine)
-Write-Info ("当前开工骨架：`{0} → {1} → {2}`。" -f $openingLine, $boundaryPrompt, $taskEntryQuote)
-Write-Info ("现在进入官方 Codex 面板，新开会话后先看是否出现示例：`{0}`。" -f $newChatHint)
-Write-Info ("然后按顺序输入：`{0}` → `{1}` → `{2}`；如需确认升级口径，再输入 `{3}`。" -f $taskProbeCommand, $versionCommand[0], $statusCommand[0], $upgradeCommand[0])
+Write-Info ("结果复核：填完结果稿后，执行 verify-panel-acceptance-result.ps1 -ResultPath ""{0}""。" -f $resultDraftPath)
+Write-Info ("当前官句：{0}" -f $taskEntryLines[0])
+Write-Info ("当前开工骨架：{0} → {1} → {2}" -f $taskEntryLines[0], $taskEntryLines[1], $taskEntryQuoteLines[0])
+Write-Info ("当前版本口径：{0}" -f ($versionPreviewLines -join ' | '))
+Write-Info ("当前状态栏顺序：{0}" -f ($statusLabelOrder -join ' / '))
+Write-Info ("现在进入官方 Codex 面板，新开会话后先看是否出现示例：{0}" -f $hintLines[0])
+Write-Info ("然后按顺序输入：{0} → {1} → {2}；如需确认升级口径，再输入 {3}" -f $taskProbeCommand, $versionCommand[0], $statusCommand[0], $upgradeCommand[0])
 Write-Output $resultDraftPath

@@ -22,6 +22,7 @@ $resolvedTargetCodexHome = [System.IO.Path]::GetFullPath($TargetCodexHome)
 $verifyScriptPath = Join-Path $scriptRootPath 'verify-cutover.ps1'
 $installScriptPath = Join-Path $scriptRootPath 'install-to-home.ps1'
 $newTaskScriptPath = Join-Path $scriptRootPath 'new-task.ps1'
+$renderPanelResponseScriptPath = Join-Path $scriptRootPath 'render-panel-response.ps1'
 $versionSourcePath = Join-Path $scriptRootPath 'VERSION.json'
 $agentsSourcePath = Join-Path $scriptRootPath 'AGENTS.md'
 $configSourcePath = Join-Path $scriptRootPath 'config.toml'
@@ -60,13 +61,12 @@ function Read-JsonFileOrNull([string]$Path) {
     return (Get-Content -Raw -Path $Path | ConvertFrom-Json)
 }
 
-function Resolve-TemplateLine([string]$Template, [hashtable]$TokenMap) {
-    $resolved = $Template
-    foreach ($tokenName in $TokenMap.Keys) {
-        $resolved = $resolved.Replace('<' + $tokenName + '>', [string]$TokenMap[$tokenName])
+function Write-RenderedPanelLines([hashtable]$Arguments) {
+    foreach ($renderedLine in @(& $renderPanelResponseScriptPath @Arguments)) {
+        if (-not [string]::IsNullOrWhiteSpace([string]$renderedLine)) {
+            Write-Output $renderedLine
+        }
     }
-
-    return $resolved
 }
 
 function Write-Utf8NoBomJson([string]$Path, [object]$Payload) {
@@ -94,6 +94,7 @@ function Get-DefaultLightCheckTargets() {
         [ordered]@{ name = '规则总纲'; source_path = 'AGENTS.md'; runtime_path = 'AGENTS.md' }
         [ordered]@{ name = '主配置'; source_path = 'config.toml'; runtime_path = 'config.toml' }
         [ordered]@{ name = '开工脚本'; source_path = 'start-panel-task.ps1'; runtime_path = 'config/marshal-mode/start-panel-task.ps1' }
+        [ordered]@{ name = '渲染脚本'; source_path = 'render-panel-response.ps1'; runtime_path = 'config/marshal-mode/render-panel-response.ps1' }
     )
 }
 
@@ -184,7 +185,7 @@ function New-LightCheckHashesPayload([object[]]$ResolvedTargets) {
     )
 }
 
-foreach ($requiredPath in @($verifyScriptPath, $installScriptPath, $newTaskScriptPath, $versionSourcePath, $agentsSourcePath, $configSourcePath, $runtimeAgentsPath, $runtimeConfigPath)) {
+foreach ($requiredPath in @($verifyScriptPath, $installScriptPath, $newTaskScriptPath, $renderPanelResponseScriptPath, $versionSourcePath, $agentsSourcePath, $configSourcePath, $runtimeAgentsPath, $runtimeConfigPath)) {
     if (-not (Test-Path $requiredPath)) {
         throw "缺少一句话开工所需脚本：$requiredPath"
     }
@@ -206,6 +207,25 @@ $currentSourceAgentsHash = Get-Sha256TextOrEmpty -Path $agentsSourcePath
 $currentSourceConfigHash = Get-Sha256TextOrEmpty -Path $configSourcePath
 $currentRuntimeAgentsHash = Get-Sha256TextOrEmpty -Path $runtimeAgentsPath
 $currentRuntimeConfigHash = Get-Sha256TextOrEmpty -Path $runtimeConfigPath
+
+Write-Host ''
+Write-RenderedPanelLines @{
+    Kind = 'task-entry'
+    VersionPath = $versionSourcePath
+    RepoRootPath = $resolvedRepoRootPath
+    TargetCodexHome = $resolvedTargetCodexHome
+}
+Write-RenderedPanelLines @{
+    Kind = 'process-quote'
+    Phase = 'task_entry'
+    VersionPath = $versionSourcePath
+}
+Write-RenderedPanelLines @{
+    Kind = 'process-quote'
+    Phase = 'analysis'
+    VersionPath = $versionSourcePath
+}
+
 $canSkipVerify = $false
 if (-not $ForceVerify) {
     if (($null -ne $taskStartState) -and ($taskStartState.verify_status -eq 'passed') -and ($taskStartState.cx_version -eq $currentSourceVersion) -and ($taskStartState.runtime_version -eq $currentRuntimeVersion) -and ($taskStartState.source_root -eq $currentSourceRoot) -and ($currentSourceVersion -eq $currentRuntimeVersion) -and (Test-LightCheckTargetsSatisfied -TaskStartState $taskStartState -ResolvedTargets $lightCheckTargets)) {
@@ -216,6 +236,11 @@ if (-not $ForceVerify) {
 $repairUsed = $false
 $verifySkipped = $false
 $verifyErrorMessage = ''
+Write-RenderedPanelLines @{
+    Kind = 'process-quote'
+    Phase = 'breakdown'
+    VersionPath = $versionSourcePath
+}
 if ($canSkipVerify) {
     $verifySkipped = $true
     Write-Info ("检测到当前版本 {0} 已完成上次自检，本次直接进入记任务与执行。" -f $currentSourceVersion)
@@ -278,45 +303,30 @@ if (-not [string]::IsNullOrWhiteSpace($Goal)) {
     $newTaskArguments['Goal'] = $Goal
 }
 
+Write-RenderedPanelLines @{
+    Kind = 'process-quote'
+    Phase = 'dispatch'
+    VersionPath = $versionSourcePath
+}
 & $newTaskScriptPath @newTaskArguments
+Write-RenderedPanelLines @{
+    Kind = 'process-quote'
+    Phase = 'wrap_up'
+    VersionPath = $versionSourcePath
+}
 
 $activeTaskId = Get-ActiveTaskId -Path $activeTaskFilePath
-$taskEntryTemplate = if (($null -ne $sourceVersionInfo.standard_response_templates) -and ($null -ne $sourceVersionInfo.standard_response_templates.task_entry)) {
-    @($sourceVersionInfo.standard_response_templates.task_entry)
+$lastCheckValue = if ($verifySkipped) {
+    if (($null -ne $taskStartState) -and (-not [string]::IsNullOrWhiteSpace([string]$taskStartState.verified_at))) {
+        [string]$taskStartState.verified_at
+    }
+    else {
+        '沿用上次已通过状态'
+    }
 }
 else {
-    @(
-        '🪶 军令入帐。亮，即刻接管全局。'
-        '提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。'
-        '军令已明，亮先接手。'
-    )
+    [string]$taskStartStatePayload.verified_at
 }
-$statusTemplate = if (($null -ne $sourceVersionInfo.standard_response_templates) -and ($null -ne $sourceVersionInfo.standard_response_templates.status)) {
-    @($sourceVersionInfo.standard_response_templates.status)
-}
-else {
-    @(
-        '版本：<cx_version>'
-        '上次检查：<last_check>'
-        '自动修复：<auto_repair>'
-        '关键文件一致性：<key_file_consistency>'
-        '当前模式：<current_mode>'
-        '当前任务：<current_task>'
-    )
-}
-$closeoutSections = if (($null -ne $sourceVersionInfo.standard_response_templates) -and ($null -ne $sourceVersionInfo.standard_response_templates.closeout_sections)) {
-    @($sourceVersionInfo.standard_response_templates.closeout_sections)
-}
-else {
-    @('已完成', '结果', '下一步')
-}
-$closeoutLead = if (($null -ne $sourceVersionInfo.process_quotes_minimal) -and (-not [string]::IsNullOrWhiteSpace($sourceVersionInfo.process_quotes_minimal.closeout))) {
-    [string]$sourceVersionInfo.process_quotes_minimal.closeout
-}
-else {
-    '此事已交卷，现呈结果。'
-}
-$lastCheckValue = if ($verifySkipped) { '沿用上次已通过状态' } else { '已通过' }
 $autoRepairValue = if ($repairUsed) { '已执行一次必要修整，并复查通过' } else { '无' }
 $matchedLightCheckTargets = @(
     $lightCheckTargets |
@@ -327,29 +337,24 @@ $matchedLightCheckTargets = @(
 )
 $keyFileConsistencyValue = if ($matchedLightCheckTargets.Count -eq $lightCheckTargets.Count) { '一致' } else { '待复核' }
 $currentTaskValue = if (-not [string]::IsNullOrWhiteSpace($activeTaskId)) { '{0}（{1}）' -f $activeTaskId, $Title } else { $Title }
-$templateTokens = @{
-    cx_version = $currentSourceVersion
-    last_check = $lastCheckValue
-    auto_repair = $autoRepairValue
-    key_file_consistency = $keyFileConsistencyValue
-    current_mode = '丞相'
-    current_task = $currentTaskValue
-}
 
-Write-Host ''
 Write-Ok '一句话开工已完成。'
-foreach ($templateLine in $taskEntryTemplate) {
-    Write-Output (Resolve-TemplateLine -Template $templateLine -TokenMap $templateTokens)
+Write-RenderedPanelLines @{
+    Kind = 'status'
+    VersionPath = $versionSourcePath
+    RepoRootPath = $resolvedRepoRootPath
+    TargetCodexHome = $resolvedTargetCodexHome
+    CxVersion = $currentSourceVersion
+    LastCheck = $lastCheckValue
+    AutoRepair = $autoRepairValue
+    KeyFileConsistency = $keyFileConsistencyValue
+    CurrentMode = '丞相'
+    CurrentTask = $currentTaskValue
 }
-foreach ($templateLine in $statusTemplate) {
-    Write-Output (Resolve-TemplateLine -Template $templateLine -TokenMap $templateTokens)
+Write-RenderedPanelLines @{
+    Kind = 'closeout'
+    VersionPath = $versionSourcePath
+    CompletedText = ('已完成“{0}”的开工准备。' -f $Title)
+    ResultText = ('当前任务已记录为 {0}。' -f $currentTaskValue)
+    NextStepText = '留在当前会话，直接判断瓶颈并开始，不用切到 PowerShell。'
 }
-Write-Output $closeoutLead
-Write-Output ('{0}：已完成“{1}”的开工准备。' -f $closeoutSections[0], $Title)
-if (-not [string]::IsNullOrWhiteSpace($activeTaskId)) {
-    Write-Output ('{0}：当前任务已记录为 {1}。' -f $closeoutSections[1], $currentTaskValue)
-}
-else {
-    Write-Output ('{0}：当前任务已记录为 {1}。' -f $closeoutSections[1], $Title)
-}
-Write-Output ('{0}：留在当前会话，直接判断瓶颈并开始，不用切到 PowerShell。' -f $closeoutSections[2])

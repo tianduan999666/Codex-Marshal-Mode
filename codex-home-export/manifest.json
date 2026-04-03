@@ -1,6 +1,6 @@
 {
   "name": "marshal-mode-home-export",
-  "version": "CX-202604030600",
+  "version": "CX-202604030910",
   "stage": "bridge-ready",
   "source_codex_home": "C:/Users/tianduan999/.codex",
   "included": [
@@ -12,6 +12,8 @@
     "install-to-home.ps1",
     "initialize-workspace.ps1",
     "new-task.ps1",
+    "render-panel-response.ps1",
+    "render-panel-response.test.ps1",
     "start-panel-task.ps1",
     "rollback-from-backup.ps1",
     "verify-cutover.ps1",
