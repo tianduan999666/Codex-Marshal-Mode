@@ -22,6 +22,26 @@ function Write-WarnLine([string]$Message) {
     Write-Host "[WARN] $Message" -ForegroundColor Yellow
 }
 
+function Stop-FriendlyUpgrade {
+    param(
+        [string]$Summary,
+        [string]$Detail,
+        [string[]]$NextSteps = @()
+    )
+
+    Write-Host ''
+    Write-Host "[ERROR] $Summary" -ForegroundColor Red
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        Write-WarnLine ("原始错误：{0}" -f $Detail)
+    }
+
+    foreach ($nextStep in $NextSteps) {
+        Write-Info $nextStep
+    }
+
+    exit 1
+}
+
 function Read-JsonFile([string]$Path) {
     return (Get-Content -Raw -Encoding UTF8 -Path $Path | ConvertFrom-Json)
 }
@@ -44,18 +64,36 @@ function Write-DirtyWorkingTreeGuidance {
 }
 
 if (-not (Test-Path $runtimeInstallRecordPath)) {
-    throw "缺少安装记录：$runtimeInstallRecordPath。请先执行 install.cmd。"
+    Stop-FriendlyUpgrade `
+        -Summary '这台机器还没有可升级的丞相安装记录。' `
+        -Detail ("缺少安装记录：{0}" -f $runtimeInstallRecordPath) `
+        -NextSteps @(
+            '先执行 `install.cmd` 完成首次安装。',
+            '安装完成后，再执行 `upgrade.cmd`。'
+        )
 }
 
 $gitCommand = Get-Command git -ErrorAction SilentlyContinue
 if ($null -eq $gitCommand) {
-    throw '未检测到 git，无法执行升级。请先安装 git，再重试 upgrade.cmd。'
+    Stop-FriendlyUpgrade `
+        -Summary '当前机器没装 git，升级现在走不下去。' `
+        -Detail '未检测到 git，无法执行升级。' `
+        -NextSteps @(
+            '先安装 git。',
+            '安装完成后，再重试 `upgrade.cmd`。'
+        )
 }
 
 $installRecord = Read-JsonFile -Path $runtimeInstallRecordPath
 $sourceRootPath = [string]$installRecord.source_root
 if ([string]::IsNullOrWhiteSpace($sourceRootPath)) {
-    throw "安装记录缺少 source_root：$runtimeInstallRecordPath"
+    Stop-FriendlyUpgrade `
+        -Summary '安装记录不完整，升级现在没法继续。' `
+        -Detail ("安装记录缺少 source_root：{0}" -f $runtimeInstallRecordPath) `
+        -NextSteps @(
+            '先重新执行 `install.cmd` 修复安装记录。',
+            '确认安装正常后，再执行 `upgrade.cmd`。'
+        )
 }
 
 $resolvedSourceRootPath = [System.IO.Path]::GetFullPath($sourceRootPath)
@@ -67,17 +105,35 @@ $providerAuthCheckScriptPath = Join-Path $resolvedSourceRootPath 'verify-provide
 
 foreach ($requiredPath in @($resolvedSourceRootPath, $resolvedRepoRootPath, $installScriptPath, $verifyScriptPath, $smokeScriptPath, $providerAuthCheckScriptPath)) {
     if (-not (Test-Path $requiredPath)) {
-        throw "升级入口缺少源文件：$requiredPath"
+        Stop-FriendlyUpgrade `
+            -Summary '升级要用的源文件不全，当前不能继续升级。' `
+            -Detail ("升级入口缺少源文件：{0}" -f $requiredPath) `
+            -NextSteps @(
+                '先确认当前仓库是完整的 git clone。',
+                '如果仓库残缺，先重新拉仓，再重试升级。'
+            )
     }
 }
 
 if (-not (Test-Path (Join-Path $resolvedRepoRootPath '.git'))) {
-    throw "未检测到 Git 仓库：$resolvedRepoRootPath。请确认 install-record.json 指向的是 git clone 后的仓库。"
+    Stop-FriendlyUpgrade `
+        -Summary '安装记录指向的源目录不是一个正常的 Git 仓库。' `
+        -Detail ("未检测到 Git 仓库：{0}" -f $resolvedRepoRootPath) `
+        -NextSteps @(
+            '先确认 install-record.json 指向的是 git clone 下来的仓库。',
+            '必要时重新 clone 仓库，再重新安装。'
+        )
 }
 
 $dirtyWorkingTreeLines = @(& git -C $resolvedRepoRootPath status --short)
 if ($LASTEXITCODE -ne 0) {
-    throw "无法读取源仓状态：$resolvedRepoRootPath"
+    Stop-FriendlyUpgrade `
+        -Summary '升级前没法读出源仓状态，所以本次先停住。' `
+        -Detail ("无法读取源仓状态：{0}" -f $resolvedRepoRootPath) `
+        -NextSteps @(
+            '先在仓库目录手动执行 `git status` 看是不是仓库本身有问题。',
+            '确认 git 正常后，再重试 `upgrade.cmd`。'
+        )
 }
 
 if ($dirtyWorkingTreeLines.Count -gt 0) {
@@ -88,25 +144,83 @@ if ($dirtyWorkingTreeLines.Count -gt 0) {
 Write-Info "RepoRoot=$resolvedRepoRootPath"
 Write-Info "SourceRoot=$resolvedSourceRootPath"
 Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
+Write-Info '本次只升级丞相自身；如源仓有未提交改动，会先停下，不会硬拉更新。'
 Write-Info '开始执行升级入口：git pull --ff-only → 重新安装 → 本地冒烟 → 真实鉴权 → 可选完整验真。'
 
 & git -C $resolvedRepoRootPath pull --ff-only
 if ($LASTEXITCODE -ne 0) {
-    throw "git pull --ff-only 失败：$resolvedRepoRootPath"
+    Stop-FriendlyUpgrade `
+        -Summary '拉取远端更新失败，本次升级没有继续往下走。' `
+        -Detail ("git pull --ff-only 失败：{0}" -f $resolvedRepoRootPath) `
+        -NextSteps @(
+            '先确认网络和远端仓库状态。',
+            '如果本地分支落后较多，先手动看一眼 `git status` 和 `git log --oneline --decorate -5`。',
+            '确认没问题后，再重试 `upgrade.cmd`。'
+        )
 }
 
-& $installScriptPath -TargetCodexHome $resolvedTargetCodexHome -ApplyTemplateConfig:$ApplyTemplateConfig
-& $smokeScriptPath `
-    -TargetCodexHome $resolvedTargetCodexHome `
-    -ScriptsRootPath $runtimeScriptsRootPath `
-    -RepoRootPath $resolvedRepoRootPath
+try {
+    & $installScriptPath -TargetCodexHome $resolvedTargetCodexHome -ApplyTemplateConfig:$ApplyTemplateConfig
+}
+catch {
+    Stop-FriendlyUpgrade `
+        -Summary '远端更新已经拉下来，但重新安装这一步没走完。' `
+        -Detail $_.Exception.Message.Trim() `
+        -NextSteps @(
+            '先不要继续开工。',
+            '先执行 `self-check.cmd` 看当前状态。',
+            '如果连续失败，再执行 `rollback.cmd`。'
+        )
+}
+
+try {
+    & $smokeScriptPath `
+        -TargetCodexHome $resolvedTargetCodexHome `
+        -ScriptsRootPath $runtimeScriptsRootPath `
+        -RepoRootPath $resolvedRepoRootPath
+}
+catch {
+    Stop-FriendlyUpgrade `
+        -Summary '升级后的面板入口冒烟没通过。' `
+        -Detail $_.Exception.Message.Trim() `
+        -NextSteps @(
+            '先不要直接开始真实任务。',
+            '先执行 `self-check.cmd` 复看详细结果。',
+            '如果仍不通过，再执行 `rollback.cmd`。'
+        )
+}
 
 if (Test-Path $authPath) {
-    & $providerAuthCheckScriptPath -TargetCodexHome $resolvedTargetCodexHome
-    & $verifyScriptPath `
-        -TargetCodexHome $resolvedTargetCodexHome `
-        -ExpectedSourceRoot $resolvedSourceRootPath `
-        -RequireBackupRoot
+    try {
+        & $providerAuthCheckScriptPath -TargetCodexHome $resolvedTargetCodexHome
+    }
+    catch {
+        Stop-FriendlyUpgrade `
+            -Summary '升级后的真实 provider/auth 鉴权没通过。' `
+            -Detail $_.Exception.Message.Trim() `
+            -NextSteps @(
+                '先确认 `config.toml` 的 provider 和 `auth.json` 的 key 还是当前要用的。',
+                '必要时先回官方 Codex 面板做一次真人验证。',
+                '确认前先不要直接开始真实开发任务。'
+            )
+    }
+
+    try {
+        & $verifyScriptPath `
+            -TargetCodexHome $resolvedTargetCodexHome `
+            -ExpectedSourceRoot $resolvedSourceRootPath `
+            -RequireBackupRoot
+    }
+    catch {
+        Stop-FriendlyUpgrade `
+            -Summary '升级已经完成，但最终验真没通过。' `
+            -Detail $_.Exception.Message.Trim() `
+            -NextSteps @(
+                '先执行 `self-check.cmd` 再看一遍完整结果。',
+                '如果只是同步没对齐，重试一次 `upgrade.cmd`。',
+                '如果仍不通过，再执行 `rollback.cmd`。'
+            )
+    }
 }
 else {
     Write-WarnLine '未检测到 auth.json，已跳过完整验真。请先完成 Codex 登录，再执行 self-check.cmd。'
