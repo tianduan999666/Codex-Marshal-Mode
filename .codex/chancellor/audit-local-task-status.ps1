@@ -23,6 +23,46 @@ $canonicalStatuses = @(
 $terminalStatuses = @('done')
 $attentionStatuses = @('waiting_assist', 'ready_to_resume')
 $legacyStatuses = @('completed')
+$script:emitJsonOnly = [bool]$AsJson
+
+function Write-Info([string]$Message) {
+    Write-Host "[INFO] $Message" -ForegroundColor Cyan
+}
+
+function Write-WarnLine([string]$Message) {
+    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+}
+
+function Stop-FriendlyAudit {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string[]]$NextSteps = @()
+    )
+
+    $messageParts = @($Summary)
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        $messageParts += ("原因：{0}" -f $Detail)
+    }
+    $messageParts += $NextSteps
+    $throwMessage = ($messageParts | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join ' '
+
+    if ($script:emitJsonOnly) {
+        throw $throwMessage
+    }
+
+    Write-Host ''
+    Write-Host "[ERROR] $Summary" -ForegroundColor Red
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        Write-WarnLine ("原因：{0}" -f $Detail)
+    }
+
+    foreach ($nextStep in $NextSteps) {
+        Write-Info $nextStep
+    }
+
+    exit 1
+}
 
 function Get-YamlScalarValue {
     param(
@@ -142,7 +182,13 @@ $tasksRootPath = [System.IO.Path]::GetFullPath($TasksRootPath)
 $activeTaskFilePath = [System.IO.Path]::GetFullPath($ActiveTaskFilePath)
 
 if (-not (Test-Path $tasksRootPath)) {
-    throw "任务目录不存在：$tasksRootPath"
+    Stop-FriendlyAudit `
+        -Summary '任务根目录不存在，当前没法继续做本地任务审计。' `
+        -Detail ("任务目录不存在：{0}" -f $tasksRootPath) `
+        -NextSteps @(
+            '先确认 TasksRootPath 是否写对了。',
+            '如果这是新环境，请先创建任务目录后再重试。'
+        )
 }
 
 if ([string]::IsNullOrWhiteSpace($AuditReferenceTimeText)) {
@@ -151,7 +197,13 @@ if ([string]::IsNullOrWhiteSpace($AuditReferenceTimeText)) {
 else {
     $parsedAuditReferenceTime = ConvertTo-NullableDateTime -Text $AuditReferenceTimeText
     if (-not $parsedAuditReferenceTime) {
-        throw "AuditReferenceTimeText 解析失败：$AuditReferenceTimeText"
+        Stop-FriendlyAudit `
+            -Summary '审计参考时间看不懂，当前没法继续审计。' `
+            -Detail ("AuditReferenceTimeText 解析失败：{0}" -f $AuditReferenceTimeText) `
+            -NextSteps @(
+                '把时间改成例如 2026-04-04 09:30:00 这样的格式。',
+                '如果不需要指定时间，可以直接留空。'
+            )
     }
 
     $script:auditReferenceTime = $parsedAuditReferenceTime

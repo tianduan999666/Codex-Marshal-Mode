@@ -28,12 +28,52 @@ $planningGuideRelativePath = 'docs/30-方案/07-V4-规划策略候选规范.md'
 $governanceGuideRelativePath = 'docs/30-方案/08-V4-治理审计候选规范.md'
 $closeoutGuideRelativePath = 'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
 
+function Write-Info([string]$Message) {
+    Write-Host "[INFO] $Message" -ForegroundColor Cyan
+}
+
+function Write-WarnLine([string]$Message) {
+    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+}
+
+function Stop-FriendlyCreateTaskPackage {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string[]]$NextSteps = @()
+    )
+
+    Write-Host ''
+    Write-Host "[ERROR] $Summary" -ForegroundColor Red
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        Write-WarnLine ("原因：{0}" -f $Detail)
+    }
+
+    foreach ($nextStep in $NextSteps) {
+        Write-Info $nextStep
+    }
+
+    exit 1
+}
+
 if ($TaskId -notmatch '^v4-(trial|target)-\d{3}-.+$') {
-    throw 'TaskId 必须匹配 v4-trial-<三位序号>-<语义名> 或 v4-target-<三位序号>-<语义名> 格式。'
+    Stop-FriendlyCreateTaskPackage `
+        -Summary '任务包编号格式不对，当前没法起包。' `
+        -Detail 'TaskId 必须匹配 v4-trial-<三位序号>-<语义名> 或 v4-target-<三位序号>-<语义名> 格式。' `
+        -NextSteps @(
+            '先把任务编号改成例如 `v4-target-001-语义名` 或 `v4-trial-001-语义名`。',
+            '确认编号不重复后再重新起包。'
+        )
 }
 
 if (Test-Path $taskDirectoryPath) {
-    throw "任务目录已存在：$taskDirectoryPath"
+    Stop-FriendlyCreateTaskPackage `
+        -Summary '任务包目录已经存在，本次没有继续覆盖。' `
+        -Detail ("任务目录已存在：{0}" -f $taskDirectoryPath) `
+        -NextSteps @(
+            '先确认是不是重复起包。',
+            '如果要新开任务，请换一个新的任务编号后再重试。'
+        )
 }
 
 New-Item -ItemType Directory -Path $taskDirectoryPath | Out-Null
@@ -237,4 +277,3 @@ Write-Output "收口参考：$closeoutGuideRelativePath"
 if ($PlanningRequired) {
     Write-Output "⚠️ 复杂任务：请先完成 tech-spec.md，将 planning_status 改为 'approved'，再将 status 改为 'running'"
 }
-
