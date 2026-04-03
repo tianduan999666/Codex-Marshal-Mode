@@ -32,16 +32,17 @@ function Stop-FriendlyCutoverCheck {
         [string]$NextStep = ''
     )
 
-    $messageParts = @($Summary)
+    Write-Host ''
+    Write-Host "[ERROR] $Summary" -ForegroundColor Red
     if (-not [string]::IsNullOrWhiteSpace($Detail)) {
-        $messageParts += ("原因：{0}" -f $Detail)
+        Write-Host ("[WARN] 原因：{0}" -f $Detail) -ForegroundColor Yellow
     }
 
     if (-not [string]::IsNullOrWhiteSpace($NextStep)) {
-        $messageParts += ("下一步：{0}" -f $NextStep)
+        Write-Info ("下一步：{0}" -f $NextStep)
     }
 
-    throw ($messageParts -join ' ')
+    exit 1
 }
 
 function Get-Sha256Text([string]$Path) {

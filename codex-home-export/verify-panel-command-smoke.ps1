@@ -40,16 +40,17 @@ function Stop-FriendlySmokeCheck {
         [string]$NextStep = ''
     )
 
-    $messageParts = @($Summary)
+    Write-Host ''
+    Write-Host "[ERROR] $Summary" -ForegroundColor Red
     if (-not [string]::IsNullOrWhiteSpace($Detail)) {
-        $messageParts += ("原因：{0}" -f $Detail)
+        Write-WarnLine ("原因：{0}" -f $Detail)
     }
 
     if (-not [string]::IsNullOrWhiteSpace($NextStep)) {
-        $messageParts += ("下一步：{0}" -f $NextStep)
+        Write-Info ("下一步：{0}" -f $NextStep)
     }
 
-    throw ($messageParts -join ' ')
+    exit 1
 }
 
 function Get-NonEmptyLines([object[]]$Lines) {
