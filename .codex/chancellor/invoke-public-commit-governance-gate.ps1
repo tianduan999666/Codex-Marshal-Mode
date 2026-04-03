@@ -654,6 +654,26 @@ function Get-CodexHomeExportConsistencyState {
         throw "生产母体 manifest.included 为空：$manifestPath"
     }
 
+    $trackedExportFiles = @(
+        Get-OrderedUniqueValues -Values @(
+            @(git -c core.quotepath=false ls-files -- 'codex-home-export') |
+                ForEach-Object { ConvertTo-NormalizedPath $_ } |
+                Where-Object { $_.StartsWith('codex-home-export/') } |
+                ForEach-Object { $_.Substring('codex-home-export/'.Length) }
+        )
+    )
+    if ($trackedExportFiles.Count -eq 0) {
+        throw '生产母体当前没有任何受 git 跟踪的文件。'
+    }
+    Assert-RequiredPathsPresent -SourcePaths $trackedExportFiles -RequiredPaths $manifestIncludedFiles -Label '生产母体 manifest included 跟踪面'
+    $unexpectedTrackedExportFiles = @(
+        $trackedExportFiles |
+            Where-Object { $_ -notin $manifestIncludedFiles }
+    )
+    if ($unexpectedTrackedExportFiles.Count -gt 0) {
+        throw "生产母体 git 跟踪文件存在未列入 manifest.included 的路径：$($unexpectedTrackedExportFiles -join '、')"
+    }
+
     $actualExportFiles = @(
         Get-OrderedUniqueValues -Values @(
             @(Get-ChildItem 'codex-home-export' -File | Sort-Object Name | ForEach-Object { $_.Name })

@@ -95,6 +95,20 @@ $execReadmeLines = Get-Content $execReadmePath
 $removedLineText = '- `21-关键配置来源与漂移复核模板.md`'
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
+ $unapprovedCodexProbeRelativePath = '.codex/chancellor/__gate-unapproved-probe.ps1'
+$unapprovedCodexProbePath = Join-Path $repoRootPath ($unapprovedCodexProbeRelativePath -replace '/', '\')
+try {
+    [System.IO.File]::WriteAllText($unapprovedCodexProbePath, "Write-Host 'probe'" + [Environment]::NewLine, $utf8NoBom)
+    git -C $repoRootPath add -- $unapprovedCodexProbeRelativePath | Out-Null
+    Invoke-GateForTestCase -Paths @($unapprovedCodexProbeRelativePath) -ExpectedExitCode 1 -TestName 'block-unapproved-codex-tracked-file'
+}
+finally {
+    git -C $repoRootPath reset HEAD -- $unapprovedCodexProbeRelativePath 2>$null | Out-Null
+    if (Test-Path $unapprovedCodexProbePath) {
+        Remove-Item -LiteralPath $unapprovedCodexProbePath -Force
+    }
+}
+
 if ($execReadmeLines -notcontains $removedLineText) {
     throw "测试前置条件不满足：$execReadmePath 中缺少 $removedLineText"
 }
@@ -2125,6 +2139,43 @@ try {
 }
 finally {
     [System.IO.File]::WriteAllBytes($codexHomeExportManifestPath, $originalCodexHomeExportManifestBytes)
+}
+
+$untrackedCodexHomeExportFileName = 'temp-untracked-codex-home-export-probe.ps1'
+$untrackedCodexHomeExportFilePath = Join-Path $repoRootPath ('codex-home-export\' + $untrackedCodexHomeExportFileName)
+try {
+    [System.IO.File]::WriteAllText($untrackedCodexHomeExportFilePath, "Write-Host 'probe'" + [Environment]::NewLine, $utf8NoBom)
+
+    $driftedManifestInfo = Get-Content $codexHomeExportManifestPath -Raw | ConvertFrom-Json
+    $driftedManifestInfo.included = @($driftedManifestInfo.included) + @($untrackedCodexHomeExportFileName)
+    $driftedManifestContent = ($driftedManifestInfo | ConvertTo-Json -Depth 10)
+    [System.IO.File]::WriteAllText($codexHomeExportManifestPath, $driftedManifestContent + [Environment]::NewLine, $utf8NoBom)
+
+    $readmeLandedStartIndex = [Array]::IndexOf($codexHomeExportReadmeLines, '## 当前已落文件')
+    $readmeLandedEndIndex = [Array]::IndexOf($codexHomeExportReadmeLines, '## 当前未落文件')
+    if ($readmeLandedStartIndex -lt 0 -or $readmeLandedEndIndex -le $readmeLandedStartIndex) {
+        throw "测试前置条件不满足：$codexHomeExportReadmePath 未解析到当前已落文件区块。"
+    }
+
+    $driftedReadmeLines = New-Object System.Collections.Generic.List[string]
+    foreach ($readmeLine in $codexHomeExportReadmeLines[0..($readmeLandedEndIndex - 1)]) {
+        [void]$driftedReadmeLines.Add($readmeLine)
+    }
+    [void]$driftedReadmeLines.Insert($readmeLandedEndIndex - 1, ('- `{0}`' -f $untrackedCodexHomeExportFileName))
+    foreach ($readmeLine in $codexHomeExportReadmeLines[$readmeLandedEndIndex..($codexHomeExportReadmeLines.Count - 1)]) {
+        [void]$driftedReadmeLines.Add($readmeLine)
+    }
+    $driftedReadmeContent = ($driftedReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($codexHomeExportReadmePath, $driftedReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('codex-home-export/manifest.json', 'codex-home-export/README.md') -ExpectedExitCode 1 -TestName 'block-codex-home-export-untracked-included-file'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($codexHomeExportManifestPath, $originalCodexHomeExportManifestBytes)
+    [System.IO.File]::WriteAllBytes($codexHomeExportReadmePath, $originalCodexHomeExportReadmeBytes)
+    if (Test-Path $untrackedCodexHomeExportFilePath) {
+        Remove-Item -LiteralPath $untrackedCodexHomeExportFilePath -Force
+    }
 }
 
 try {
