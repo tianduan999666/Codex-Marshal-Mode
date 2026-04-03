@@ -52,6 +52,7 @@
 - `task-start-state.json` 是本地开工状态缓存，只用于同版本轻量复核；它不属于 `manifest` 受管文件，也不参与公开提交。
 - 当前仓没有官方面板前端源码；当前真正可控的是官方 Codex 面板的入口层、脚本层与真源层，不单独扩展独立面板。
 - `invoke-panel-command.ps1` 是当前 `传令：XXXX` 的统一脚本路由入口；查询命令与做事命令都先走它。
+- `start-panel-acceptance.ps1` 当前也固定通过 `invoke-panel-command.ps1` 取提示、开工骨架、版本口径、状态口径与升级口径；验板预期与真实入口链保持同源。
 - `render-panel-response.ps1` 是当前面板输出控制面的统一渲染器；开场白、示例句、状态栏顺序、过程金句与收口模板都应先回到它和 `VERSION.json` 验证。
 
 ## 使用原则
@@ -63,7 +64,8 @@
 3. 若当前版本在本机已经验过，后续任务默认跳过重复验真，直接建任务，并留在当前会话继续。
 4. 跳过前仍会轻量复核固定轻检清单：`VERSION.json → config/cx-version.json`、`AGENTS.md`、`config.toml`、`invoke-panel-command.ps1 → config/marshal-mode/invoke-panel-command.ps1`、`start-panel-task.ps1 → config/marshal-mode/start-panel-task.ps1`、`render-panel-response.ps1 → config/marshal-mode/render-panel-response.ps1`；若不一致，自动回到验真流程。
 5. 当前统一入口链固定为：`VERSION.json` → `invoke-panel-command.ps1` → `render-panel-response.ps1 / start-panel-task.ps1`；其中 `传令：状态` 必须按 `status_bar_slots` 顺序渲染，`传令：升级` 必须按真源 3 行口径渲染，不能自行换序或改写边界。
-6. 第一次准备或维护层排障时，再执行 `initialize-workspace.ps1`、`install-to-home.ps1`、`verify-cutover.ps1` 与 `new-task.ps1`。
+6. 当前验板链固定为：`start-panel-acceptance.ps1` → `invoke-panel-command.ps1`；不再允许验板脚本绕过统一路由直接拼查询口径。
+7. 第一次准备或维护层排障时，再执行 `initialize-workspace.ps1`、`install-to-home.ps1`、`verify-cutover.ps1` 与 `new-task.ps1`。
 
 ### 当前对外感知
 

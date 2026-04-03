@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 $sourceRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $verifyScriptPath = Join-Path $sourceRoot 'verify-cutover.ps1'
 $resultDraftScriptPath = Join-Path $sourceRoot 'new-panel-acceptance-result.ps1'
-$renderPanelResponseScriptPath = Join-Path $sourceRoot 'render-panel-response.ps1'
+$invokePanelCommandScriptPath = Join-Path $sourceRoot 'invoke-panel-command.ps1'
 $threeStepCardPath = Join-Path $sourceRoot 'panel-acceptance-three-step-card.md'
 $passFailSheetPath = Join-Path $sourceRoot 'panel-acceptance-pass-fail-sheet.md'
 $resultTemplatePath = Join-Path $sourceRoot 'panel-acceptance-result-template.md'
@@ -26,11 +26,11 @@ function Read-JsonFile([string]$Path) {
     return (Get-Content -Raw -Path $Path | ConvertFrom-Json)
 }
 
-function Get-RenderedPanelLines([hashtable]$Arguments) {
-    return @(& $renderPanelResponseScriptPath @Arguments)
+function Get-RoutedPanelLines([hashtable]$Arguments) {
+    return @(& $invokePanelCommandScriptPath @Arguments)
 }
 
-foreach ($requiredPath in @($verifyScriptPath, $resultDraftScriptPath, $renderPanelResponseScriptPath, $threeStepCardPath, $passFailSheetPath, $resultTemplatePath, $versionSourcePath)) {
+foreach ($requiredPath in @($verifyScriptPath, $resultDraftScriptPath, $invokePanelCommandScriptPath, $threeStepCardPath, $passFailSheetPath, $resultTemplatePath, $versionSourcePath)) {
     if (-not (Test-Path $requiredPath)) {
         throw "缺少验板准备文件：$requiredPath"
     }
@@ -38,33 +38,30 @@ foreach ($requiredPath in @($verifyScriptPath, $resultDraftScriptPath, $renderPa
 
 $versionInfo = Read-JsonFile -Path $versionSourcePath
 $taskEntryPrefix = if ([string]::IsNullOrWhiteSpace($versionInfo.task_entry_prefix)) { '传令：' } else { [string]$versionInfo.task_entry_prefix }
-$hintLines = @(Get-RenderedPanelLines @{
-    Kind = 'hint'
-    VersionPath = $versionSourcePath
+$hintLines = @(Get-RoutedPanelLines @{
+    ShowHint = $true
+    RepoRootPath = (Join-Path $sourceRoot '..')
+    TargetCodexHome = $TargetCodexHome
 })
-$taskEntryLines = @(Get-RenderedPanelLines @{
-    Kind = 'task-entry'
-    VersionPath = $versionSourcePath
+$taskEntryLines = @(Get-RoutedPanelLines @{
+    PreviewTaskEntry = $true
+    RepoRootPath = (Join-Path $sourceRoot '..')
+    TargetCodexHome = $TargetCodexHome
 })
-$taskEntryQuoteLines = @(Get-RenderedPanelLines @{
-    Kind = 'process-quote'
-    Phase = 'task_entry'
-    VersionPath = $versionSourcePath
+$versionPreviewLines = @(Get-RoutedPanelLines @{
+    CommandText = '{0}版本' -f $taskEntryPrefix
+    RepoRootPath = (Join-Path $sourceRoot '..')
+    TargetCodexHome = $TargetCodexHome
 })
-$versionPreviewLines = @(Get-RenderedPanelLines @{
-    Kind = 'version'
-    VersionPath = $versionSourcePath
-    CxVersion = [string]$versionInfo.cx_version
+$statusPreviewLines = @(Get-RoutedPanelLines @{
+    CommandText = '{0}状态' -f $taskEntryPrefix
+    RepoRootPath = (Join-Path $sourceRoot '..')
+    TargetCodexHome = $TargetCodexHome
 })
-$statusPreviewLines = @(Get-RenderedPanelLines @{
-    Kind = 'status'
-    VersionPath = $versionSourcePath
-    CxVersion = [string]$versionInfo.cx_version
-    LastCheck = '示例：最近一次已通过'
-    AutoRepair = '示例：无'
-    KeyFileConsistency = '示例：一致'
-    CurrentMode = '丞相'
-    CurrentTask = '示例：v4-target-001（测试入口是否稳态）'
+$upgradePreviewLines = @(Get-RoutedPanelLines @{
+    CommandText = '{0}升级' -f $taskEntryPrefix
+    RepoRootPath = (Join-Path $sourceRoot '..')
+    TargetCodexHome = $TargetCodexHome
 })
 $statusLabelOrder = @(
     $statusPreviewLines |
@@ -93,9 +90,10 @@ Write-Info "结果模板：$resultTemplatePath"
 Write-Info "结果稿：$resultDraftPath"
 Write-Info ("结果复核：填完结果稿后，执行 verify-panel-acceptance-result.ps1 -ResultPath ""{0}""。" -f $resultDraftPath)
 Write-Info ("当前官句：{0}" -f $taskEntryLines[0])
-Write-Info ("当前开工骨架：{0} → {1} → {2}" -f $taskEntryLines[0], $taskEntryLines[1], $taskEntryQuoteLines[0])
+Write-Info ("当前开工骨架：{0} → {1} → {2}" -f $taskEntryLines[0], $taskEntryLines[1], $taskEntryLines[2])
 Write-Info ("当前版本口径：{0}" -f ($versionPreviewLines -join ' | '))
 Write-Info ("当前状态栏顺序：{0}" -f ($statusLabelOrder -join ' / '))
+Write-Info ("当前升级口径：{0}" -f ($upgradePreviewLines -join ' | '))
 Write-Info ("现在进入官方 Codex 面板，新开会话后先看是否出现示例：{0}" -f $hintLines[0])
 Write-Info ("然后按顺序输入：{0} → {1} → {2}；如需确认升级口径，再输入 {3}" -f $taskProbeCommand, $versionCommand[0], $statusCommand[0], $upgradeCommand[0])
 Write-Output $resultDraftPath

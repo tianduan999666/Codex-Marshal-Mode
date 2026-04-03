@@ -1,6 +1,10 @@
 param(
-    [Parameter(Mandatory = $true, Position = 0)]
+    [Parameter(Mandatory = $true, Position = 0, ParameterSetName = 'command')]
     [string]$CommandText,
+    [Parameter(Mandatory = $true, ParameterSetName = 'hint')]
+    [switch]$ShowHint,
+    [Parameter(Mandatory = $true, ParameterSetName = 'task-preview')]
+    [switch]$PreviewTaskEntry,
     [string]$RepoRootPath = '',
     [string]$TargetCodexHome = (Join-Path $env:USERPROFILE '.codex'),
     [switch]$DryRunTaskStart
@@ -39,6 +43,34 @@ function Write-PanelCommandLines([hashtable]$Arguments) {
 foreach ($requiredPath in @($renderPanelResponseScriptPath, $startPanelTaskScriptPath, $versionSourcePath)) {
     if (-not (Test-Path $requiredPath)) {
         throw "缺少入口路由所需文件：$requiredPath"
+    }
+}
+
+switch ($PSCmdlet.ParameterSetName) {
+    'hint' {
+        Write-PanelCommandLines @{
+            Kind = 'hint'
+            VersionPath = $versionSourcePath
+            RepoRootPath = $resolvedRepoRootPath
+            TargetCodexHome = $resolvedTargetCodexHome
+        }
+        exit 0
+    }
+    'task-preview' {
+        Write-PanelCommandLines @{
+            Kind = 'task-entry'
+            VersionPath = $versionSourcePath
+            RepoRootPath = $resolvedRepoRootPath
+            TargetCodexHome = $resolvedTargetCodexHome
+        }
+        Write-PanelCommandLines @{
+            Kind = 'process-quote'
+            Phase = 'task_entry'
+            VersionPath = $versionSourcePath
+            RepoRootPath = $resolvedRepoRootPath
+            TargetCodexHome = $resolvedTargetCodexHome
+        }
+        exit 0
     }
 }
 
