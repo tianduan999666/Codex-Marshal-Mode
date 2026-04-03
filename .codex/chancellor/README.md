@@ -12,6 +12,15 @@
 - 异常路径与回退模板见：`record-exception-state.ps1`（已含治理提示与治理复核骨架）
 - 复杂并存汇报骨架模板见：`write-concurrent-status-report.ps1`（已含治理提示与治理复核骨架）
 - 关键配置来源与漂移复核模板见：`write-governance-config-review.ps1`（已含配置来源、版本依据与漂移检查骨架）
+- 以下 Phase 2 / VibeCoding 条目属于本地在研能力清单：当前只表示仓内已有脚本或样例测试，不代表这些能力已经纳入公开现行主线。
+- 若相关脚本仍处于脏工作树，或只完成本地样例验证，提交前仍需补治理审计、口径复核与必要回归。
+- Phase 2 基线统计见：`Measure-Phase2Baseline.ps1`（会按显式动作词统计返工次数、路线修正次数，并落出观察周期与证据）
+- Phase 2 基线测试见：`Test-Phase2Baseline.ps1`（会构造样例任务包与日志，验证基线统计口径不会把模板占位句算成真实动作）
+- Phase 2 Agent worker 见：`Invoke-Phase2AgentWorker.ps1`（提供 Planner Agent 与 Code-Reviewer Agent 的最小本地适配，并复用限流与安全追加）
+- Phase 2 Agent 调度器见：`Invoke-Phase2AgentDispatcher.ps1`（会并行或串行调度最小 Agent 组合，输出耗时、重试次数与共享日志）
+- Phase 2 Agent 调度测试见：`Test-Phase2AgentDispatcher.ps1`（会分别验证限流重试路径和无重试时的并行收益）
+- VibeCoding 门禁干跑见：`Invoke-VibeCodingGateDryRun.ps1`（会构造临时任务包，验证复杂任务通过、缺失 `tech-spec.md` 被拦截、`planning` 状态改代码被拦截）
+- VibeCoding 门禁干跑测试见：`Test-VibeCodingGateDryRun.ps1`（会校验干跑脚本输出 3 个固定场景，避免门禁闭环只停留在口头说明）
 - 本地任务状态审计见：`audit-local-task-status.ps1`（会汇总 `active-task.txt`、状态分布、非终态任务、非规范状态、陈旧任务与建议主公拍板项，便于收口前快速巡检）
 - 面板人工验板收口联动见：`review-panel-acceptance-closeout.ps1`（会串联结果稿复核与本地任务审计，直接给出当前是否可收口、还剩哪些陈旧任务、还有哪些主公拍板项）
 - 面板人工验板结果回写见：`resolve-panel-acceptance-closeout.ps1`（会把真实结果稿回写到本地任务包，更新状态、结果摘要与决策记录）
