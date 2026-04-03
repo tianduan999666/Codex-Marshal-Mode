@@ -9,17 +9,25 @@
 - `../logs/20260402-022000-self-use-first-run-card.md`
 - `../logs/20260402-013700-mvp-24h-plan.md`
 
+## 普通用户最短安装
+
+```powershell
+git clone https://github.com/tianduan999666/Codex-Chancellor-Mode.git
+cd Codex-Chancellor-Mode
+.\install.cmd
+```
+
 ## 现在默认怎么开工
-- 第一次准备环境，普通用户只执行：`../codex-home-export/install.cmd`。
+- 第一次准备环境，普通用户只执行根目录 `install.cmd`。
 - 换其他电脑时，先执行：
 
 ```powershell
 git clone https://github.com/tianduan999666/Codex-Chancellor-Mode.git
 cd Codex-Chancellor-Mode
-.\codex-home-export\install.cmd
+.\install.cmd
 ```
 
-- 日常开工，优先回官方 Codex 面板直接说：`传令：我要做 XX`。
+- 日常开工，优先回官方 Codex 面板直接说：`传令：修一下登录页`。
 - 面板内会先走 `../codex-home-export/start-panel-task.ps1`。
 - 同版本第一次开工先验真；后续同版本任务默认跳过重复验真，直接建任务。
 
@@ -68,6 +76,9 @@ cd Codex-Chancellor-Mode
 - `40-执行/29-少数派首发执行包.md`
 - `40-执行/30-朋友圈与熟人转介绍首发执行包.md`
 - `40-执行/31-三渠道首发选择对比卡.md`
+- `40-执行/32-丞相模式与ECC功能对比分析.md`
+- `40-执行/33-ECC功能采纳建议与实施路线图.md`
+- `40-执行/34-丞相模式ECC功能核实总结.md`
 - `90-归档/01-执行区证据稿归档规则.md`
 - `reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`
 - `reference/02-仓库卫生与命名规范.md`
