@@ -50,6 +50,79 @@ function Assert-Contains {
     }
 }
 
+function Invoke-PowerShellScriptForTest {
+    param(
+        [string]$ScriptPath,
+        [string[]]$ArgumentList = @()
+    )
+
+    $outputText = (& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ScriptPath @ArgumentList *>&1 | Out-String)
+    return [pscustomobject]@{
+        ExitCode = $LASTEXITCODE
+        Output = $outputText
+    }
+}
+
+function New-MaintenanceScriptSandbox {
+    param(
+        [string]$SandboxName,
+        [string[]]$ScriptNames
+    )
+
+    $sandboxRootPath = Join-Path (Join-Path $repoRootPath 'temp/generated') $SandboxName
+    $tasksSandboxPath = Join-Path $sandboxRootPath 'tasks'
+    New-Item -ItemType Directory -Force -Path $tasksSandboxPath | Out-Null
+
+    foreach ($scriptName in $ScriptNames) {
+        Copy-Item -LiteralPath (Join-Path $scriptRootPath $scriptName) -Destination (Join-Path $sandboxRootPath $scriptName) -Force
+    }
+
+    return [pscustomobject]@{
+        RootPath = $sandboxRootPath
+        TasksPath = $tasksSandboxPath
+    }
+}
+
+function New-MaintenanceTaskStateContent {
+    param(
+        [string]$TaskId,
+        [string]$Status = 'running',
+        [string]$NextAction = '继续推进维护层样例'
+    )
+
+    return @"
+task_id: $TaskId
+status: $Status
+risk_level: low
+next_action: $NextAction
+blocked_by: []
+updated_at: '2026-04-04 07:00:00'
+phase_hint: maintenance_test
+"@
+}
+
+function New-MaintenanceTaskPackage {
+    param(
+        [string]$TasksRootPath,
+        [string]$TaskId,
+        [string]$StateContent,
+        [string]$ResultContent,
+        [string]$DecisionLogContent,
+        [string]$GatesContent = ''
+    )
+
+    $taskDirectoryPath = Join-Path $TasksRootPath $TaskId
+    Write-Utf8NoBomFile -Path (Join-Path $taskDirectoryPath 'state.yaml') -Content $StateContent
+    Write-Utf8NoBomFile -Path (Join-Path $taskDirectoryPath 'result.md') -Content $ResultContent
+    Write-Utf8NoBomFile -Path (Join-Path $taskDirectoryPath 'decision-log.md') -Content $DecisionLogContent
+
+    if (-not [string]::IsNullOrWhiteSpace($GatesContent)) {
+        Write-Utf8NoBomFile -Path (Join-Path $taskDirectoryPath 'gates.yaml') -Content $GatesContent
+    }
+
+    return $taskDirectoryPath
+}
+
 Write-Utf8NoBomFile -Path $activeTaskFilePath -Content "v4-trial-035-panel-acceptance-closeout`n"
 
 $taskStateMap = @{
@@ -260,5 +333,140 @@ Assert-Contains -Content $finalizeOutput -ExpectedText '已清空 active-task.tx
 Assert-Contains -Content $finalizeResolvedState -ExpectedText 'status: done' -Message '一键收口后状态应为 done'
 Assert-Contains -Content $finalizeTrial034State -ExpectedText 'status: done' -Message '一键收口后 034 应归一化为 done'
 Assert-Equal -Actual ($finalizeActiveTaskContent.Trim()) -Expected '' -Message '一键收口后 active-task.txt 应清空'
+
+$maintenanceSandbox = New-MaintenanceScriptSandbox -SandboxName ("maintenance-script-friendly-test-$testRunId") -ScriptNames @(
+    'record-exception-state.ps1',
+    'resolve-gate-package.ps1'
+)
+$recordExceptionScriptForTestPath = Join-Path $maintenanceSandbox.RootPath 'record-exception-state.ps1'
+$resolveGatePackageScriptForTestPath = Join-Path $maintenanceSandbox.RootPath 'resolve-gate-package.ps1'
+$maintenanceBaseResultContent = @'
+# 结果摘要
+
+- 当前为维护层样例任务包。
+'@
+$maintenanceBaseDecisionLogContent = @'
+# 决策记录
+
+- 当前为维护层样例任务包。
+'@
+
+$invalidTaskIdRecordResult = Invoke-PowerShellScriptForTest -ScriptPath $recordExceptionScriptForTestPath -ArgumentList @(
+    '-TaskId', 'bad-task-id',
+    '-Summary', '样例异常摘要',
+    '-RollbackScope', '只回退样例文件',
+    '-ResumeHint', '补证据后继续'
+)
+Assert-Equal -Actual $invalidTaskIdRecordResult.ExitCode -Expected 1 -Message '异常记录脚本非法 TaskId 应退出 1'
+Assert-Contains -Content $invalidTaskIdRecordResult.Output -ExpectedText '[ERROR] 任务包编号格式不对，当前没法记录异常路径。' -Message '异常记录脚本非法 TaskId 缺少人话错误'
+Assert-Contains -Content $invalidTaskIdRecordResult.Output -ExpectedText '[WARN] 原因：TaskId 必须匹配 v4-trial-<三位序号>-<语义名> 格式。' -Message '异常记录脚本非法 TaskId 缺少原因说明'
+
+$recordMissingFileTaskId = 'v4-trial-401-record-exception-missing-file'
+$recordMissingFileTaskPath = New-MaintenanceTaskPackage `
+    -TasksRootPath $maintenanceSandbox.TasksPath `
+    -TaskId $recordMissingFileTaskId `
+    -StateContent (New-MaintenanceTaskStateContent -TaskId $recordMissingFileTaskId) `
+    -ResultContent $maintenanceBaseResultContent `
+    -DecisionLogContent $maintenanceBaseDecisionLogContent
+Remove-Item -LiteralPath (Join-Path $recordMissingFileTaskPath 'decision-log.md') -Force
+$missingFileRecordResult = Invoke-PowerShellScriptForTest -ScriptPath $recordExceptionScriptForTestPath -ArgumentList @(
+    '-TaskId', $recordMissingFileTaskId,
+    '-Summary', '样例异常摘要',
+    '-RollbackScope', '只回退样例文件',
+    '-ResumeHint', '补证据后继续'
+)
+Assert-Equal -Actual $missingFileRecordResult.ExitCode -Expected 1 -Message '异常记录脚本缺文件时应退出 1'
+Assert-Contains -Content $missingFileRecordResult.Output -ExpectedText '[ERROR] 任务包资料还没补齐，当前不能记录异常路径。' -Message '异常记录脚本缺文件缺少人话错误'
+Assert-Contains -Content $missingFileRecordResult.Output -ExpectedText 'decision-log.md' -Message '异常记录脚本缺文件缺少具体文件名'
+
+$recordSuccessTaskId = 'v4-trial-402-record-exception-success'
+$recordSuccessTaskPath = New-MaintenanceTaskPackage `
+    -TasksRootPath $maintenanceSandbox.TasksPath `
+    -TaskId $recordSuccessTaskId `
+    -StateContent (New-MaintenanceTaskStateContent -TaskId $recordSuccessTaskId) `
+    -ResultContent $maintenanceBaseResultContent `
+    -DecisionLogContent $maintenanceBaseDecisionLogContent
+$recordSuccessResult = Invoke-PowerShellScriptForTest -ScriptPath $recordExceptionScriptForTestPath -ArgumentList @(
+    '-TaskId', $recordSuccessTaskId,
+    '-ExceptionType', 'blocked',
+    '-Summary', '外部依赖暂未返回结果',
+    '-RollbackScope', '仅回退维护层样例记录',
+    '-ResumeHint', '等待依赖恢复后继续',
+    '-NextStatus', 'ready_to_resume',
+    '-NextAction', '补齐依赖结果后继续推进'
+)
+Assert-Equal -Actual $recordSuccessResult.ExitCode -Expected 0 -Message '异常记录脚本成功态应退出 0'
+Assert-Contains -Content $recordSuccessResult.Output -ExpectedText '[INFO] 异常路径已记录：' -Message '异常记录脚本成功态缺少完成提示'
+$recordSuccessState = Get-Content (Join-Path $recordSuccessTaskPath 'state.yaml') -Raw
+$recordSuccessResultContent = Get-Content (Join-Path $recordSuccessTaskPath 'result.md') -Raw
+$recordSuccessDecisionLog = Get-Content (Join-Path $recordSuccessTaskPath 'decision-log.md') -Raw
+Assert-Contains -Content $recordSuccessState -ExpectedText 'status: ready_to_resume' -Message '异常记录脚本成功态未更新状态'
+Assert-Contains -Content $recordSuccessState -ExpectedText 'next_action: 补齐依赖结果后继续推进' -Message '异常记录脚本成功态未更新下一步'
+Assert-Contains -Content $recordSuccessResultContent -ExpectedText '## 异常路径记录（blocked）' -Message '异常记录脚本成功态结果稿缺少异常章节'
+Assert-Contains -Content $recordSuccessDecisionLog -ExpectedText '回退范围：仅回退维护层样例记录' -Message '异常记录脚本成功态决策日志缺少回退范围'
+
+$invalidGateResolveResult = Invoke-PowerShellScriptForTest -ScriptPath $resolveGatePackageScriptForTestPath -ArgumentList @(
+    '-TaskId', 'v4-trial-403-resolve-invalid-gate',
+    '-GateId', 'bad_gate_id',
+    '-DecisionSummary', '样例拍板结论'
+)
+Assert-Equal -Actual $invalidGateResolveResult.ExitCode -Expected 1 -Message '拍板回写脚本非法 GateId 应退出 1'
+Assert-Contains -Content $invalidGateResolveResult.Output -ExpectedText '[ERROR] 拍板编号格式不对，当前没法回写拍板结果。' -Message '拍板回写脚本非法 GateId 缺少人话错误'
+Assert-Contains -Content $invalidGateResolveResult.Output -ExpectedText '[INFO] 先把拍板编号改成例如 gate-confirm-scope。' -Message '拍板回写脚本非法 GateId 缺少下一步提示'
+
+$resolveNonPendingTaskId = 'v4-trial-404-resolve-gate-non-pending'
+$resolveNonPendingTaskPath = New-MaintenanceTaskPackage `
+    -TasksRootPath $maintenanceSandbox.TasksPath `
+    -TaskId $resolveNonPendingTaskId `
+    -StateContent (New-MaintenanceTaskStateContent -TaskId $resolveNonPendingTaskId -Status 'waiting_gate' -NextAction '等待拍板回写') `
+    -ResultContent $maintenanceBaseResultContent `
+    -DecisionLogContent $maintenanceBaseDecisionLogContent `
+    -GatesContent @'
+- gate_id: gate-confirm-scope
+  status: decided
+  decision_summary: 已有结论
+'@
+$nonPendingResolveResult = Invoke-PowerShellScriptForTest -ScriptPath $resolveGatePackageScriptForTestPath -ArgumentList @(
+    '-TaskId', $resolveNonPendingTaskId,
+    '-GateId', 'gate-confirm-scope',
+    '-DecisionSummary', '重复回写样例'
+)
+Assert-Equal -Actual $nonPendingResolveResult.ExitCode -Expected 1 -Message '拍板回写脚本非 pending 态应退出 1'
+Assert-Contains -Content $nonPendingResolveResult.Output -ExpectedText '[ERROR] 这个拍板项已经不是待处理状态，本次没有重复回写。' -Message '拍板回写脚本非 pending 态缺少人话错误'
+Assert-Contains -Content $nonPendingResolveResult.Output -ExpectedText 'gate 当前不是 pending 状态，不能重复回写：gate-confirm-scope' -Message '拍板回写脚本非 pending 态缺少原因说明'
+
+$resolveSuccessTaskId = 'v4-trial-405-resolve-gate-success'
+$resolveSuccessTaskPath = New-MaintenanceTaskPackage `
+    -TasksRootPath $maintenanceSandbox.TasksPath `
+    -TaskId $resolveSuccessTaskId `
+    -StateContent (New-MaintenanceTaskStateContent -TaskId $resolveSuccessTaskId -Status 'waiting_gate' -NextAction '等待拍板回写') `
+    -ResultContent $maintenanceBaseResultContent `
+    -DecisionLogContent $maintenanceBaseDecisionLogContent `
+    -GatesContent @'
+- gate_id: gate-confirm-scope
+  status: pending
+  owner: 主公
+  question: 是否继续按当前边界推进
+'@
+$resolveSuccessResult = Invoke-PowerShellScriptForTest -ScriptPath $resolveGatePackageScriptForTestPath -ArgumentList @(
+    '-TaskId', $resolveSuccessTaskId,
+    '-GateId', 'gate-confirm-scope',
+    '-DecisionSummary', '确认只推进维护层测试',
+    '-ChosenOption', 'keep-current-scope',
+    '-NextStatus', 'running',
+    '-NextAction', '按拍板结论继续推进'
+)
+Assert-Equal -Actual $resolveSuccessResult.ExitCode -Expected 0 -Message '拍板回写脚本成功态应退出 0'
+Assert-Contains -Content $resolveSuccessResult.Output -ExpectedText '[INFO] 拍板结果已回写：' -Message '拍板回写脚本成功态缺少完成提示'
+$resolveSuccessState = Get-Content (Join-Path $resolveSuccessTaskPath 'state.yaml') -Raw
+$resolveSuccessResultContent = Get-Content (Join-Path $resolveSuccessTaskPath 'result.md') -Raw
+$resolveSuccessDecisionLog = Get-Content (Join-Path $resolveSuccessTaskPath 'decision-log.md') -Raw
+$resolveSuccessGates = Get-Content (Join-Path $resolveSuccessTaskPath 'gates.yaml') -Raw
+Assert-Contains -Content $resolveSuccessState -ExpectedText 'status: running' -Message '拍板回写脚本成功态未更新状态'
+Assert-Contains -Content $resolveSuccessState -ExpectedText 'next_action: 按拍板结论继续推进' -Message '拍板回写脚本成功态未更新下一步'
+Assert-Contains -Content $resolveSuccessResultContent -ExpectedText '## 拍板结果回写（gate-confirm-scope）' -Message '拍板回写脚本成功态结果稿缺少拍板章节'
+Assert-Contains -Content $resolveSuccessDecisionLog -ExpectedText '决策：回写拍板结果 gate-confirm-scope' -Message '拍板回写脚本成功态决策日志缺少回写记录'
+Assert-Contains -Content $resolveSuccessGates -ExpectedText 'status: decided' -Message '拍板回写脚本成功态未更新 gate 状态'
+Assert-Contains -Content $resolveSuccessGates -ExpectedText 'chosen_option: keep-current-scope' -Message '拍板回写脚本成功态未写入选定项'
 
 Write-Host 'PASS: test-panel-acceptance-closeout-review.ps1' -ForegroundColor Green
