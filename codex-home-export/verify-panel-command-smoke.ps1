@@ -53,6 +53,32 @@ function Stop-FriendlySmokeCheck {
     exit 1
 }
 
+function Invoke-SmokeOutputStep {
+    param(
+        [string]$ScriptPath,
+        [hashtable]$Arguments = @{},
+        [string]$Summary,
+        [string]$NextStep = ''
+    )
+
+    $global:LASTEXITCODE = 0
+    try {
+        $stepOutput = @(& $ScriptPath @Arguments)
+    }
+    catch {
+        Stop-FriendlySmokeCheck `
+            -Summary $Summary `
+            -Detail $_.Exception.Message.Trim() `
+            -NextStep $NextStep
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+
+    return $stepOutput
+}
+
 function Get-NonEmptyLines([object[]]$Lines) {
     return @(
         $Lines |
@@ -100,15 +126,27 @@ $commandMatrix = @(
 
 foreach ($commandItem in $commandMatrix) {
     $actualLines = Get-NonEmptyLines -Lines @(
-        & $invokePanelCommandScriptPath $commandItem.command `
-            -RepoRootPath $resolvedRepoRootPath `
-            -TargetCodexHome $resolvedTargetCodexHome
+        Invoke-SmokeOutputStep `
+            -ScriptPath $invokePanelCommandScriptPath `
+            -Arguments @{
+                CommandText = $commandItem.command
+                RepoRootPath = $resolvedRepoRootPath
+                TargetCodexHome = $resolvedTargetCodexHome
+            } `
+            -Summary ("面板冒烟没通过：{0} 的入口路由提前停住了。" -f $commandItem.command) `
+            -NextStep '先执行 self-check.cmd；如果仍不通过，再执行 rollback.cmd。'
     )
     $expectedLines = Get-NonEmptyLines -Lines @(
-        & $renderPanelResponseScriptPath -Kind $commandItem.kind `
-            -RepoRootPath $resolvedRepoRootPath `
-            -TargetCodexHome $resolvedTargetCodexHome `
-            -VersionPath $resolvedVersionPath
+        Invoke-SmokeOutputStep `
+            -ScriptPath $renderPanelResponseScriptPath `
+            -Arguments @{
+                Kind = $commandItem.kind
+                RepoRootPath = $resolvedRepoRootPath
+                TargetCodexHome = $resolvedTargetCodexHome
+                VersionPath = $resolvedVersionPath
+            } `
+            -Summary ("面板冒烟没通过：{0} 的真源渲染提前停住了。" -f $commandItem.command) `
+            -NextStep '先执行 self-check.cmd；如果仍不通过，再执行 rollback.cmd。'
     )
 
     Assert-LinesEqual -Label $commandItem.command -ActualLines $actualLines -ExpectedLines $expectedLines
@@ -117,10 +155,16 @@ foreach ($commandItem in $commandMatrix) {
 
 $taskProbeCommand = '传令：修一下登录页'
 $taskProbeLines = Get-NonEmptyLines -Lines @(
-    & $invokePanelCommandScriptPath $taskProbeCommand `
-        -RepoRootPath $resolvedRepoRootPath `
-        -TargetCodexHome $resolvedTargetCodexHome `
-        -DryRunTaskStart
+    Invoke-SmokeOutputStep `
+        -ScriptPath $invokePanelCommandScriptPath `
+        -Arguments @{
+            CommandText = $taskProbeCommand
+            RepoRootPath = $resolvedRepoRootPath
+            TargetCodexHome = $resolvedTargetCodexHome
+            DryRunTaskStart = $true
+        } `
+        -Summary ("面板冒烟没通过：{0} 的任务干跑提前停住了。" -f $taskProbeCommand) `
+        -NextStep '先执行 self-check.cmd；如果仍不通过，再执行 rollback.cmd。'
 )
 $expectedTaskProbeLines = @(
     '路由结果：task-start'

@@ -55,6 +55,30 @@ function Stop-FriendlyNewTask {
     exit 1
 }
 
+function Invoke-NewTaskStep {
+    param(
+        [string]$ScriptPath,
+        [hashtable]$Arguments = @{},
+        [string]$Summary,
+        [string[]]$NextSteps = @()
+    )
+
+    $global:LASTEXITCODE = 0
+    try {
+        & $ScriptPath @Arguments
+    }
+    catch {
+        Stop-FriendlyNewTask `
+            -Summary $Summary `
+            -Detail $_.Exception.Message.Trim() `
+            -NextSteps $NextSteps
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+}
+
 function ConvertTo-TaskSlug {
     param([string]$Text)
 
@@ -131,29 +155,26 @@ Write-Info "RepoRoot=$resolvedRepoRootPath"
 Write-Info "TaskNamespace=$TaskNamespace"
 Write-Info "TaskId=$taskId"
 
-try {
-    & $createTaskScriptPath `
-        -TaskId $taskId `
-        -Title $Title `
-        -Goal $resolvedGoal `
-        -PhaseHint $PhaseHint `
-        -PlanningHint $planningHint `
-        -PlanStep $planStep `
-        -VerifySignal $verifySignal `
-        -InitialStatus running `
-        -RiskLevel $RiskLevel `
-        -SetActiveTask $setActiveTask
-}
-catch {
-    Stop-FriendlyNewTask `
-        -Summary '任务包创建到一半停住了。' `
-        -Detail $_.Exception.Message.Trim() `
-        -NextSteps @(
-            '先不要继续新开任务。',
-            '先核对任务目录和 `active-task.txt` 有没有留下半截结果，确认后再重试当前入口。',
-            '如果问题来自模板或字段校验，先修正脚手架再重新创建。'
-        )
-}
+Invoke-NewTaskStep `
+    -ScriptPath $createTaskScriptPath `
+    -Arguments @{
+        TaskId = $taskId
+        Title = $Title
+        Goal = $resolvedGoal
+        PhaseHint = $PhaseHint
+        PlanningHint = $planningHint
+        PlanStep = $planStep
+        VerifySignal = $verifySignal
+        InitialStatus = 'running'
+        RiskLevel = $RiskLevel
+        SetActiveTask = $setActiveTask
+    } `
+    -Summary '任务包创建到一半停住了。' `
+    -NextSteps @(
+        '先不要继续新开任务。',
+        '先核对任务目录和 `active-task.txt` 有没有留下半截结果，确认后再重试当前入口。',
+        '如果问题来自模板或字段校验，先修正脚手架再重新创建。'
+    )
 
 $taskDirectoryPath = Join-Path $tasksRootPath $taskId
 

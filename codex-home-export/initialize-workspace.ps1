@@ -56,6 +56,30 @@ function Stop-FriendlyInitialize {
     exit 1
 }
 
+function Invoke-InitializeStep {
+    param(
+        [string]$ScriptPath,
+        [hashtable]$Arguments = @{},
+        [string]$Summary,
+        [string]$NextStep = ''
+    )
+
+    $global:LASTEXITCODE = 0
+    try {
+        & $ScriptPath @Arguments
+    }
+    catch {
+        Stop-FriendlyInitialize `
+            -Summary $Summary `
+            -Detail $_.Exception.Message.Trim() `
+            -NextStep $NextStep
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+}
+
 function Get-ActiveTaskId([string]$Path) {
     if (-not (Test-Path $Path)) {
         return ''
@@ -86,15 +110,11 @@ Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info '本次只初始化丞相自身维护环境，不会改你的项目。'
 Write-Info '开始执行初始化：同步最小主链 → 可选补建任务 → 可选验真。'
 
-try {
-    & $installScriptPath -TargetCodexHome $resolvedTargetCodexHome
-}
-catch {
-    Stop-FriendlyInitialize `
-        -Summary '初始化卡在“同步丞相文件”这一步。' `
-        -Detail $_.Exception.Message.Trim() `
-        -NextStep '先把 install-to-home.ps1 提示的问题处理掉，再重新执行 initialize-workspace.ps1。'
-}
+Invoke-InitializeStep `
+    -ScriptPath $installScriptPath `
+    -Arguments @{ TargetCodexHome = $resolvedTargetCodexHome } `
+    -Summary '初始化卡在“同步丞相文件”这一步。' `
+    -NextStep '先把 install-to-home.ps1 提示的问题处理掉，再重新执行 initialize-workspace.ps1。'
 
 if ($InstallGovernanceHook) {
     if (Test-Path $gitHookDirectoryPath) {
@@ -105,15 +125,11 @@ if ($InstallGovernanceHook) {
                 -NextStep '先补齐 hook 脚本，再重试 `-InstallGovernanceHook`。'
         }
 
-        try {
-            & $hookInstallScriptPath -RepoRootPath $resolvedRepoRootPath
-        }
-        catch {
-            Stop-FriendlyInitialize `
-                -Summary '治理门禁安装失败。' `
-                -Detail $_.Exception.Message.Trim() `
-                -NextStep '先处理 hook 安装问题，再重新执行 initialize-workspace.ps1。'
-        }
+        Invoke-InitializeStep `
+            -ScriptPath $hookInstallScriptPath `
+            -Arguments @{ RepoRootPath = $resolvedRepoRootPath } `
+            -Summary '治理门禁安装失败。' `
+            -NextStep '先处理 hook 安装问题，再重新执行 initialize-workspace.ps1。'
     }
     else {
         Write-WarnLine '未检测到 .git/hooks，已跳过治理门禁安装；如当前是 ZIP 包，请改用 git clone 后重跑。'
@@ -137,15 +153,11 @@ if ($shouldAttemptExampleTask) {
             $newTaskParameters['Goal'] = $FirstTaskGoal
         }
 
-        try {
-            & $newTaskScriptPath @newTaskParameters
-        }
-        catch {
-            Stop-FriendlyInitialize `
-                -Summary '示例任务创建失败。' `
-                -Detail $_.Exception.Message.Trim() `
-                -NextStep '先处理起包问题，再决定是否重试示例任务。'
-        }
+        Invoke-InitializeStep `
+            -ScriptPath $newTaskScriptPath `
+            -Arguments $newTaskParameters `
+            -Summary '示例任务创建失败。' `
+            -NextStep '先处理起包问题，再决定是否重试示例任务。'
         $createdExampleTask = $true
     }
     else {
@@ -159,15 +171,11 @@ elseif (-not $SkipExampleTask) {
 
 if (-not $SkipVerify) {
     if (Test-Path $authPath) {
-        try {
-            & $verifyScriptPath -TargetCodexHome $resolvedTargetCodexHome
-        }
-        catch {
-            Stop-FriendlyInitialize `
-                -Summary '初始化最后一步验真没通过。' `
-                -Detail $_.Exception.Message.Trim() `
-                -NextStep '先处理 verify-cutover.ps1 提示的问题，再重新初始化；如果已经装坏，再考虑 rollback-from-backup.ps1。'
-        }
+        Invoke-InitializeStep `
+            -ScriptPath $verifyScriptPath `
+            -Arguments @{ TargetCodexHome = $resolvedTargetCodexHome } `
+            -Summary '初始化最后一步验真没通过。' `
+            -NextStep '先处理 verify-cutover.ps1 提示的问题，再重新初始化；如果已经装坏，再考虑 rollback-from-backup.ps1。'
     }
     else {
         Write-WarnLine '未检测到 `auth.json`，已跳过自动验板。请先完成 Codex 登录后，再执行 `verify-cutover.ps1`。'
