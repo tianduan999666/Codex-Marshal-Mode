@@ -45,6 +45,30 @@ function Stop-FriendlySelfCheck {
     exit 1
 }
 
+function Invoke-ManagedSelfCheckStep {
+    param(
+        [string]$ScriptPath,
+        [hashtable]$Arguments = @{},
+        [string]$Summary,
+        [string[]]$NextSteps = @()
+    )
+
+    $global:LASTEXITCODE = 0
+    try {
+        & $ScriptPath @Arguments
+    }
+    catch {
+        Stop-FriendlySelfCheck `
+            -Summary $Summary `
+            -Detail $_.Exception.Message.Trim() `
+            -NextSteps $NextSteps
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+}
+
 if (-not (Test-Path $runtimeInstallRecordPath)) {
     Stop-FriendlySelfCheck `
         -Summary '这台机器还没装好丞相，现在没法直接自检。' `
@@ -88,52 +112,42 @@ Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info '本次只检查丞相自身状态，不改你的项目。'
 Write-Info '开始执行用户自检入口：源仓验真 → 运行态冒烟 → 真实鉴权。'
 
-try {
-    & $verifyScriptPath `
-        -TargetCodexHome $resolvedTargetCodexHome `
-        -ExpectedSourceRoot $resolvedSourceRootPath `
-        -RequireBackupRoot
-}
-catch {
-    Stop-FriendlySelfCheck `
-        -Summary '自检卡在“运行态验真”这一步，说明当前安装状态还没完全对齐。' `
-        -Detail $_.Exception.Message.Trim() `
-        -NextSteps @(
-            '先重新执行一次 `install.cmd` 或 `upgrade.cmd`。',
-            '如果你刚换过文件或版本，先别直接开工。',
-            '仍不通过再执行 `rollback.cmd`。'
-        )
-}
+Invoke-ManagedSelfCheckStep `
+    -ScriptPath $verifyScriptPath `
+    -Arguments @{
+        TargetCodexHome = $resolvedTargetCodexHome
+        ExpectedSourceRoot = $resolvedSourceRootPath
+        RequireBackupRoot = $true
+    } `
+    -Summary '自检卡在“运行态验真”这一步，说明当前安装状态还没完全对齐。' `
+    -NextSteps @(
+        '先重新执行一次 `install.cmd` 或 `upgrade.cmd`。',
+        '如果你刚换过文件或版本，先别直接开工。',
+        '仍不通过再执行 `rollback.cmd`。'
+    )
 
-try {
-    & $smokeScriptPath `
-        -TargetCodexHome $resolvedTargetCodexHome `
-        -ScriptsRootPath $runtimeScriptsRootPath
-}
-catch {
-    Stop-FriendlySelfCheck `
-        -Summary '自检卡在“面板入口冒烟”这一步，说明入口链路还不稳。' `
-        -Detail $_.Exception.Message.Trim() `
-        -NextSteps @(
-            '先不要直接开始真实任务。',
-            '先重跑一次 `self-check.cmd` 确认是不是偶发问题。',
-            '如果连续失败，再执行 `rollback.cmd`。'
-        )
-}
+Invoke-ManagedSelfCheckStep `
+    -ScriptPath $smokeScriptPath `
+    -Arguments @{
+        TargetCodexHome = $resolvedTargetCodexHome
+        ScriptsRootPath = $runtimeScriptsRootPath
+    } `
+    -Summary '自检卡在“面板入口冒烟”这一步，说明入口链路还不稳。' `
+    -NextSteps @(
+        '先不要直接开始真实任务。',
+        '先重跑一次 `self-check.cmd` 确认是不是偶发问题。',
+        '如果连续失败，再执行 `rollback.cmd`。'
+    )
 
-try {
-    & $providerAuthCheckScriptPath -TargetCodexHome $resolvedTargetCodexHome
-}
-catch {
-    Stop-FriendlySelfCheck `
-        -Summary '自检卡在“真实 provider/auth 鉴权”这一步，说明官方入口大概率也会受影响。' `
-        -Detail $_.Exception.Message.Trim() `
-        -NextSteps @(
-            '先确认 `config.toml` 的 provider 和 `auth.json` 的 key 是否匹配。',
-            '必要时回官方 Codex 面板做一次真人验证。',
-            '确认前先不要直接开始真实开发任务。'
-        )
-}
+Invoke-ManagedSelfCheckStep `
+    -ScriptPath $providerAuthCheckScriptPath `
+    -Arguments @{ TargetCodexHome = $resolvedTargetCodexHome } `
+    -Summary '自检卡在“真实 provider/auth 鉴权”这一步，说明官方入口大概率也会受影响。' `
+    -NextSteps @(
+        '先确认 `config.toml` 的 provider 和 `auth.json` 的 key 是否匹配。',
+        '必要时回官方 Codex 面板做一次真人验证。',
+        '确认前先不要直接开始真实开发任务。'
+    )
 
 Write-Host ''
 Write-Ok '自检完成。'

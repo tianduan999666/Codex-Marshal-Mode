@@ -30,6 +30,7 @@ $runtimeAgentsPath = Join-Path $resolvedTargetCodexHome 'AGENTS.md'
 $runtimeMetaRootPath = Join-Path $resolvedTargetCodexHome 'config\chancellor-mode'
 $taskStartStatePath = Join-Path $runtimeMetaRootPath 'task-start-state.json'
 $activeTaskFilePath = Join-Path $resolvedRepoRootPath '.codex\chancellor\active-task.txt'
+$authPath = Join-Path $resolvedTargetCodexHome 'auth.json'
 
 function Write-Info([string]$Message) {
     Write-Host "[INFO] $Message" -ForegroundColor Cyan
@@ -41,6 +42,26 @@ function Write-Ok([string]$Message) {
 
 function Write-WarnLine([string]$Message) {
     Write-Host "[WARN] $Message" -ForegroundColor Yellow
+}
+
+function Stop-FriendlyTaskStart {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string[]]$NextSteps = @()
+    )
+
+    Write-Host ''
+    Write-Host "[ERROR] $Summary" -ForegroundColor Red
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        Write-WarnLine ("原始错误：{0}" -f $Detail)
+    }
+
+    foreach ($nextStep in $NextSteps) {
+        Write-Info $nextStep
+    }
+
+    exit 1
 }
 
 function Get-ActiveTaskId([string]$Path) {
@@ -65,6 +86,56 @@ function Write-RenderedPanelLines([hashtable]$Arguments) {
             Write-Output $renderedLine
         }
     }
+}
+
+function Write-RenderedPanelLinesSafe {
+    param(
+        [hashtable]$Arguments,
+        [string]$Summary,
+        [string[]]$NextSteps = @()
+    )
+
+    try {
+        Write-RenderedPanelLines @Arguments
+    }
+    catch {
+        Stop-FriendlyTaskStart `
+            -Summary $Summary `
+            -Detail $_.Exception.Message.Trim() `
+            -NextSteps $NextSteps
+    }
+}
+
+function Invoke-ManagedTaskStep {
+    param(
+        [string]$ScriptPath,
+        [hashtable]$Arguments = @{},
+        [string]$Summary,
+        [string[]]$NextSteps = @(),
+        [switch]$ReturnExitCode
+    )
+
+    $global:LASTEXITCODE = 0
+    try {
+        & $ScriptPath @Arguments
+    }
+    catch {
+        Stop-FriendlyTaskStart `
+            -Summary $Summary `
+            -Detail $_.Exception.Message.Trim() `
+            -NextSteps $NextSteps
+    }
+
+    $childExitCode = $LASTEXITCODE
+    if ($ReturnExitCode) {
+        return $childExitCode
+    }
+
+    if ($childExitCode -ne 0) {
+        exit $childExitCode
+    }
+
+    return 0
 }
 
 function Write-Utf8BomJson([string]$Path, [object]$Payload) {
@@ -199,7 +270,13 @@ function New-LightCheckHashesPayload([object[]]$ResolvedTargets) {
 
 foreach ($requiredPath in @($verifyScriptPath, $installScriptPath, $newTaskScriptPath, $renderPanelResponseScriptPath, $versionSourcePath, $agentsSourcePath, $runtimeAgentsPath)) {
     if (-not (Test-Path $requiredPath)) {
-        throw "缺少一句话开工所需脚本：$requiredPath"
+        Stop-FriendlyTaskStart `
+            -Summary '一句话开工缺少必要文件，当前还不能继续。' `
+            -Detail ("缺少一句话开工所需脚本：{0}" -f $requiredPath) `
+            -NextSteps @(
+                '先执行 `self-check.cmd` 或 `install.cmd` 补齐入口文件。',
+                '补齐后再回面板重试当前任务。'
+            )
     }
 }
 
@@ -219,22 +296,23 @@ $currentSourceAgentsHash = Get-Sha256TextOrEmpty -Path $agentsSourcePath
 $currentRuntimeAgentsHash = Get-Sha256TextOrEmpty -Path $runtimeAgentsPath
 
 Write-Host ''
-Write-RenderedPanelLines @{
+Write-RenderedPanelLinesSafe -Arguments @{
     Kind = 'task-entry'
     VersionPath = $versionSourcePath
     RepoRootPath = $resolvedRepoRootPath
     TargetCodexHome = $resolvedTargetCodexHome
-}
-Write-RenderedPanelLines @{
-    Kind = 'process-quote'
-    Phase = 'task_entry'
-    VersionPath = $versionSourcePath
-}
-Write-RenderedPanelLines @{
+} -Summary '丞相已经接到任务，但开工口径渲染这一步没跑通。' -NextSteps @(
+    '先执行 `self-check.cmd` 看入口文件是否完整。',
+    '如果刚改过版本模板，先补齐后再回面板重试。'
+)
+Write-RenderedPanelLinesSafe -Arguments @{
     Kind = 'process-quote'
     Phase = 'analysis'
     VersionPath = $versionSourcePath
-}
+} -Summary '丞相已经接到任务，但过程提示语渲染失败了。' -NextSteps @(
+    '先检查版本模板和渲染脚本是否同一批。',
+    '修好后再重新发起当前任务。'
+)
 
 $canSkipVerify = $false
 if (-not $ForceVerify) {
@@ -245,38 +323,72 @@ if (-not $ForceVerify) {
 
 $repairUsed = $false
 $verifySkipped = $false
-$verifyErrorMessage = ''
-Write-RenderedPanelLines @{
+Write-RenderedPanelLinesSafe -Arguments @{
     Kind = 'process-quote'
     Phase = 'breakdown'
     VersionPath = $versionSourcePath
-}
+} -Summary '丞相已经接到任务，但拆解阶段提示语渲染失败了。' -NextSteps @(
+    '先检查版本模板和渲染脚本。',
+    '修好后再重新发起当前任务。'
+)
 if ($canSkipVerify) {
     $verifySkipped = $true
     Write-Info ("检测到当前版本 {0} 已完成上次自检，本次直接进入记任务与执行。" -f $currentSourceVersion)
 }
 else {
-    try {
-        & $verifyScriptPath -TargetCodexHome $resolvedTargetCodexHome
-    }
-    catch {
-        $verifyErrorMessage = $_.Exception.Message.Trim()
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($verifyErrorMessage)) {
-        if ($verifyErrorMessage -like 'auth.json 不存在*') {
-            throw '当前还没登录官方 Codex，不能自动开工。请先完成登录，再回面板重试“传令：修一下登录页”。'
-        }
+    if (-not (Test-Path $authPath)) {
+        Stop-FriendlyTaskStart `
+            -Summary '当前还没登录官方 Codex，不能自动开工。' `
+            -NextSteps @(
+                '先完成 Codex 登录。',
+                '登录后再回面板重试“传令：修一下登录页”。'
+            )
     }
 
-    if (-not [string]::IsNullOrWhiteSpace($verifyErrorMessage)) {
+    $verifyExitCode = Invoke-ManagedTaskStep `
+        -ScriptPath $verifyScriptPath `
+        -Arguments @{ TargetCodexHome = $resolvedTargetCodexHome } `
+        -Summary '开工前自检脚本自己报错了。' `
+        -NextSteps @(
+            '先执行 `self-check.cmd` 看完整结果。',
+            '如果刚换过文件或版本，先别直接开工。'
+        ) `
+        -ReturnExitCode
+
+    if ($verifyExitCode -ne 0) {
         if ($SkipAutoRepair) {
-            throw ("自动验真未通过：{0}" -f $verifyErrorMessage)
+            Stop-FriendlyTaskStart `
+                -Summary '自动验真未通过，本次已按要求停止，不做自动修整。' `
+                -NextSteps @(
+                    '先执行 `self-check.cmd` 看详细原因。',
+                    '确认稳定后，再重新发起当前任务。'
+                )
         }
 
-        Write-WarnLine ("自动验真未通过，开始尝试一次安全修复：{0}" -f $verifyErrorMessage)
-        & $installScriptPath -TargetCodexHome $resolvedTargetCodexHome
-        & $verifyScriptPath -TargetCodexHome $resolvedTargetCodexHome
+        Write-WarnLine '自动验真未通过，开始尝试一次安全修复。'
+        Invoke-ManagedTaskStep `
+            -ScriptPath $installScriptPath `
+            -Arguments @{ TargetCodexHome = $resolvedTargetCodexHome } `
+            -Summary '自动修整在同步丞相文件这一步自己报错了。' `
+            -NextSteps @(
+                '先执行 `install.cmd` 或 `rollback.cmd` 修好本机运行态。',
+                '修好后再回面板重新发起任务。'
+            )
+
+        $verifyExitCode = Invoke-ManagedTaskStep `
+            -ScriptPath $verifyScriptPath `
+            -Arguments @{ TargetCodexHome = $resolvedTargetCodexHome } `
+            -Summary '自动修整后的复检脚本自己报错了。' `
+            -NextSteps @(
+                '先执行 `self-check.cmd` 看详细原因。',
+                '如果仍不通过，再执行 `rollback.cmd`。'
+            ) `
+            -ReturnExitCode
+
+        if ($verifyExitCode -ne 0) {
+            exit $verifyExitCode
+        }
+
         $repairUsed = $true
         $runtimeVersionInfo = Read-JsonFileOrNull -Path $runtimeVersionPath
         $currentRuntimeVersion = if ($null -ne $runtimeVersionInfo) { $runtimeVersionInfo.cx_version } else { '' }
@@ -310,17 +422,30 @@ if (-not [string]::IsNullOrWhiteSpace($Goal)) {
     $newTaskArguments['Goal'] = $Goal
 }
 
-Write-RenderedPanelLines @{
+Write-RenderedPanelLinesSafe -Arguments @{
     Kind = 'process-quote'
     Phase = 'dispatch'
     VersionPath = $versionSourcePath
-}
-& $newTaskScriptPath @newTaskArguments
-Write-RenderedPanelLines @{
+} -Summary '丞相已经完成自检，但调度阶段提示语渲染失败了。' -NextSteps @(
+    '先执行 `self-check.cmd` 检查入口文件。',
+    '修好后再重新发起当前任务。'
+)
+Invoke-ManagedTaskStep `
+    -ScriptPath $newTaskScriptPath `
+    -Arguments $newTaskArguments `
+    -Summary '任务记录脚本自己报错了。' `
+    -NextSteps @(
+        '先检查任务模板和任务目录是否完整。',
+        '修好后再重新发起当前任务。'
+    )
+Write-RenderedPanelLinesSafe -Arguments @{
     Kind = 'process-quote'
     Phase = 'wrap_up'
     VersionPath = $versionSourcePath
-}
+} -Summary '任务已经记下来了，但收束提示语渲染失败了。' -NextSteps @(
+    '先检查版本模板和渲染脚本。',
+    '修好后再重新发起当前任务。'
+)
 
 $activeTaskId = Get-ActiveTaskId -Path $activeTaskFilePath
 $lastCheckValue = if ($verifySkipped) {
@@ -346,7 +471,7 @@ $keyFileConsistencyValue = if ($matchedLightCheckTargets.Count -eq $lightCheckTa
 $currentTaskValue = if (-not [string]::IsNullOrWhiteSpace($activeTaskId)) { '{0}（{1}）' -f $activeTaskId, $Title } else { $Title }
 
 Write-Ok '一句话开工已完成。'
-Write-RenderedPanelLines @{
+Write-RenderedPanelLinesSafe -Arguments @{
     Kind = 'status'
     VersionPath = $versionSourcePath
     RepoRootPath = $resolvedRepoRootPath
@@ -357,11 +482,17 @@ Write-RenderedPanelLines @{
     KeyFileConsistency = $keyFileConsistencyValue
     CurrentMode = '丞相'
     CurrentTask = $currentTaskValue
-}
-Write-RenderedPanelLines @{
+} -Summary '一句话开工已经完成，但状态栏渲染失败了。' -NextSteps @(
+    '先执行 `self-check.cmd` 检查渲染链路。',
+    '修好后再重新查看状态。'
+)
+Write-RenderedPanelLinesSafe -Arguments @{
     Kind = 'closeout'
     VersionPath = $versionSourcePath
     CompletedText = ('已完成“{0}”的开工准备。' -f $Title)
     ResultText = ('当前任务已记录为 {0}。' -f $currentTaskValue)
     NextStepText = '留在当前会话，直接判断瓶颈并开始，不用切到 PowerShell。'
-}
+} -Summary '一句话开工已经完成，但收口文案渲染失败了。' -NextSteps @(
+    '先执行 `self-check.cmd` 检查渲染链路。',
+    '修好后再重新发起当前任务。'
+)

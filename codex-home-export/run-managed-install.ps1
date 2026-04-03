@@ -48,6 +48,30 @@ function Stop-FriendlyInstall {
     exit 1
 }
 
+function Invoke-ManagedInstallStep {
+    param(
+        [string]$ScriptPath,
+        [hashtable]$Arguments = @{},
+        [string]$Summary,
+        [string[]]$NextSteps = @()
+    )
+
+    $global:LASTEXITCODE = 0
+    try {
+        & $ScriptPath @Arguments
+    }
+    catch {
+        Stop-FriendlyInstall `
+            -Summary $Summary `
+            -Detail $_.Exception.Message.Trim() `
+            -NextSteps $NextSteps
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+}
+
 foreach ($requiredPath in @($installScriptPath, $verifyScriptPath, $smokeScriptPath, $providerAuthCheckScriptPath)) {
     if (-not (Test-Path $requiredPath)) {
         Stop-FriendlyInstall `
@@ -65,37 +89,33 @@ Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info '本次只同步丞相自身文件；不会改你的项目，默认也不会覆盖全局 config.toml。'
 Write-Info '开始执行用户安装入口：同步 → 本地冒烟 → 真实鉴权 → 可选完整验真。'
 
-try {
-    & $installScriptPath -TargetCodexHome $resolvedTargetCodexHome -ApplyTemplateConfig:$ApplyTemplateConfig
-}
-catch {
-    Stop-FriendlyInstall `
-        -Summary '安装在“同步丞相文件”这一步停住了。' `
-        -Detail $_.Exception.Message.Trim() `
-        -NextSteps @(
-            '先不要继续开工。',
-            '先检查仓库文件是否完整，再重新执行 `.\install.cmd`。',
-            '如果之前装过旧版本，也可以先执行 `rollback.cmd` 再重试。'
-        )
-}
+Invoke-ManagedInstallStep `
+    -ScriptPath $installScriptPath `
+    -Arguments @{
+        TargetCodexHome = $resolvedTargetCodexHome
+        ApplyTemplateConfig = $ApplyTemplateConfig
+    } `
+    -Summary '安装在“同步丞相文件”这一步停住了。' `
+    -NextSteps @(
+        '先不要继续开工。',
+        '先检查仓库文件是否完整，再重新执行 `.\install.cmd`。',
+        '如果之前装过旧版本，也可以先执行 `rollback.cmd` 再重试。'
+    )
 
 if (-not $SkipSmoke) {
-    try {
-        & $smokeScriptPath `
-            -TargetCodexHome $resolvedTargetCodexHome `
-            -ScriptsRootPath $runtimeScriptsRootPath `
-            -RepoRootPath $resolvedRepoRootPath
-    }
-    catch {
-        Stop-FriendlyInstall `
-            -Summary '安装已经完成同步，但面板入口冒烟没通过。' `
-            -Detail $_.Exception.Message.Trim() `
-            -NextSteps @(
-                '先不要直接进入真实任务。',
-                '先执行 `self-check.cmd` 看完整结果。',
-                '如果仍不通过，再执行 `rollback.cmd` 回到上一个可用版本。'
-            )
-    }
+    Invoke-ManagedInstallStep `
+        -ScriptPath $smokeScriptPath `
+        -Arguments @{
+            TargetCodexHome = $resolvedTargetCodexHome
+            ScriptsRootPath = $runtimeScriptsRootPath
+            RepoRootPath = $resolvedRepoRootPath
+        } `
+        -Summary '安装已经完成同步，但面板入口冒烟没通过。' `
+        -NextSteps @(
+            '先不要直接进入真实任务。',
+            '先执行 `self-check.cmd` 看完整结果。',
+            '如果仍不通过，再执行 `rollback.cmd` 回到上一个可用版本。'
+        )
 }
 else {
     Write-WarnLine '已按参数跳过面板传令冒烟验证。'
@@ -105,33 +125,28 @@ if ($SkipVerify) {
     Write-WarnLine '已按参数跳过完整验真。'
 }
 elseif (Test-Path $authPath) {
-    try {
-        & $providerAuthCheckScriptPath -TargetCodexHome $resolvedTargetCodexHome
-    }
-    catch {
-        Stop-FriendlyInstall `
-            -Summary '安装已经完成，但真实 provider/auth 鉴权没通过。' `
-            -Detail $_.Exception.Message.Trim() `
-            -NextSteps @(
-                '先确认 `config.toml` 里的 provider 和 `auth.json` 里的 key 是不是当前要用的那套。',
-                '如果你刚切过 provider，先回官方 Codex 面板做一次真人验证。',
-                '确认前不要直接开始真实开发任务。'
-            )
-    }
+    Invoke-ManagedInstallStep `
+        -ScriptPath $providerAuthCheckScriptPath `
+        -Arguments @{ TargetCodexHome = $resolvedTargetCodexHome } `
+        -Summary '安装已经完成，但真实 provider/auth 鉴权没通过。' `
+        -NextSteps @(
+            '先确认 `config.toml` 里的 provider 和 `auth.json` 里的 key 是不是当前要用的那套。',
+            '如果你刚切过 provider，先回官方 Codex 面板做一次真人验证。',
+            '确认前不要直接开始真实开发任务。'
+        )
 
-    try {
-        & $verifyScriptPath -TargetCodexHome $resolvedTargetCodexHome -RequireBackupRoot
-    }
-    catch {
-        Stop-FriendlyInstall `
-            -Summary '安装已经完成，但最终验真没通过。' `
-            -Detail $_.Exception.Message.Trim() `
-            -NextSteps @(
-                '先执行 `self-check.cmd` 复看详细结果。',
-                '如果只是同步不一致，重新执行一次 `.\install.cmd`。',
-                '如果仍不通过，再执行 `rollback.cmd` 回退。'
-            )
-    }
+    Invoke-ManagedInstallStep `
+        -ScriptPath $verifyScriptPath `
+        -Arguments @{
+            TargetCodexHome = $resolvedTargetCodexHome
+            RequireBackupRoot = $true
+        } `
+        -Summary '安装已经完成，但最终验真没通过。' `
+        -NextSteps @(
+            '先执行 `self-check.cmd` 复看详细结果。',
+            '如果只是同步不一致，重新执行一次 `.\install.cmd`。',
+            '如果仍不通过，再执行 `rollback.cmd` 回退。'
+        )
 }
 else {
     Write-WarnLine '未检测到 auth.json，已跳过完整验真。请先完成 Codex 登录，再执行 self-check.cmd。'
