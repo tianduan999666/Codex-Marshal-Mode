@@ -6,6 +6,7 @@
 
 - 默认入口仍是官方 `Codex` 面板
 - 工程英文名统一为 `Chancellor Mode`
+- 当前 GitHub 仓库统一为 `Codex-Chancellor-Mode`
 - 本目录当前只承载“单机生产接管最小闭环”的最小必要件
 - 当前已完成“本机生产桥接切换”，但仍不宣称已经完成全量生产母体重构
 
@@ -15,6 +16,16 @@
 - 已完成当前新 V4 仓到本机 `~/.codex` 的最小桥接切换
 - 当前新仓已接管本机生产的最小真源与控制面
 - 当前仍保留既有未覆盖运行资产，不视为全量生产母体重建
+
+## 其他电脑最短安装
+
+```powershell
+git clone https://github.com/tianduan999666/Codex-Chancellor-Mode.git
+cd Codex-Chancellor-Mode
+.\codex-home-export\install.cmd
+```
+
+普通用户只走 `.cmd` 包装入口，不直接运行 `install-to-home.ps1`、`verify-cutover.ps1` 等底层维护脚本。
 
 ## 当前已落文件
 
@@ -58,7 +69,7 @@
 
 - `manifest.json` 的 `included` 是当前生产母体受管文件真源；`install-to-home.ps1` 与 `verify-cutover.ps1` 都按这份清单工作。
 - `install-record.json` 是本机安装记录，属于受管本地记录，会随每次生产同步一起更新。
-- `task-start-state.json` 是本地开工状态缓存，只用于同版本轻量复核；它不属于 `manifest` 受管文件，也不参与公开提交。
+- `task-start-state.json` 是本地开工状态缓存，只用于同版本轻量复核；`verify-cutover.ps1` 验真通过后会主动回写它；它不属于 `manifest` 受管文件，也不参与公开提交。
 - 当前内部工程命名已统一为 `Chancellor Mode`；运行态主目录统一为 `config/chancellor-mode`，不再继续把 `marshal-mode` 作为主路径。
 - 当前对普通用户公开的维护层动作只保留 4 个：`install.cmd / upgrade.cmd / self-check.cmd / rollback.cmd`；底层 `.ps1` 退回维护层。
 - 上述 4 个 `.cmd` 会被同步到 `~/.codex` 根目录；升级、自检、回滚都支持不进仓库目录直接执行。
@@ -91,7 +102,7 @@
 
 ### 当前对外感知
 
-- 对外统一叫 `丞相`，不再对外使用 `大都督`、`都督模式` 等名字。
+- 对外统一叫 `丞相`。
 - `传令：XXXX` 是唯一做事入口；`传令：状态 / 传令：版本 / 传令：升级` 是仅保留的 3 个可选查询命令。
 - 默认开场白固定为：`🪶 军令入帐。亮，即刻接管全局。`
 - 新对话优先展示示例：`例如：传令：计算1+1=?`

@@ -18,6 +18,35 @@ function Assert-PanelResponseLineCount([string[]]$ActualLines, [int]$ExpectedCou
     }
 }
 
+function Get-TestSha256Text([string]$Path) {
+    $fileStream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $hashBytes = $sha256.ComputeHash($fileStream)
+        }
+        finally {
+            $sha256.Dispose()
+        }
+    }
+    finally {
+        $fileStream.Dispose()
+    }
+
+    return ([System.BitConverter]::ToString($hashBytes) -replace '-', '').ToLowerInvariant()
+}
+
+function Write-TestUtf8BomJson([string]$Path, [object]$Payload) {
+    $parentPath = Split-Path -Parent $Path
+    if (-not [string]::IsNullOrWhiteSpace($parentPath)) {
+        New-Item -ItemType Directory -Force -Path $parentPath | Out-Null
+    }
+
+    $utf8Bom = New-Object System.Text.UTF8Encoding($true)
+    $jsonText = ($Payload | ConvertTo-Json -Depth 6)
+    [System.IO.File]::WriteAllText($Path, $jsonText, $utf8Bom)
+}
+
 if (-not (Test-Path $renderScriptPath)) {
     throw "缺少渲染脚本：$renderScriptPath"
 }
@@ -58,6 +87,65 @@ $expectedStatusLines = @(
 )
 for ($index = 0; $index -lt $expectedStatusLines.Count; $index++) {
     Assert-PanelResponseEqual -Actual $statusLines[$index] -Expected $expectedStatusLines[$index] -Message ('status 第 {0} 行顺序或内容不对' -f ($index + 1))
+}
+
+$tempRootPath = Join-Path $env:TEMP ('cx-render-status-' + [guid]::NewGuid().ToString('N'))
+try {
+    $sourceRootPath = Join-Path $tempRootPath 'source'
+    $targetCodexHomePath = Join-Path $tempRootPath 'home'
+    $targetConfigPath = Join-Path $targetCodexHomePath 'config'
+    $targetScriptRootPath = Join-Path $targetConfigPath 'chancellor-mode'
+
+    foreach ($path in @($sourceRootPath, $targetConfigPath, $targetScriptRootPath)) {
+        New-Item -ItemType Directory -Force -Path $path | Out-Null
+    }
+
+    foreach ($fileName in @('VERSION.json', 'AGENTS.md', 'config.toml', 'invoke-panel-command.ps1', 'start-panel-task.ps1', 'render-panel-response.ps1')) {
+        Copy-Item -Path (Join-Path $scriptRootPath $fileName) -Destination (Join-Path $sourceRootPath $fileName) -Force
+    }
+
+    Copy-Item -Path (Join-Path $scriptRootPath 'AGENTS.md') -Destination (Join-Path $targetCodexHomePath 'AGENTS.md') -Force
+    Copy-Item -Path (Join-Path $scriptRootPath 'config.toml') -Destination (Join-Path $targetCodexHomePath 'config.toml') -Force
+    Copy-Item -Path (Join-Path $scriptRootPath 'VERSION.json') -Destination (Join-Path $targetConfigPath 'cx-version.json') -Force
+    foreach ($fileName in @('invoke-panel-command.ps1', 'start-panel-task.ps1', 'render-panel-response.ps1')) {
+        Copy-Item -Path (Join-Path $scriptRootPath $fileName) -Destination (Join-Path $targetScriptRootPath $fileName) -Force
+    }
+
+    $lightCheckHashes = @(
+        @($versionInfo.light_check_targets) | ForEach-Object {
+            $sourceRelativePath = [string]$_.source_path
+            $runtimeRelativePath = [string]$_.runtime_path
+            $sourcePath = Join-Path $sourceRootPath ($sourceRelativePath -replace '/', '\')
+            $runtimePath = Join-Path $targetCodexHomePath ($runtimeRelativePath -replace '/', '\')
+            [ordered]@{
+                name = [string]$_.name
+                source_path = $sourceRelativePath
+                runtime_path = $runtimeRelativePath
+                source_sha256 = Get-TestSha256Text -Path $sourcePath
+                runtime_sha256 = Get-TestSha256Text -Path $runtimePath
+            }
+        }
+    )
+
+    Write-TestUtf8BomJson -Path (Join-Path $targetScriptRootPath 'task-start-state.json') -Payload ([ordered]@{
+        verified_at = '2026-04-03 14:36:54'
+        verify_status = 'passed'
+        cx_version = $versionInfo.cx_version
+        runtime_version = $versionInfo.cx_version
+        source_root = $sourceRootPath
+        target_codex_home = $targetCodexHomePath
+        repair_used = $false
+        light_check_hashes = $lightCheckHashes
+    })
+
+    $runtimeStatusLines = @(& (Join-Path $targetScriptRootPath 'render-panel-response.ps1') -Kind 'status' -RepoRootPath $tempRootPath -TargetCodexHome $targetCodexHomePath)
+    Assert-PanelResponseLineCount -ActualLines $runtimeStatusLines -ExpectedCount 6 -Message '运行态 status 应返回 6 行固定状态栏'
+    Assert-PanelResponseEqual -Actual $runtimeStatusLines[3] -Expected '关键文件一致性：一致' -Message '运行态 status 应根据 task-start-state.json 回写一致状态'
+}
+finally {
+    if (Test-Path $tempRootPath) {
+        Remove-Item -Recurse -Force -LiteralPath $tempRootPath
+    }
 }
 
 $closeoutLines = @(& $renderScriptPath -Kind 'closeout' -VersionPath $versionPath -CompletedText '已完成 A' -ResultText '结果 B' -NextStepText '下一步 C')

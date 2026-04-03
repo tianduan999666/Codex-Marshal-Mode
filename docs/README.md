@@ -10,7 +10,15 @@
 - `../logs/20260402-013700-mvp-24h-plan.md`
 
 ## 现在默认怎么开工
-- 第一次准备环境，仍走维护层脚本。
+- 第一次准备环境，普通用户只执行：`../codex-home-export/install.cmd`。
+- 换其他电脑时，先执行：
+
+```powershell
+git clone https://github.com/tianduan999666/Codex-Chancellor-Mode.git
+cd Codex-Chancellor-Mode
+.\codex-home-export\install.cmd
+```
+
 - 日常开工，优先回官方 Codex 面板直接说：`传令：我要做 XX`。
 - 面板内会先走 `../codex-home-export/start-panel-task.ps1`。
 - 同版本第一次开工先验真；后续同版本任务默认跳过重复验真，直接建任务。

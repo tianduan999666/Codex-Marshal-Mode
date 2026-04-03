@@ -131,14 +131,79 @@ function Get-PanelResponseLightCheckTargets([object]$VersionInfo) {
     return @(Get-PanelResponseDefaultLightCheckTargets)
 }
 
-function Get-PanelResponseKeyFileConsistencyText([object]$VersionInfo, [string]$ScriptRootPath, [string]$ResolvedTargetCodexHome, [string]$ExplicitValue) {
+function Get-PanelResponseStateSourceRoot([object]$TaskStartState, [string]$ScriptRootPath) {
+    if (($null -ne $TaskStartState) -and (-not [string]::IsNullOrWhiteSpace([string]$TaskStartState.source_root)) -and (Test-Path ([string]$TaskStartState.source_root))) {
+        return [System.IO.Path]::GetFullPath([string]$TaskStartState.source_root)
+    }
+
+    return $ScriptRootPath
+}
+
+function Get-PanelResponseStateTargetCodexHome([object]$TaskStartState, [string]$ResolvedTargetCodexHome) {
+    if (($null -ne $TaskStartState) -and (-not [string]::IsNullOrWhiteSpace([string]$TaskStartState.target_codex_home)) -and (Test-Path ([string]$TaskStartState.target_codex_home))) {
+        return [System.IO.Path]::GetFullPath([string]$TaskStartState.target_codex_home)
+    }
+
+    return $ResolvedTargetCodexHome
+}
+
+function Test-PanelResponseTaskStartStateLightCheckSatisfied([object]$TaskStartState, [string]$SourceRootPath, [string]$TargetCodexHomePath) {
+    if ($null -eq $TaskStartState) {
+        return $false
+    }
+
+    if ($TaskStartState.verify_status -ne 'passed') {
+        return $false
+    }
+
+    if (-not ($TaskStartState.PSObject.Properties.Name -contains 'light_check_hashes')) {
+        return $false
+    }
+
+    $stateItems = @($TaskStartState.light_check_hashes)
+    if ($stateItems.Count -eq 0) {
+        return $false
+    }
+
+    foreach ($stateItem in $stateItems) {
+        $sourceRelativePath = [string]$stateItem.source_path
+        $runtimeRelativePath = [string]$stateItem.runtime_path
+        $sourcePath = Join-Path $SourceRootPath ($sourceRelativePath -replace '/', '\')
+        $runtimePath = Join-Path $TargetCodexHomePath ($runtimeRelativePath -replace '/', '\')
+        $sourceHash = Get-PanelResponseSha256OrEmpty -Path $sourcePath
+        $runtimeHash = Get-PanelResponseSha256OrEmpty -Path $runtimePath
+
+        if ([string]::IsNullOrWhiteSpace($sourceHash) -or [string]::IsNullOrWhiteSpace($runtimeHash)) {
+            return $false
+        }
+
+        if (($stateItem.source_sha256 -ne $sourceHash) -or ($stateItem.runtime_sha256 -ne $runtimeHash)) {
+            return $false
+        }
+
+        if ($sourceHash -ne $runtimeHash) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
+function Get-PanelResponseKeyFileConsistencyText([object]$VersionInfo, [object]$TaskStartState, [string]$ScriptRootPath, [string]$ResolvedTargetCodexHome, [string]$ExplicitValue) {
     if (-not [string]::IsNullOrWhiteSpace($ExplicitValue)) {
         return $ExplicitValue
     }
 
+    $sourceRootPath = Get-PanelResponseStateSourceRoot -TaskStartState $TaskStartState -ScriptRootPath $ScriptRootPath
+    $targetCodexHomePath = Get-PanelResponseStateTargetCodexHome -TaskStartState $TaskStartState -ResolvedTargetCodexHome $ResolvedTargetCodexHome
+
+    if (Test-PanelResponseTaskStartStateLightCheckSatisfied -TaskStartState $TaskStartState -SourceRootPath $sourceRootPath -TargetCodexHomePath $targetCodexHomePath) {
+        return '一致'
+    }
+
     foreach ($targetDefinition in @(Get-PanelResponseLightCheckTargets -VersionInfo $VersionInfo)) {
-        $sourcePath = Join-Path $ScriptRootPath (([string]$targetDefinition.source_path) -replace '/', '\')
-        $runtimePath = Join-Path $ResolvedTargetCodexHome (([string]$targetDefinition.runtime_path) -replace '/', '\')
+        $sourcePath = Join-Path $sourceRootPath (([string]$targetDefinition.source_path) -replace '/', '\')
+        $runtimePath = Join-Path $targetCodexHomePath (([string]$targetDefinition.runtime_path) -replace '/', '\')
         $sourceHash = Get-PanelResponseSha256OrEmpty -Path $sourcePath
         $runtimeHash = Get-PanelResponseSha256OrEmpty -Path $runtimePath
         if ([string]::IsNullOrWhiteSpace($sourceHash) -or ($sourceHash -ne $runtimeHash)) {
@@ -211,7 +276,7 @@ function Get-PanelResponseStatusTokenMap([object]$VersionInfo, [object]$TaskStar
     return @{
         last_check = Get-PanelResponseLastCheckText -TaskStartState $TaskStartState -ExplicitValue $ExplicitLastCheck
         auto_repair = Get-PanelResponseAutoRepairText -TaskStartState $TaskStartState -ExplicitValue $ExplicitAutoRepair
-        key_file_consistency = Get-PanelResponseKeyFileConsistencyText -VersionInfo $VersionInfo -ScriptRootPath $ScriptRootPath -ResolvedTargetCodexHome $ResolvedTargetCodexHome -ExplicitValue $ExplicitKeyFileConsistency
+        key_file_consistency = Get-PanelResponseKeyFileConsistencyText -VersionInfo $VersionInfo -TaskStartState $TaskStartState -ScriptRootPath $ScriptRootPath -ResolvedTargetCodexHome $ResolvedTargetCodexHome -ExplicitValue $ExplicitKeyFileConsistency
         current_mode = Get-PanelResponseStringOrDefault -Value $ExplicitCurrentMode -Fallback '丞相'
         current_task = Get-PanelResponseCurrentTaskText -ResolvedRepoRootPath $ResolvedRepoRootPath -ExplicitValue $ExplicitCurrentTask
     }

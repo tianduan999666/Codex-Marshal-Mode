@@ -11,11 +11,44 @@
 - 当前默认用户入口：官方 Codex 面板
 - 对外统一名称：`丞相`
 - 对外英文名 / 工程名：`Chancellor Mode`
+- 当前 GitHub 仓库：`Codex-Chancellor-Mode`
 - 默认自然语言入口：`传令：`
 - 默认开场白：`🪶 军令入帐。亮，即刻接管全局。`
 - 默认新对话提示：`例如：传令：计算1+1=?`
 - 当前真实阶段：专业维护工具，已接近公开试用前夜，但还不是开箱即用的大众产品
 - 当前最该补齐：第一轮真实试用反馈
+
+## 其他电脑安装与使用
+
+### 第一次安装
+
+```powershell
+git clone https://github.com/tianduan999666/Codex-Chancellor-Mode.git
+cd Codex-Chancellor-Mode
+.\codex-home-export\install.cmd
+```
+
+普通用户只跑 `.cmd` 入口，不直接跑 `install-to-home.ps1`、`verify-cutover.ps1` 这类底层脚本；这样能避开 Windows PowerShell 5.1 的执行细节和编码摩擦。
+
+### 安装完成后怎么用
+
+```text
+传令：版本
+传令：状态
+传令：我要做 修复登录页 bug
+```
+
+### 以后升级
+
+```powershell
+%USERPROFILE%\.codex\upgrade.cmd
+```
+
+### 以后自检
+
+```powershell
+%USERPROFILE%\.codex\self-check.cmd
+```
 
 ## 公开试用文案（100 字版）
 
@@ -25,7 +58,7 @@
 
 ## 当前决定
 
-- `F:\260328大都督模式` 是新的 `V4` 主工作区。
+- 当前仓 `Codex-Chancellor-Mode` 是新的 `V4` 主工作区。
 - `F:\260321everything-codex 丞相模式测试项目` 不再继续承接新一轮 V4 设计与收口。
 - 旧仓从现在起主要作为**参考仓 / 取材仓 / 归档证据仓**，不是新 V4 的继续开发地。
 
@@ -40,7 +73,7 @@
 ## 当前目录
 
 ```text
-F:\260328大都督模式
+Codex-Chancellor-Mode
 ├─ README.md
 ├─ AGENTS.md
 ├─ .gitignore

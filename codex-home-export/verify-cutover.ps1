@@ -14,6 +14,7 @@ $runtimeMetaRoot = Join-Path $resolvedTargetCodexHome 'config\chancellor-mode'
 $runtimeVersionPath = Join-Path $resolvedTargetCodexHome 'config\cx-version.json'
 $runtimeManifestPath = Join-Path $runtimeMetaRoot 'manifest.json'
 $runtimeInstallRecordPath = Join-Path $resolvedTargetCodexHome 'config\chancellor-mode\install-record.json'
+$runtimeTaskStartStatePath = Join-Path $runtimeMetaRoot 'task-start-state.json'
 $authPath = Join-Path $resolvedTargetCodexHome 'auth.json'
 
 function Write-Info([string]$Message) {
@@ -44,6 +45,20 @@ function Get-Sha256Text([string]$Path) {
 
 function Read-JsonFile([string]$Path) {
     return (Get-Content -Raw -Encoding UTF8 -Path $Path | ConvertFrom-Json)
+}
+
+function Ensure-ParentDirectory([string]$Path) {
+    $parent = Split-Path -Parent $Path
+    if ($parent) {
+        New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    }
+}
+
+function Write-Utf8BomJson([string]$Path, [object]$Payload) {
+    Ensure-ParentDirectory -Path $Path
+    $utf8Bom = New-Object System.Text.UTF8Encoding($true)
+    $jsonText = ($Payload | ConvertTo-Json -Depth 6)
+    [System.IO.File]::WriteAllText($Path, $jsonText, $utf8Bom)
 }
 
 function Get-ManagedFileMappings {
@@ -112,6 +127,43 @@ function Get-ManagedFileMappings {
     }
 
     return @($fileMappings)
+}
+
+function Get-DefaultLightCheckTargets() {
+    return @(
+        [ordered]@{ name = '版本镜像'; source_path = 'VERSION.json'; runtime_path = 'config/cx-version.json' }
+        [ordered]@{ name = '规则总纲'; source_path = 'AGENTS.md'; runtime_path = 'AGENTS.md' }
+        [ordered]@{ name = '主配置'; source_path = 'config.toml'; runtime_path = 'config.toml' }
+        [ordered]@{ name = '入口路由脚本'; source_path = 'invoke-panel-command.ps1'; runtime_path = 'config/chancellor-mode/invoke-panel-command.ps1' }
+        [ordered]@{ name = '开工脚本'; source_path = 'start-panel-task.ps1'; runtime_path = 'config/chancellor-mode/start-panel-task.ps1' }
+        [ordered]@{ name = '渲染脚本'; source_path = 'render-panel-response.ps1'; runtime_path = 'config/chancellor-mode/render-panel-response.ps1' }
+    )
+}
+
+function Get-LightCheckTargetDefinitions([object]$SourceVersionInfo) {
+    if (($null -ne $SourceVersionInfo) -and ($null -ne $SourceVersionInfo.light_check_targets) -and (@($SourceVersionInfo.light_check_targets).Count -gt 0)) {
+        return @($SourceVersionInfo.light_check_targets)
+    }
+
+    return @(Get-DefaultLightCheckTargets)
+}
+
+function New-LightCheckHashesPayload([object[]]$TargetDefinitions, [string]$SourceRoot, [string]$ResolvedTargetCodexHome) {
+    return @(
+        $TargetDefinitions | ForEach-Object {
+            $sourceRelativePath = [string]$_.source_path
+            $runtimeRelativePath = [string]$_.runtime_path
+            $sourcePath = Join-Path $SourceRoot (($sourceRelativePath -replace '/', '\'))
+            $runtimePath = Join-Path $ResolvedTargetCodexHome (($runtimeRelativePath -replace '/', '\'))
+            [ordered]@{
+                name = [string]$_.name
+                source_path = $sourceRelativePath
+                runtime_path = $runtimeRelativePath
+                source_sha256 = Get-Sha256Text -Path $sourcePath
+                runtime_sha256 = Get-Sha256Text -Path $runtimePath
+            }
+        }
+    )
 }
 
 foreach ($requiredPath in @($versionSourcePath, $manifestSourcePath, $runtimeVersionPath, $runtimeManifestPath, $runtimeInstallRecordPath)) {
@@ -202,11 +254,29 @@ if (-not (Test-Path $authPath)) {
     throw "auth.json 不存在：$authPath"
 }
 
+$lightCheckTargetDefinitions = Get-LightCheckTargetDefinitions -SourceVersionInfo $sourceVersionInfo
+$taskStartStatePayload = [ordered]@{
+    verified_at = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+    verify_status = 'passed'
+    cx_version = $expectedVersionValue
+    runtime_version = $runtimeVersionInfo.cx_version
+    source_root = $expectedSourceRootValue
+    target_codex_home = $resolvedTargetCodexHome
+    source_agents_hash = Get-Sha256Text -Path (Join-Path $sourceRoot 'AGENTS.md')
+    source_config_hash = Get-Sha256Text -Path (Join-Path $sourceRoot 'config.toml')
+    runtime_agents_hash = Get-Sha256Text -Path (Join-Path $resolvedTargetCodexHome 'AGENTS.md')
+    runtime_config_hash = Get-Sha256Text -Path (Join-Path $resolvedTargetCodexHome 'config.toml')
+    repair_used = $false
+    light_check_hashes = New-LightCheckHashesPayload -TargetDefinitions $lightCheckTargetDefinitions -SourceRoot $sourceRoot -ResolvedTargetCodexHome $resolvedTargetCodexHome
+}
+Write-Utf8BomJson -Path $runtimeTaskStartStatePath -Payload $taskStartStatePayload
+
 Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
 Write-Info "CxVersion=$($runtimeVersionInfo.cx_version)"
 Write-Info "BackupRoot=$($runtimeInstallRecord.backup_root)"
 Write-Info ("ManagedFileCount={0}" -f $managedFileMappings.Count)
 Write-Info '运行态说明：`task-start-state.json` 只用于同版本轻量复核缓存；不属于 manifest 受管文件，也不参与公开提交。'
+Write-Info "健康状态已回写：$runtimeTaskStartStatePath"
 Write-Ok '生产母体受管文件验真通过。'
 Write-Info '默认日常入口：回官方 Codex 面板直接说 `传令：我要做 XX`。'
 Write-Info ("维护层四个动作：{0} / {1} / {2} / {3}" -f 'install.cmd', 'upgrade.cmd', 'self-check.cmd', 'rollback.cmd')
