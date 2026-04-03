@@ -16,6 +16,13 @@ dist/
 .codex/chancellor/active-task.txt
 .codex/chancellor/tasks/*
 !.codex/chancellor/tasks/README.md
+.codex/chancellor/Invoke-Phase2AgentDispatcher.ps1
+.codex/chancellor/Invoke-Phase2AgentWorker.ps1
+.codex/chancellor/Invoke-VibeCodingGateDryRun.ps1
+.codex/chancellor/Measure-Phase2Baseline.ps1
+.codex/chancellor/Test-Phase2AgentDispatcher.ps1
+.codex/chancellor/Test-Phase2Baseline.ps1
+.codex/chancellor/Test-VibeCodingGateDryRun.ps1
 
 # Logs and temp outputs
 logs/**
