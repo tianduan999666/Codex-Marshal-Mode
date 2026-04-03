@@ -48,4 +48,39 @@ Assert-PanelCommandLineCount -ActualLines $taskPreviewLines -ExpectedCount 2 -Me
 Assert-PanelCommandEqual -Actual $taskPreviewLines[0] -Expected '路由结果：task-start' -Message 'DryRunTaskStart 应返回 task-start 路由结果'
 Assert-PanelCommandEqual -Actual $taskPreviewLines[1] -Expected '任务标题：修一下登录页' -Message 'DryRunTaskStart 应返回任务标题'
 
+$continueTestRoot = Join-Path $env:TEMP ('cx-continue-' + [guid]::NewGuid().ToString('N'))
+try {
+    $continueTaskId = 'v4-target-999-continue-smoke'
+    $continueTaskRoot = Join-Path $continueTestRoot ('.codex\chancellor\tasks\' + $continueTaskId)
+    $continueTaskContractPath = Join-Path $continueTaskRoot 'contract.yaml'
+    $continueActiveTaskPath = Join-Path $continueTestRoot '.codex\chancellor\active-task.txt'
+    $continueHomePath = Join-Path $continueTestRoot 'home'
+
+    foreach ($path in @($continueTaskRoot, $continueHomePath)) {
+        New-Item -ItemType Directory -Force -Path $path | Out-Null
+    }
+
+    Set-Content -Path $continueActiveTaskPath -Value $continueTaskId -Encoding UTF8
+    Set-Content -Path $continueTaskContractPath -Value @(
+        ('task_id: {0}' -f $continueTaskId)
+        'title: 继续修入口'
+    ) -Encoding UTF8
+
+    $continueDryRunLines = @(& $invokeScriptPath '传令：继续' -DryRunTaskStart -RepoRootPath $continueTestRoot)
+    Assert-PanelCommandLineCount -ActualLines $continueDryRunLines -ExpectedCount 2 -Message '传令：继续 DryRunTaskStart 应返回 2 行'
+    Assert-PanelCommandEqual -Actual $continueDryRunLines[0] -Expected '路由结果：continue-active-task' -Message '传令：继续 DryRunTaskStart 应走 continue-active-task'
+    Assert-PanelCommandEqual -Actual $continueDryRunLines[1] -Expected ('当前任务：{0}（继续修入口）' -f $continueTaskId) -Message '传令：继续 DryRunTaskStart 应返回当前激活任务'
+
+    $continueLines = @(& $invokeScriptPath '传令：继续当前任务' -RepoRootPath $continueTestRoot -TargetCodexHome $continueHomePath)
+    Assert-PanelCommandLineCount -ActualLines $continueLines -ExpectedCount 13 -Message '传令：继续当前任务 应返回骨架 + 状态 + 收口'
+    Assert-PanelCommandEqual -Actual $continueLines[0] -Expected $versionInfo.opening_line -Message '传令：继续当前任务 第 1 行应返回开场白'
+    Assert-PanelCommandEqual -Actual $continueLines[8] -Expected ('当前任务：{0}（继续修入口）' -f $continueTaskId) -Message '传令：继续当前任务 状态栏应返回激活任务'
+    Assert-PanelCommandEqual -Actual $continueLines[11] -Expected ('结果：继续沿用 {0}（继续修入口），不新建任务。' -f $continueTaskId) -Message '传令：继续当前任务 应明确不新建任务'
+}
+finally {
+    if (Test-Path $continueTestRoot) {
+        Remove-Item -Recurse -Force -LiteralPath $continueTestRoot
+    }
+}
+
 Write-Host 'PASS: invoke-panel-command.test.ps1'

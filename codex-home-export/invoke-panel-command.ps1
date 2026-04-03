@@ -76,6 +76,72 @@ function Get-PanelCommandPayload([string]$RawCommandText) {
         -NextStep '请直接输入 `传令：你的需求`，例如：`传令：修一下登录页`。'
 }
 
+function Get-ActiveTaskContext([string]$ResolvedRepoRootPath) {
+    $activeTaskPath = Join-Path $ResolvedRepoRootPath '.codex\chancellor\active-task.txt'
+    if (-not (Test-Path $activeTaskPath)) {
+        return $null
+    }
+
+    $activeTaskId = ((Get-Content -Path $activeTaskPath | Select-Object -First 1) | ForEach-Object { $_.Trim() })
+    if ([string]::IsNullOrWhiteSpace($activeTaskId)) {
+        return $null
+    }
+
+    $activeTaskTitle = ''
+    $taskContractPath = Join-Path $ResolvedRepoRootPath ('.codex\chancellor\tasks\{0}\contract.yaml' -f $activeTaskId)
+    if (Test-Path $taskContractPath) {
+        $taskContractContent = Get-Content -Raw -Path $taskContractPath
+        if ($taskContractContent -match 'title:\s*(.+?)(?:\r?\n|$)') {
+            $activeTaskTitle = $matches[1].Trim()
+        }
+    }
+
+    return [pscustomobject]@{
+        TaskId = $activeTaskId
+        TaskTitle = $activeTaskTitle
+    }
+}
+
+function Format-ActiveTaskDisplayText([object]$ActiveTaskContext) {
+    if ($null -eq $ActiveTaskContext) {
+        return ''
+    }
+
+    if ([string]::IsNullOrWhiteSpace([string]$ActiveTaskContext.TaskTitle)) {
+        return [string]$ActiveTaskContext.TaskId
+    }
+
+    return ('{0}（{1}）' -f $ActiveTaskContext.TaskId, $ActiveTaskContext.TaskTitle)
+}
+
+function Write-ContinueActiveTaskLines {
+    param(
+        [object]$ActiveTaskContext
+    )
+
+    $currentTaskText = Format-ActiveTaskDisplayText -ActiveTaskContext $ActiveTaskContext
+    Write-PanelCommandLinesSafe -Arguments @{
+        Kind = 'task-entry'
+        VersionPath = $versionSourcePath
+        RepoRootPath = $resolvedRepoRootPath
+        TargetCodexHome = $resolvedTargetCodexHome
+    } -Summary '丞相已经接到继续当前任务的传令，但开工骨架渲染失败了。' -NextStep '先执行 `self-check.cmd` 检查渲染链路，再回面板重试。'
+    Write-PanelCommandLinesSafe -Arguments @{
+        Kind = 'status'
+        VersionPath = $versionSourcePath
+        RepoRootPath = $resolvedRepoRootPath
+        TargetCodexHome = $resolvedTargetCodexHome
+        CurrentTask = $currentTaskText
+    } -Summary '丞相已经接到继续当前任务的传令，但状态栏渲染失败了。' -NextStep '先执行 `self-check.cmd` 检查渲染链路，再回面板重试。'
+    Write-PanelCommandLinesSafe -Arguments @{
+        Kind = 'closeout'
+        VersionPath = $versionSourcePath
+        CompletedText = '已接上当前激活任务。'
+        ResultText = ('继续沿用 {0}，不新建任务。' -f $currentTaskText)
+        NextStepText = '留在当前会话，直接基于当前任务继续推进。'
+    } -Summary '丞相已经接上当前任务，但收口文案渲染失败了。' -NextStep '先执行 `self-check.cmd` 检查渲染链路，再回面板重试。'
+}
+
 function Invoke-PanelTaskStart {
     param(
         [string]$TaskTitle
@@ -126,6 +192,7 @@ switch ($PSCmdlet.ParameterSetName) {
 }
 
 $commandPayload = Get-PanelCommandPayload -RawCommandText $CommandText
+$activeTaskContext = Get-ActiveTaskContext -ResolvedRepoRootPath $resolvedRepoRootPath
 
 switch ($commandPayload) {
     '状态' {
@@ -153,6 +220,22 @@ switch ($commandPayload) {
             RepoRootPath = $resolvedRepoRootPath
             TargetCodexHome = $resolvedTargetCodexHome
         } -Summary '丞相入口已经接通，但升级说明渲染失败了。' -NextStep '先执行 `self-check.cmd` 检查渲染链路，再回面板重试。'
+        break
+    }
+    { $_ -in @('继续', '继续当前任务') } {
+        if ($null -eq $activeTaskContext) {
+            Stop-FriendlyPanelEntry `
+                -Summary '当前没有激活任务，不能直接继续。' `
+                -NextStep '请直接输入 `传令：你的需求`，例如：`传令：修一下登录页`。'
+        }
+
+        if ($DryRunTaskStart) {
+            Write-Output '路由结果：continue-active-task'
+            Write-Output ('当前任务：{0}' -f (Format-ActiveTaskDisplayText -ActiveTaskContext $activeTaskContext))
+            break
+        }
+
+        Write-ContinueActiveTaskLines -ActiveTaskContext $activeTaskContext
         break
     }
     default {
