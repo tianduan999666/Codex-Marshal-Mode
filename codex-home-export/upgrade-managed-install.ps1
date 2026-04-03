@@ -26,13 +26,21 @@ function Read-JsonFile([string]$Path) {
     return (Get-Content -Raw -Encoding UTF8 -Path $Path | ConvertFrom-Json)
 }
 
-function Invoke-GitAndRequireSuccess([string[]]$Arguments, [string]$ErrorMessage) {
-    $output = @(& git @Arguments 2>&1)
-    if ($LASTEXITCODE -ne 0) {
-        throw ($ErrorMessage + '：' + (($output -join [Environment]::NewLine).Trim()))
+function Write-DirtyWorkingTreeGuidance {
+    param(
+        [string]$RepoRootPath,
+        [string[]]$DirtyWorkingTreeLines
+    )
+
+    Write-WarnLine '检测到源仓有未提交改动，本次升级已停止。'
+    if ($DirtyWorkingTreeLines.Count -gt 0) {
+        Write-Info ("DirtyFiles={0}" -f ($DirtyWorkingTreeLines -join ' | '))
     }
 
-    return $output
+    Write-Info ("先查看改动：git -C {0} status --short" -f $RepoRootPath)
+    Write-Info ("如需临时收起改动：git -C {0} stash push --include-untracked -m ""cx-upgrade-manual-stash""" -f $RepoRootPath)
+    Write-Info ("如需丢弃已跟踪改动：git -C {0} restore ." -f $RepoRootPath)
+    Write-Info '如需彻底回到干净状态：请在仓库上级目录重新 git clone 当前仓。'
 }
 
 if (-not (Test-Path $runtimeInstallRecordPath)) {
@@ -72,19 +80,9 @@ if ($LASTEXITCODE -ne 0) {
     throw "无法读取源仓状态：$resolvedRepoRootPath"
 }
 
-$autoStashName = ''
 if ($dirtyWorkingTreeLines.Count -gt 0) {
-    $autoStashName = 'cx-upgrade-auto-stash-{0}' -f (Get-Date -Format 'yyyyMMdd-HHmmss')
-    Write-WarnLine ("检测到源仓有未提交改动，开始执行最安全方案：先自动暂存，再升级。")
-    Write-Info ("DirtyFiles={0}" -f ($dirtyWorkingTreeLines -join ' | '))
-    [void](Invoke-GitAndRequireSuccess -Arguments @('-C', $resolvedRepoRootPath, 'stash', 'push', '--include-untracked', '--message', $autoStashName) -ErrorMessage '自动暂存失败')
-    $dirtyWorkingTreeLines = @(& git -C $resolvedRepoRootPath status --short)
-    if ($LASTEXITCODE -ne 0) {
-        throw "自动暂存后无法重新读取源仓状态：$resolvedRepoRootPath"
-    }
-    if ($dirtyWorkingTreeLines.Count -gt 0) {
-        throw "自动暂存后源仓仍不干净，已停止升级：$resolvedRepoRootPath"
-    }
+    Write-DirtyWorkingTreeGuidance -RepoRootPath $resolvedRepoRootPath -DirtyWorkingTreeLines $dirtyWorkingTreeLines
+    exit 1
 }
 
 Write-Info "RepoRoot=$resolvedRepoRootPath"
@@ -121,9 +119,5 @@ if ($ApplyTemplateConfig) {
 }
 else {
     Write-Info '本次升级默认保留你现有的全局 config.toml。'
-}
-if (-not [string]::IsNullOrWhiteSpace($autoStashName)) {
-    Write-WarnLine ("升级前改动已安全暂存：{0}" -f $autoStashName)
-    Write-Info ("如需恢复旧改动：git -C {0} stash list" -f $resolvedRepoRootPath)
 }
 Write-Info '建议回官方 Codex 面板复核：`传令：版本`、`传令：状态`。'

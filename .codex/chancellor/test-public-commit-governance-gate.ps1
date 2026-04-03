@@ -1678,27 +1678,24 @@ finally {
 $execReadmeCurrentEntryLineText = '- `11-任务包半自动起包.md`'
 $execReadmeTargetEntryLineText = '- `12-V4-Target-实施计划.md`'
 $docsReadmeExecCurrentEntryLineText = '- `40-执行/11-任务包半自动起包.md`'
-$docsReadmeExecTargetEntryLineText = '- `40-执行/12-V4-Target-实施计划.md`'
 $navOverviewCurrentExecEntryMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+`docs/40-执行/11-任务包半自动起包\.md`$'
 $navOverviewReadingExecEntryMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+需要更快起包时，看 `docs/40-执行/11-任务包半自动起包\.md`$'
 $navOverviewCurrentExecEntryLineText = $navOverviewCurrentExecEntryMatch.LineText
 $navOverviewReadingExecEntryLineText = $navOverviewReadingExecEntryMatch.LineText
 $maintenanceGuideExecEntryLineText = '- 文档：`docs/40-执行/11-任务包半自动起包.md`'
 
-if ($execReadmeLines -notcontains $execReadmeCurrentEntryLineText -or $execReadmeLines -notcontains $execReadmeTargetEntryLineText -or $docsReadmeLines -notcontains $docsReadmeExecCurrentEntryLineText -or $docsReadmeLines -notcontains $docsReadmeExecTargetEntryLineText -or $null -eq $navOverviewCurrentExecEntryMatch -or $null -eq $navOverviewReadingExecEntryMatch -or $maintenanceGuideLines -notcontains $maintenanceGuideExecEntryLineText) {
+if ($execReadmeLines -notcontains $execReadmeCurrentEntryLineText -or $execReadmeLines -notcontains $execReadmeTargetEntryLineText -or $docsReadmeLines -notcontains $docsReadmeExecCurrentEntryLineText -or $null -eq $navOverviewCurrentExecEntryMatch -or $null -eq $navOverviewReadingExecEntryMatch -or $maintenanceGuideLines -notcontains $maintenanceGuideExecEntryLineText) {
     throw '测试前置条件不满足：执行区真源联动测试行缺失。'
 }
 
 $execReadmeCurrentEntryIndex = [Array]::IndexOf($execReadmeLines, $execReadmeCurrentEntryLineText)
 $execReadmeTargetEntryIndex = [Array]::IndexOf($execReadmeLines, $execReadmeTargetEntryLineText)
-$docsReadmeExecCurrentEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeExecCurrentEntryLineText)
-$docsReadmeExecTargetEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeExecTargetEntryLineText)
 
-if ($execReadmeCurrentEntryIndex -lt 0 -or $execReadmeTargetEntryIndex -lt 0 -or $docsReadmeExecCurrentEntryIndex -lt 0 -or $docsReadmeExecTargetEntryIndex -lt 0) {
+if ($execReadmeCurrentEntryIndex -lt 0 -or $execReadmeTargetEntryIndex -lt 0) {
     throw '测试前置条件不满足：执行区顺序测试行缺失。'
 }
 
-if ($execReadmeCurrentEntryIndex -gt $execReadmeTargetEntryIndex -or $docsReadmeExecCurrentEntryIndex -gt $docsReadmeExecTargetEntryIndex) {
+if ($execReadmeCurrentEntryIndex -gt $execReadmeTargetEntryIndex) {
     throw '测试前置条件不满足：执行区顺序已不是当前现状。'
 }
 
@@ -1740,7 +1737,7 @@ try {
     $driftedMaintenanceGuideContent = ($driftedMaintenanceGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('docs/README.md', 'docs/00-导航/02-现行标准件总览.md', 'docs/40-执行/README.md', 'docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 0 -TestName 'allow-exec-standard-source-sync'
+    Invoke-GateForTestCase -Paths @('docs/00-导航/02-现行标准件总览.md', 'docs/40-执行/README.md', 'docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 0 -TestName 'allow-exec-standard-source-sync'
 }
 finally {
     [System.IO.File]::WriteAllBytes($execReadmePath, $originalExecReadmeBytes)

@@ -50,9 +50,11 @@ cd Codex-Chancellor-Mode
 - `self-check.cmd`
 - `verify-cutover.ps1`
 - `upgrade-managed-install.ps1`
+- `upgrade-managed-install.test.ps1`
 - `upgrade.cmd`
 - `verify-panel-command-smoke.ps1`
 - `verify-provider-auth.ps1`
+- `verify-provider-auth.test.ps1`
 - `start-panel-acceptance.ps1`
 - `new-panel-acceptance-result.ps1`
 - `verify-panel-acceptance-result.ps1`
@@ -79,7 +81,7 @@ cd Codex-Chancellor-Mode
 - `invoke-panel-command.ps1` 是当前 `传令：XXXX` 的统一脚本路由入口；查询命令与做事命令都先走它。
 - `start-panel-acceptance.ps1` 当前也固定通过 `invoke-panel-command.ps1` 取提示、开工骨架、版本口径、状态口径与升级口径；验板预期与真实入口链保持同源。
 - `render-panel-response.ps1` 是当前面板输出控制面的统一渲染器；开场白、示例句、状态栏顺序、过程金句与收口模板都应先回到它和 `VERSION.json` 验证。
-- 当前可执行 `.ps1/.json` 固定按 Windows PowerShell 5.1 兼容口径治理：文件编码统一 `UTF-8 with BOM`，脚本内部读 JSON 一律显式指定 `UTF-8`。
+- 当前公开受管的 `.ps1/.json/.md/.toml` 与入口 `.cmd` 已统一按 Windows PowerShell 5.1 兼容口径治理：文件编码固定 `UTF-8 with BOM`，脚本内部读 JSON 一律显式指定 `UTF-8`。
 
 ## 使用原则
 
@@ -88,7 +90,7 @@ cd Codex-Chancellor-Mode
 | 动作 | 命令 | 说明 |
 | --- | --- | --- |
 | 安装 | `.\install.cmd` | 首次安装到本机 `~/.codex`，自动做传令冒烟与真实 provider/auth 探针验证 |
-| 升级 | `%USERPROFILE%\.codex\upgrade.cmd` | 从任何目录升级；自动回源仓 `git pull --ff-only` 后重装，并补真实 provider/auth 探针 |
+| 升级 | `%USERPROFILE%\.codex\upgrade.cmd` | 从任何目录升级；若源仓有未提交改动则停止，并给出 `status / stash / restore / 重新 clone` 指引；干净时再执行 `git pull --ff-only` 后重装，并补真实 provider/auth 探针 |
 | 自检 | `%USERPROFILE%\.codex\self-check.cmd` | 完整验真 + 传令冒烟 + 真实 provider/auth 探针 |
 | 回滚 | `%USERPROFILE%\.codex\rollback.cmd` | 从最近一次备份回滚受管文件 |
 
@@ -102,6 +104,7 @@ cd Codex-Chancellor-Mode
 6. 当前验板链固定为：`start-panel-acceptance.ps1` → `invoke-panel-command.ps1`；不再允许验板脚本绕过统一路由直接拼查询口径。
 7. 跳过重复验真前仍会轻量复核固定轻检清单：`VERSION.json → config/cx-version.json`、`AGENTS.md`、`invoke-panel-command.ps1 → config/chancellor-mode/invoke-panel-command.ps1`、`start-panel-task.ps1 → config/chancellor-mode/start-panel-task.ps1`、`render-panel-response.ps1 → config/chancellor-mode/render-panel-response.ps1`；若不一致，自动回到验真流程。
 8. 如需显式套用仓内模板 provider，再单独执行：`.\install.cmd -ApplyTemplateConfig`；默认安装与升级都不会替你切 provider / key。
+9. 若当前 provider=`crs` 且统一 `/models` 探针返回 404，脚本会明确提示“需回官方 Codex 面板真人验证一次”；不再把这种情况当成静默通过。
 
 ### 当前对外感知
 

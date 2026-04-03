@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 setlocal
 set "SCRIPT_ROOT=%~dp0"
 set "PS_SCRIPT=%SCRIPT_ROOT%upgrade-managed-install.ps1"

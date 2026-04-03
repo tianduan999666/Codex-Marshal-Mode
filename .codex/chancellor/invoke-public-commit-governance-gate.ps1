@@ -3592,11 +3592,6 @@ catch {
 }
 $publicExecEntryChecks = @(
     @{
-        Path = 'docs/README.md'
-        Label = 'docs/README 公开入口'
-        RegexPattern = '40-执行/([0-9]{2}-[^`]+\.md)'
-    },
-    @{
         Path = 'docs/00-导航/02-现行标准件总览.md'
         Label = '现行标准件总览'
         RegexPattern = 'docs/40-执行/([0-9]{2}-[^`]+\.md)'
@@ -3608,11 +3603,6 @@ $publicExecEntryChecks = @(
     }
 )
 $publicExecOrderEntryChecks = @(
-    @{
-        Path = 'docs/README.md'
-        Label = 'docs/README 执行区现行标准件入口'
-        RegexPattern = '40-执行/([0-9]{2}-[^`]+\.md)'
-    },
     @{
         Path = 'docs/00-导航/02-现行标准件总览.md'
         Label = '现行标准件总览执行区现行标准件入口'
@@ -4066,6 +4056,40 @@ foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChec
 }
 foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $readingOrderMaintenanceEntryChecks -CriticalEntryPaths $criticalMaintenanceLifecycleEntryPaths -MissingFileLabel '阅读顺序区文件' -MissingEntryLabel '阅读顺序关键入口' -OrderDriftLabel '阅读顺序建议顺序漂移')) {
     $violationMessages.Add($entryViolationMessage)
+}
+
+# 检查任务包 tech-spec.md（如果存在任务包修改）
+$taskPackagePaths = @(
+    $changedPathList |
+        Where-Object { $_ -match '^\.codex/chancellor/tasks/([^/]+)/' }
+)
+
+if ($taskPackagePaths.Count -gt 0) {
+    $taskDirs = @(
+        $taskPackagePaths |
+            ForEach-Object {
+                if ($_ -match '^\.codex/chancellor/tasks/([^/]+)/') {
+                    $matches[1]
+                }
+            } |
+            Sort-Object -Unique
+    )
+
+    foreach ($taskId in $taskDirs) {
+        $taskDir = ".codex/chancellor/tasks/$taskId"
+
+        if (Test-Path $taskDir) {
+            try {
+                $checkScriptPath = '.codex/chancellor/check-task-package-tech-spec.ps1'
+                if (Test-Path $checkScriptPath) {
+                    & $checkScriptPath -TaskDir $taskDir
+                }
+            }
+            catch {
+                $violationMessages.Add("任务包 $taskId tech-spec.md 检查失败：$($_.Exception.Message)")
+            }
+        }
+    }
 }
 
 if ($violationMessages.Count -gt 0) {

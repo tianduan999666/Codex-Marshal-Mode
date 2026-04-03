@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 setlocal
 set "SCRIPT_ROOT=%~dp0"
 set "INNER_INSTALL=%SCRIPT_ROOT%codex-home-export\install.cmd"

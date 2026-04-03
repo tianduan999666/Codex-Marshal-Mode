@@ -67,6 +67,15 @@ function Get-ProviderCheckCandidateUrls([string]$BaseUrl) {
     return @($candidateUrls | Select-Object -Unique)
 }
 
+function Get-ProviderManualValidationHint([string]$ProviderName) {
+    $normalizedProviderName = $ProviderName.Trim().ToLowerInvariant()
+    if ($normalizedProviderName -eq 'crs') {
+        return '当前 provider=crs；统一 /models 探针暂不能替代真人验板。请回官方 Codex 面板依次输入 `传令：版本`、`传令：状态`、`传令：修一下登录页` 做一次真人验证。'
+    }
+
+    return ''
+}
+
 function Read-ResponseBodyText([object]$Response) {
     if ($null -eq $Response) {
         return ''
@@ -212,6 +221,10 @@ foreach ($candidateUrl in $candidateUrls) {
 
 if (($null -ne $lastResult) -and ($lastResult.status_code -eq 404)) {
     Write-WarnLine ("provider={0} 的候选 models 端点均返回 404；脚本无法完成统一真实鉴权检查。" -f $providerName)
+    $manualValidationHint = Get-ProviderManualValidationHint -ProviderName $providerName
+    if (-not [string]::IsNullOrWhiteSpace($manualValidationHint)) {
+        Write-WarnLine $manualValidationHint
+    }
     exit 0
 }
 

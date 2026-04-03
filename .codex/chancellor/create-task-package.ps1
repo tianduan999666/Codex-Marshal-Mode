@@ -9,11 +9,13 @@
     [string]$PlanningHint = 'optional',
     [string]$PlanStep = '按真实情况填写当前最小推进步',
     [string]$VerifySignal = '按真实情况填写当前验证信号',
-    [ValidateSet('drafting', 'running')]
+    [ValidateSet('drafting', 'planning', 'running')]
     [string]$InitialStatus = 'drafting',
     [ValidateSet('low', 'medium', 'high', 'critical')]
     [string]$RiskLevel = 'low',
-    [bool]$SetActiveTask = $true
+    [bool]$SetActiveTask = $true,
+    [bool]$PlanningRequired = $false,
+    [int]$EstimatedHours = 0
 )
 
 $scriptRootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -36,16 +38,42 @@ if (Test-Path $taskDirectoryPath) {
 
 New-Item -ItemType Directory -Path $taskDirectoryPath | Out-Null
 
+# 自动判断是否需要技术方案
+if ($EstimatedHours -gt 4) {
+    $PlanningRequired = $true
+}
+
+$planningStatusText = if ($PlanningRequired) { 'pending' } else { 'not_required' }
+
 $contractYamlText = @"
 task_id: $TaskId
 title: $Title
 goal: >-
   $Goal
+
+  【VibeCoding 要求】必须写清楚具体目标，不能模糊。
+  错误示例：优化性能
+  正确示例：把登录接口响应时间从 2 秒降到 500 毫秒
+
+user_scenario: >-
+  【VibeCoding 要求】用户场景必须包含以下 4 要素：
+  - 谁：[具体用户角色]
+  - 在什么情况下：[具体场景]
+  - 要做什么：[具体操作]
+  - 期望什么结果：[可验证的结果]
+
+technical_approach: >-
+  【VibeCoding 要求】技术方案概要必须包含：
+  - 改动哪些文件
+  - 核心逻辑是什么
+  - 有什么风险点
+
 constraints:
   - 不新增未批准目录
   - 保持当前目录内自含
   - 运行态继续只留本地，不推公开仓
 acceptance:
+  - 【VibeCoding 要求】验收标准必须可验证、可量化，不能写"功能正常"
   - 已创建任务包 5 件套基础文件
   - 已写入最小目标、状态与结果骨架
 must_gate: []
@@ -57,8 +85,12 @@ source_refs:
   - $planningGuideRelativePath
   - $governanceGuideRelativePath
   - $closeoutGuideRelativePath
+  - docs/30-方案/10-VibeCoding融合要点提取.md
 planning_hint: >-
   $PlanningHint
+planning_required: $PlanningRequired
+planning_status: $planningStatusText
+estimated_hours: $EstimatedHours
 "@
 $stateYamlText = @"
 task_id: $TaskId
@@ -135,9 +167,74 @@ Set-Content -Path (Join-Path $taskDirectoryPath 'decision-log.md') -Value $decis
 Set-Content -Path (Join-Path $taskDirectoryPath 'gates.yaml') -Value $gatesYamlText -Encoding UTF8
 Set-Content -Path (Join-Path $taskDirectoryPath 'result.md') -Value $resultMarkdownText -Encoding UTF8
 
+# 如果需要技术方案，生成 tech-spec.md 骨架
+if ($PlanningRequired) {
+    $techSpecMarkdownText = @"
+# 技术方案
+
+## 1. 用户场景
+
+[从 contract.yaml 的 user_scenario 字段复制]
+
+## 2. 改动文件清单（必须用表格）
+
+| 文件路径 | 改动类型 | 改动原因 | 风险等级 |
+|---------|---------|---------|---------|
+| [待补充] | 新增/修改/删除 | [待补充] | 低/中/高 |
+
+## 3. 执行流程（建议用 Mermaid）
+
+``````mermaid
+graph TD
+    A[开始] --> B[步骤1]
+    B --> C[步骤2]
+    C --> D[结束]
+``````
+
+## 4. 核心代码逻辑（伪代码）
+
+``````typescript
+// 待补充核心逻辑伪代码
+function mainLogic() {
+  // TODO
+}
+``````
+
+## 5. 风险评估
+
+- 风险1：[描述]
+  - 应对：[方案]
+- 风险2：[描述]
+  - 应对：[方案]
+
+## 6. 验收标准
+
+- [ ] [可验证的验收标准1]
+- [ ] [可验证的验收标准2]
+- [ ] 单元测试覆盖率 ≥ 80%
+
+## 7. 依赖与前置条件
+
+- 依赖项：[列出外部依赖]
+- 前置条件：[列出必须满足的条件]
+
+## 8. 实施步骤
+
+1. [步骤1]
+2. [步骤2]
+3. [步骤3]
+"@
+    Set-Content -Path (Join-Path $taskDirectoryPath 'tech-spec.md') -Value $techSpecMarkdownText -Encoding UTF8
+    Write-Output "已生成 tech-spec.md 骨架（复杂任务）"
+}
+
 if ($SetActiveTask) {
     Set-Content -Path (Join-Path $scriptRootPath 'active-task.txt') -Value $TaskId -Encoding UTF8
 }
 
 Write-Output "任务包已创建：$taskDirectoryPath"
 Write-Output "收口参考：$closeoutGuideRelativePath"
+if ($PlanningRequired) {
+    Write-Output "⚠️ 复杂任务：请先完成 tech-spec.md，将 planning_status 改为 'approved'，再将 status 改为 'running'"
+}
+
