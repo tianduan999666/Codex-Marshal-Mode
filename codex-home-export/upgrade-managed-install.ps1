@@ -42,6 +42,30 @@ function Stop-FriendlyUpgrade {
     exit 1
 }
 
+function Invoke-ManagedUpgradeStep {
+    param(
+        [string]$ScriptPath,
+        [hashtable]$Arguments = @{},
+        [string]$Summary,
+        [string[]]$NextSteps = @()
+    )
+
+    $global:LASTEXITCODE = 0
+    try {
+        & $ScriptPath @Arguments
+    }
+    catch {
+        Stop-FriendlyUpgrade `
+            -Summary $Summary `
+            -Detail $_.Exception.Message.Trim() `
+            -NextSteps $NextSteps
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+}
+
 function Read-JsonFile([string]$Path) {
     return (Get-Content -Raw -Encoding UTF8 -Path $Path | ConvertFrom-Json)
 }
@@ -159,68 +183,57 @@ if ($LASTEXITCODE -ne 0) {
         )
 }
 
-try {
-    & $installScriptPath -TargetCodexHome $resolvedTargetCodexHome -ApplyTemplateConfig:$ApplyTemplateConfig
-}
-catch {
-    Stop-FriendlyUpgrade `
-        -Summary '远端更新已经拉下来，但重新安装这一步没走完。' `
-        -Detail $_.Exception.Message.Trim() `
-        -NextSteps @(
-            '先不要继续开工。',
-            '先执行 `self-check.cmd` 看当前状态。',
-            '如果连续失败，再执行 `rollback.cmd`。'
-        )
-}
+Invoke-ManagedUpgradeStep `
+    -ScriptPath $installScriptPath `
+    -Arguments @{
+        TargetCodexHome = $resolvedTargetCodexHome
+        ApplyTemplateConfig = $ApplyTemplateConfig
+    } `
+    -Summary '远端更新已经拉下来，但重新安装这一步没走完。' `
+    -NextSteps @(
+        '先不要继续开工。',
+        '先执行 `self-check.cmd` 看当前状态。',
+        '如果连续失败，再执行 `rollback.cmd`。'
+    )
 
-try {
-    & $smokeScriptPath `
-        -TargetCodexHome $resolvedTargetCodexHome `
-        -ScriptsRootPath $runtimeScriptsRootPath `
-        -RepoRootPath $resolvedRepoRootPath
-}
-catch {
-    Stop-FriendlyUpgrade `
-        -Summary '升级后的面板入口冒烟没通过。' `
-        -Detail $_.Exception.Message.Trim() `
-        -NextSteps @(
-            '先不要直接开始真实任务。',
-            '先执行 `self-check.cmd` 复看详细结果。',
-            '如果仍不通过，再执行 `rollback.cmd`。'
-        )
-}
+Invoke-ManagedUpgradeStep `
+    -ScriptPath $smokeScriptPath `
+    -Arguments @{
+        TargetCodexHome = $resolvedTargetCodexHome
+        ScriptsRootPath = $runtimeScriptsRootPath
+        RepoRootPath = $resolvedRepoRootPath
+    } `
+    -Summary '升级后的面板入口冒烟没通过。' `
+    -NextSteps @(
+        '先不要直接开始真实任务。',
+        '先执行 `self-check.cmd` 复看详细结果。',
+        '如果仍不通过，再执行 `rollback.cmd`。'
+    )
 
 if (Test-Path $authPath) {
-    try {
-        & $providerAuthCheckScriptPath -TargetCodexHome $resolvedTargetCodexHome
-    }
-    catch {
-        Stop-FriendlyUpgrade `
-            -Summary '升级后的真实 provider/auth 鉴权没通过。' `
-            -Detail $_.Exception.Message.Trim() `
-            -NextSteps @(
-                '先确认 `config.toml` 的 provider 和 `auth.json` 的 key 还是当前要用的。',
-                '必要时先回官方 Codex 面板做一次真人验证。',
-                '确认前先不要直接开始真实开发任务。'
-            )
-    }
+    Invoke-ManagedUpgradeStep `
+        -ScriptPath $providerAuthCheckScriptPath `
+        -Arguments @{ TargetCodexHome = $resolvedTargetCodexHome } `
+        -Summary '升级后的真实 provider/auth 鉴权没通过。' `
+        -NextSteps @(
+            '先确认 `config.toml` 的 provider 和 `auth.json` 的 key 还是当前要用的。',
+            '必要时先回官方 Codex 面板做一次真人验证。',
+            '确认前先不要直接开始真实开发任务。'
+        )
 
-    try {
-        & $verifyScriptPath `
-            -TargetCodexHome $resolvedTargetCodexHome `
-            -ExpectedSourceRoot $resolvedSourceRootPath `
-            -RequireBackupRoot
-    }
-    catch {
-        Stop-FriendlyUpgrade `
-            -Summary '升级已经完成，但最终验真没通过。' `
-            -Detail $_.Exception.Message.Trim() `
-            -NextSteps @(
-                '先执行 `self-check.cmd` 再看一遍完整结果。',
-                '如果只是同步没对齐，重试一次 `upgrade.cmd`。',
-                '如果仍不通过，再执行 `rollback.cmd`。'
-            )
-    }
+    Invoke-ManagedUpgradeStep `
+        -ScriptPath $verifyScriptPath `
+        -Arguments @{
+            TargetCodexHome = $resolvedTargetCodexHome
+            ExpectedSourceRoot = $resolvedSourceRootPath
+            RequireBackupRoot = $true
+        } `
+        -Summary '升级已经完成，但最终验真没通过。' `
+        -NextSteps @(
+            '先执行 `self-check.cmd` 再看一遍完整结果。',
+            '如果只是同步没对齐，重试一次 `upgrade.cmd`。',
+            '如果仍不通过，再执行 `rollback.cmd`。'
+        )
 }
 else {
     Write-WarnLine '未检测到 auth.json，已跳过完整验真。请先完成 Codex 登录，再执行 self-check.cmd。'

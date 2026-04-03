@@ -39,6 +39,32 @@ function Stop-FriendlyPanelEntry {
     exit 1
 }
 
+function Write-PanelCommandLinesSafe {
+    param(
+        [hashtable]$Arguments,
+        [string]$Summary,
+        [string]$NextStep
+    )
+
+    $global:LASTEXITCODE = 0
+    try {
+        foreach ($outputLine in @(& $renderPanelResponseScriptPath @Arguments)) {
+            if (-not [string]::IsNullOrWhiteSpace([string]$outputLine)) {
+                Write-Output $outputLine
+            }
+        }
+    }
+    catch {
+        Stop-FriendlyPanelEntry `
+            -Summary ("{0} 原始错误：{1}" -f $Summary, $_.Exception.Message.Trim()) `
+            -NextStep $NextStep
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+}
+
 function Get-PanelCommandPayload([string]$RawCommandText) {
     $trimmedCommandText = $RawCommandText.Trim()
     if ($trimmedCommandText -match '^传令[：:]\s*(.+?)\s*$') {
@@ -50,11 +76,23 @@ function Get-PanelCommandPayload([string]$RawCommandText) {
         -NextStep '请直接输入 `传令：你的需求`，例如：`传令：修一下登录页`。'
 }
 
-function Write-PanelCommandLines([hashtable]$Arguments) {
-    foreach ($outputLine in @(& $renderPanelResponseScriptPath @Arguments)) {
-        if (-not [string]::IsNullOrWhiteSpace([string]$outputLine)) {
-            Write-Output $outputLine
-        }
+function Invoke-PanelTaskStart {
+    param(
+        [string]$TaskTitle
+    )
+
+    $global:LASTEXITCODE = 0
+    try {
+        & $startPanelTaskScriptPath -Title $TaskTitle -RepoRootPath $resolvedRepoRootPath -TargetCodexHome $resolvedTargetCodexHome
+    }
+    catch {
+        Stop-FriendlyPanelEntry `
+            -Summary ("丞相已接到任务，但开工入口自己报错了。原始错误：{0}" -f $_.Exception.Message.Trim()) `
+            -NextStep '先执行 `self-check.cmd` 看入口链路是否完整，确认后再回面板重试。'
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
     }
 }
 
@@ -68,21 +106,21 @@ foreach ($requiredPath in @($renderPanelResponseScriptPath, $startPanelTaskScrip
 
 switch ($PSCmdlet.ParameterSetName) {
     'hint' {
-        Write-PanelCommandLines @{
+        Write-PanelCommandLinesSafe -Arguments @{
             Kind = 'hint'
             VersionPath = $versionSourcePath
             RepoRootPath = $resolvedRepoRootPath
             TargetCodexHome = $resolvedTargetCodexHome
-        }
+        } -Summary '丞相入口已经接通，但示例提示渲染失败了。' -NextStep '先执行 `self-check.cmd` 看入口文件是否完整，再回面板重试。'
         exit 0
     }
     'task-preview' {
-        Write-PanelCommandLines @{
+        Write-PanelCommandLinesSafe -Arguments @{
             Kind = 'task-entry'
             VersionPath = $versionSourcePath
             RepoRootPath = $resolvedRepoRootPath
             TargetCodexHome = $resolvedTargetCodexHome
-        }
+        } -Summary '丞相入口已经接通，但开工骨架预览失败了。' -NextStep '先执行 `self-check.cmd` 检查渲染链路，再回面板重试。'
         exit 0
     }
 }
@@ -91,30 +129,30 @@ $commandPayload = Get-PanelCommandPayload -RawCommandText $CommandText
 
 switch ($commandPayload) {
     '状态' {
-        Write-PanelCommandLines @{
+        Write-PanelCommandLinesSafe -Arguments @{
             Kind = 'status'
             VersionPath = $versionSourcePath
             RepoRootPath = $resolvedRepoRootPath
             TargetCodexHome = $resolvedTargetCodexHome
-        }
+        } -Summary '丞相入口已经接通，但状态栏渲染失败了。' -NextStep '先执行 `self-check.cmd` 检查渲染链路，再回面板重试。'
         break
     }
     '版本' {
-        Write-PanelCommandLines @{
+        Write-PanelCommandLinesSafe -Arguments @{
             Kind = 'version'
             VersionPath = $versionSourcePath
             RepoRootPath = $resolvedRepoRootPath
             TargetCodexHome = $resolvedTargetCodexHome
-        }
+        } -Summary '丞相入口已经接通，但版本口径渲染失败了。' -NextStep '先执行 `self-check.cmd` 检查入口文件，再回面板重试。'
         break
     }
     '升级' {
-        Write-PanelCommandLines @{
+        Write-PanelCommandLinesSafe -Arguments @{
             Kind = 'upgrade'
             VersionPath = $versionSourcePath
             RepoRootPath = $resolvedRepoRootPath
             TargetCodexHome = $resolvedTargetCodexHome
-        }
+        } -Summary '丞相入口已经接通，但升级说明渲染失败了。' -NextStep '先执行 `self-check.cmd` 检查渲染链路，再回面板重试。'
         break
     }
     default {
@@ -124,7 +162,7 @@ switch ($commandPayload) {
             break
         }
 
-        & $startPanelTaskScriptPath -Title $commandPayload -RepoRootPath $resolvedRepoRootPath -TargetCodexHome $resolvedTargetCodexHome
+        Invoke-PanelTaskStart -TaskTitle $commandPayload
         break
     }
 }

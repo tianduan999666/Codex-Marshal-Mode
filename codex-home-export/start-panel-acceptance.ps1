@@ -46,12 +46,51 @@ function Stop-FriendlyAcceptance {
     exit 1
 }
 
+function Invoke-AcceptanceStep {
+    param(
+        [string]$ScriptPath,
+        [hashtable]$Arguments = @{},
+        [string]$Summary,
+        [string[]]$NextSteps = @(),
+        [switch]$ReturnOutput
+    )
+
+    $global:LASTEXITCODE = 0
+    try {
+        $stepOutput = @(& $ScriptPath @Arguments)
+    }
+    catch {
+        Stop-FriendlyAcceptance `
+            -Summary $Summary `
+            -Detail $_.Exception.Message.Trim() `
+            -NextSteps $NextSteps
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+
+    if ($ReturnOutput) {
+        return $stepOutput
+    }
+
+    return @()
+}
+
 function Read-JsonFile([string]$Path) {
     return (Get-Content -Raw -Encoding UTF8 -Path $Path | ConvertFrom-Json)
 }
 
 function Get-RoutedPanelLines([hashtable]$Arguments) {
-    return @(& $invokePanelCommandScriptPath @Arguments)
+    return @(Invoke-AcceptanceStep `
+        -ScriptPath $invokePanelCommandScriptPath `
+        -Arguments $Arguments `
+        -Summary '人工验板还没开始，面板入口预览这一步提前停住了。' `
+        -NextSteps @(
+            '先执行 `self-check.cmd` 看入口链路是否完整。',
+            '如果刚改过面板入口，先修好入口后再回来继续验板。'
+        ) `
+        -ReturnOutput)
 }
 
 foreach ($requiredPath in @($verifyScriptPath, $resultDraftScriptPath, $invokePanelCommandScriptPath, $threeStepCardPath, $passFailSheetPath, $resultTemplatePath, $versionSourcePath)) {
@@ -121,31 +160,29 @@ catch {
 }
 
 Write-Info '开始准备人工验板：先做自动验板，再生成结果稿。'
-try {
-    & $verifyScriptPath -TargetCodexHome $TargetCodexHome -RequireBackupRoot:$RequireBackupRoot
-}
-catch {
-    Stop-FriendlyAcceptance `
-        -Summary '人工验板准备在“自动验真”这一步停住了。' `
-        -Detail $_.Exception.Message.Trim() `
-        -NextSteps @(
-            '先不要直接开始人工验板。',
-            '先执行 `self-check.cmd` 或 `verify-cutover.ps1` 看详细原因，修好后再重跑当前脚本。'
-        )
-}
+Invoke-AcceptanceStep `
+    -ScriptPath $verifyScriptPath `
+    -Arguments @{
+        TargetCodexHome = $TargetCodexHome
+        RequireBackupRoot = $RequireBackupRoot
+    } `
+    -Summary '人工验板准备在“自动验真”这一步停住了。' `
+    -NextSteps @(
+        '先不要直接开始人工验板。',
+        '先执行 `self-check.cmd` 或 `verify-cutover.ps1` 看详细原因，修好后再重跑当前脚本。'
+    )
 
-try {
-    $resultDraftPath = & $resultDraftScriptPath -OutputDirectory $OutputDirectory
-}
-catch {
-    Stop-FriendlyAcceptance `
+$resultDraftPath = @(
+    Invoke-AcceptanceStep `
+        -ScriptPath $resultDraftScriptPath `
+        -Arguments @{ OutputDirectory = $OutputDirectory } `
         -Summary '自动验真通过了，但结果稿没有生成出来。' `
-        -Detail $_.Exception.Message.Trim() `
         -NextSteps @(
             '先确认输出目录可写，并检查结果模板文件是否完整。',
             '修好后重新执行当前脚本，让验板材料重新生成。'
-        )
-}
+        ) `
+        -ReturnOutput
+) | Select-Object -Last 1
 
 Write-Ok '人工验板准备完成。'
 Write-Info "三步入口：$threeStepCardPath"
