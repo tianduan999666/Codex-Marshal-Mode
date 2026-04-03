@@ -1,4 +1,4 @@
-# 文件并发安全追加函数
+﻿# 文件并发安全追加函数
 # 用途：在多 Agent 并行场景下，安全地追加内容到文件
 # 实现：PowerShell Mutex + 指数退避重试
 
@@ -14,6 +14,21 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$repositoryRootPath = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+
+function Resolve-RepositoryRelativePath {
+    param([string]$PathText)
+
+    if ([string]::IsNullOrWhiteSpace($PathText)) {
+        throw 'FilePath 不能为空。'
+    }
+
+    if ([System.IO.Path]::IsPathRooted($PathText)) {
+        return [System.IO.Path]::GetFullPath($PathText)
+    }
+
+    return [System.IO.Path]::GetFullPath((Join-Path $repositoryRootPath $PathText))
+}
 
 function Write-SafeAppend {
     param(
@@ -68,14 +83,16 @@ function Write-SafeAppend {
 }
 
 try {
+    $resolvedFilePath = Resolve-RepositoryRelativePath -PathText $FilePath
+
     # 确保目标文件所在目录存在
-    $directory = Split-Path -Parent $FilePath
+    $directory = Split-Path -Parent $resolvedFilePath
     if ($directory -and -not (Test-Path $directory)) {
         New-Item -ItemType Directory -Path $directory -Force | Out-Null
     }
 
     # 执行安全追加
-    Write-SafeAppend -Path $FilePath -Text $Content -Retries $MaxRetries -BackoffMs $InitialBackoffMs
+    $null = Write-SafeAppend -Path $resolvedFilePath -Text $Content -Retries $MaxRetries -BackoffMs $InitialBackoffMs
 }
 catch {
     Write-Error "Invoke-SafeFileAppend 执行失败：$($_.Exception.Message)"

@@ -1,4 +1,4 @@
-# Phase 2 前置开发集成测试
+﻿# Phase 2 前置开发集成测试
 # 用途：验证文件并发锁和 API 限流机制
 # 测试场景：3 个并发进程同时写入 + 5 个并发 API 请求
 
@@ -9,6 +9,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$repositoryRootPath = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$safeAppendScriptPath = Join-Path $PSScriptRoot 'Invoke-SafeFileAppend.ps1'
+$rateLimitedRequestScriptPath = Join-Path $PSScriptRoot 'Invoke-RateLimitedRequest.ps1'
 
 if ($All) {
     $TestFileAppend = $true
@@ -19,7 +22,7 @@ if ($All) {
 if ($TestFileAppend) {
     Write-Host "`n========== 测试 1：文件并发追加 ==========" -ForegroundColor Cyan
 
-    $testFile = ".codex/chancellor/.test-concurrent-append.log"
+    $testFile = Join-Path $repositoryRootPath '.codex/chancellor/.test-concurrent-append.log'
     $testDir = Split-Path -Parent $testFile
 
     # 清理旧测试文件
@@ -42,7 +45,7 @@ if ($TestFileAppend) {
                 & $scriptPath -FilePath $file -Content $content
                 Start-Sleep -Milliseconds (Get-Random -Minimum 10 -Maximum 50)
             }
-        } -ArgumentList $i, $testFile, "$PSScriptRoot/Invoke-SafeFileAppend.ps1"
+        } -ArgumentList $i, $testFile, $safeAppendScriptPath
 
         $jobs += $job
     }
@@ -81,7 +84,7 @@ if ($TestRateLimit) {
     Write-Host "`n========== 测试 2：API 限流队列 ==========" -ForegroundColor Cyan
 
     # 清理旧状态文件
-    $stateFile = ".codex/chancellor/.rate-limit-state.json"
+    $stateFile = Join-Path $repositoryRootPath '.codex/chancellor/.rate-limit-state.json'
     if (Test-Path $stateFile) {
         Remove-Item $stateFile -Force
     }
@@ -109,7 +112,7 @@ if ($TestRateLimit) {
                 -MinIntervalMs 1000 `
                 -MaxConcurrent 2 `
                 -MaxRetries 3
-        } -ArgumentList $i, "$PSScriptRoot/Invoke-RateLimitedRequest.ps1"
+        } -ArgumentList $i, $rateLimitedRequestScriptPath
 
         $jobs += $job
         Start-Sleep -Milliseconds 100  # 错开启动时间
