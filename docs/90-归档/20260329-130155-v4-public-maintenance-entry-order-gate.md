@@ -1,4 +1,4 @@
-# V4 维护层主线入口顺序门禁记录
+﻿# V4 维护层主线入口顺序门禁记录
 
 时间：2026-03-29 13:01:55
 任务：v4-trial-025-public-maintenance-entry-order-gate

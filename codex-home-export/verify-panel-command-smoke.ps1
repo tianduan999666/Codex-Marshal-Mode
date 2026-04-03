@@ -29,6 +29,10 @@ function Write-Ok([string]$Message) {
     Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
+function Write-WarnLine([string]$Message) {
+    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+}
+
 function Get-NonEmptyLines([object[]]$Lines) {
     return @(
         $Lines |
@@ -81,4 +85,20 @@ foreach ($commandItem in $commandMatrix) {
     Write-Ok ("{0} 冒烟通过。" -f $commandItem.command)
 }
 
+$taskProbeCommand = '传令：修一下登录页'
+$taskProbeLines = Get-NonEmptyLines -Lines @(
+    & $invokePanelCommandScriptPath $taskProbeCommand `
+        -RepoRootPath $resolvedRepoRootPath `
+        -TargetCodexHome $resolvedTargetCodexHome `
+        -DryRunTaskStart
+)
+$expectedTaskProbeLines = @(
+    '路由结果：task-start'
+    '任务标题：修一下登录页'
+)
+
+Assert-LinesEqual -Label $taskProbeCommand -ActualLines $taskProbeLines -ExpectedLines $expectedTaskProbeLines
+Write-Ok ("{0} 干跑冒烟通过。" -f $taskProbeCommand)
+
 Write-Ok '面板传令冒烟验证通过。'
+Write-WarnLine '注意：本脚本只验证本地路由与真源渲染，不验证官方面板真实 provider/auth 鉴权。'

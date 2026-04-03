@@ -1,4 +1,4 @@
-# V4-Trial-001 MVP 边界冻结稿
+﻿# V4-Trial-001 MVP 边界冻结稿
 
 最后更新：2026-03-28 23:38:11
 任务 ID：`v4-trial-001-mvp-boundary-freeze`

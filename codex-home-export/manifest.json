@@ -27,6 +27,7 @@
     "upgrade-managed-install.ps1",
     "upgrade.cmd",
     "verify-panel-command-smoke.ps1",
+    "verify-provider-auth.ps1",
     "start-panel-acceptance.ps1",
     "new-panel-acceptance-result.ps1",
     "verify-panel-acceptance-result.ps1",

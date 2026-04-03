@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)]
     [string]$ResultPath,
     [string]$TaskId = 'v4-trial-035-panel-acceptance-closeout',

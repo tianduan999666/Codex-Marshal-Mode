@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)]
     [string]$TaskId,
     [ValidateSet('drafting', 'ready', 'running', 'waiting_gate', 'waiting_assist', 'verifying', 'done', 'paused', 'ready_to_resume')]

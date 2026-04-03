@@ -1,4 +1,4 @@
-# docs 目录说明
+﻿# docs 目录说明
 
 这里是新 V4 仓的正式文档区。
 
@@ -17,6 +17,9 @@ cd Codex-Chancellor-Mode
 .\install.cmd
 ```
 
+- 默认安装只同步丞相模式受管件，不静默覆盖你现有的 `~/.codex/config.toml`。
+- 只有显式执行 `.\install.cmd -ApplyTemplateConfig`，才会把仓内模板 provider 写入全局。
+
 ## 现在默认怎么开工
 - 第一次准备环境，普通用户只执行根目录 `install.cmd`。
 - 换其他电脑时，先执行：
@@ -28,6 +31,7 @@ cd Codex-Chancellor-Mode
 ```
 
 - 日常开工，优先回官方 Codex 面板直接说：`传令：修一下登录页`。
+- 若安装后要确认真实模型链路是否通，安装器现在会额外做一次当前 provider/auth 探针检查。
 - 面板内会先走 `../codex-home-export/start-panel-task.ps1`。
 - 同版本第一次开工先验真；后续同版本任务默认跳过重复验真，直接建任务。
 

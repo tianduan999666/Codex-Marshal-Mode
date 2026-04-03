@@ -1,4 +1,4 @@
-# V4 启动阶段入口顺序门禁记录
+﻿# V4 启动阶段入口顺序门禁记录
 
 时间：2026-03-29 13:32:46
 任务：v4-trial-028-startup-phase-entry-order-gate

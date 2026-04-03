@@ -1,4 +1,4 @@
-# V4 重启导读顺序真源门禁记录
+﻿# V4 重启导读顺序真源门禁记录
 
 时间：2026-03-29 13:40:49
 任务：v4-trial-029-restart-guide-order-source-gate

@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$AsJson,
     [int]$StaleAfterDays = 2,
     [string]$TasksRootPath = '',

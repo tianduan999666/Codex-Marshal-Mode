@@ -1,4 +1,4 @@
-# V4 执行区 README 真源门禁记录
+﻿# V4 执行区 README 真源门禁记录
 
 时间：2026-03-29 14:13:38
 任务：v4-trial-031-exec-readme-source-gate

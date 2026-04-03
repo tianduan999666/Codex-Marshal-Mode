@@ -25,10 +25,8 @@ $newTaskScriptPath = Join-Path $scriptRootPath 'new-task.ps1'
 $renderPanelResponseScriptPath = Join-Path $scriptRootPath 'render-panel-response.ps1'
 $versionSourcePath = Join-Path $scriptRootPath 'VERSION.json'
 $agentsSourcePath = Join-Path $scriptRootPath 'AGENTS.md'
-$configSourcePath = Join-Path $scriptRootPath 'config.toml'
 $runtimeVersionPath = Join-Path $resolvedTargetCodexHome 'config\cx-version.json'
 $runtimeAgentsPath = Join-Path $resolvedTargetCodexHome 'AGENTS.md'
-$runtimeConfigPath = Join-Path $resolvedTargetCodexHome 'config.toml'
 $runtimeMetaRootPath = Join-Path $resolvedTargetCodexHome 'config\chancellor-mode'
 $taskStartStatePath = Join-Path $runtimeMetaRootPath 'task-start-state.json'
 $activeTaskFilePath = Join-Path $resolvedRepoRootPath '.codex\chancellor\active-task.txt'
@@ -106,7 +104,6 @@ function Get-DefaultLightCheckTargets() {
     return @(
         [ordered]@{ name = '版本镜像'; source_path = 'VERSION.json'; runtime_path = 'config/cx-version.json' }
         [ordered]@{ name = '规则总纲'; source_path = 'AGENTS.md'; runtime_path = 'AGENTS.md' }
-        [ordered]@{ name = '主配置'; source_path = 'config.toml'; runtime_path = 'config.toml' }
         [ordered]@{ name = '入口路由脚本'; source_path = 'invoke-panel-command.ps1'; runtime_path = 'config/chancellor-mode/invoke-panel-command.ps1' }
         [ordered]@{ name = '开工脚本'; source_path = 'start-panel-task.ps1'; runtime_path = 'config/chancellor-mode/start-panel-task.ps1' }
         [ordered]@{ name = '渲染脚本'; source_path = 'render-panel-response.ps1'; runtime_path = 'config/chancellor-mode/render-panel-response.ps1' }
@@ -200,7 +197,7 @@ function New-LightCheckHashesPayload([object[]]$ResolvedTargets) {
     )
 }
 
-foreach ($requiredPath in @($verifyScriptPath, $installScriptPath, $newTaskScriptPath, $renderPanelResponseScriptPath, $versionSourcePath, $agentsSourcePath, $configSourcePath, $runtimeAgentsPath, $runtimeConfigPath)) {
+foreach ($requiredPath in @($verifyScriptPath, $installScriptPath, $newTaskScriptPath, $renderPanelResponseScriptPath, $versionSourcePath, $agentsSourcePath, $runtimeAgentsPath)) {
     if (-not (Test-Path $requiredPath)) {
         throw "缺少一句话开工所需脚本：$requiredPath"
     }
@@ -219,9 +216,7 @@ $currentSourceVersion = if ($null -ne $sourceVersionInfo) { $sourceVersionInfo.c
 $currentRuntimeVersion = if ($null -ne $runtimeVersionInfo) { $runtimeVersionInfo.cx_version } else { '' }
 $currentSourceRoot = $scriptRootPath
 $currentSourceAgentsHash = Get-Sha256TextOrEmpty -Path $agentsSourcePath
-$currentSourceConfigHash = Get-Sha256TextOrEmpty -Path $configSourcePath
 $currentRuntimeAgentsHash = Get-Sha256TextOrEmpty -Path $runtimeAgentsPath
-$currentRuntimeConfigHash = Get-Sha256TextOrEmpty -Path $runtimeConfigPath
 
 Write-Host ''
 Write-RenderedPanelLines @{
@@ -270,7 +265,7 @@ else {
 
     if (-not [string]::IsNullOrWhiteSpace($verifyErrorMessage)) {
         if ($verifyErrorMessage -like 'auth.json 不存在*') {
-            throw '当前还没登录官方 Codex，不能自动开工。请先完成登录，再回面板重试“传令：我要做 XX”。'
+            throw '当前还没登录官方 Codex，不能自动开工。请先完成登录，再回面板重试“传令：修一下登录页”。'
         }
     }
 
@@ -286,7 +281,6 @@ else {
         $runtimeVersionInfo = Read-JsonFileOrNull -Path $runtimeVersionPath
         $currentRuntimeVersion = if ($null -ne $runtimeVersionInfo) { $runtimeVersionInfo.cx_version } else { '' }
         $currentRuntimeAgentsHash = Get-Sha256TextOrEmpty -Path $runtimeAgentsPath
-        $currentRuntimeConfigHash = Get-Sha256TextOrEmpty -Path $runtimeConfigPath
         $lightCheckTargets = Resolve-LightCheckTargets -TargetDefinitions $lightCheckTargetDefinitions -ScriptRootPath $scriptRootPath -ResolvedTargetCodexHome $resolvedTargetCodexHome
     }
 
@@ -298,9 +292,7 @@ else {
         source_root = $currentSourceRoot
         target_codex_home = $resolvedTargetCodexHome
         source_agents_hash = $currentSourceAgentsHash
-        source_config_hash = $currentSourceConfigHash
         runtime_agents_hash = $currentRuntimeAgentsHash
-        runtime_config_hash = $currentRuntimeConfigHash
         repair_used = $repairUsed
         light_check_hashes = New-LightCheckHashesPayload -ResolvedTargets $lightCheckTargets
     }

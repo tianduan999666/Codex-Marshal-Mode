@@ -1,3 +1,5 @@
+﻿# 这是仓内可选模板，不是默认会覆盖到 ~/.codex/config.toml 的受管运行件。
+# 只有显式执行 install.cmd -ApplyTemplateConfig 时，才会把下面这套 provider / model 配置写入全局。
 # 模型提供方：决定请求发往哪个后端
 model_provider = "crs"
 
@@ -147,11 +149,10 @@ command = "npx"
 prompt = "~/.codex/prompts/ecc-cx.md"
 description = "丞相模式：自动拆解、自动推进、自动执行、自动汇报、自动纠偏，只在关键点请求决策。"
 
-# 最小模板只负责注册 cx 命令，尽量不碰你现有的 provider / model / MCP 配置。
-# 如需完整 everything-codex 推荐配置，请参考：
-#   ~/.codex/config.everything-codex.full.template.toml
-# 或在安装时显式使用：
-#   powershell -ExecutionPolicy Bypass -File .\codex-home-export\install-to-home.ps1 -ApplyTemplateConfig
+# 默认安装只会把本文件同步到 ~/.codex/config/chancellor-mode/config.template.toml 供参考，
+# 不会静默覆盖你现有的 provider / model / MCP 配置。
+# 如需显式套用这份模板，再执行：
+#   .\install.cmd -ApplyTemplateConfig
 [model_providers.my_proxy]
 name = "My Proxy API"
 base_url = "http://api.codexapi.icu/v1"

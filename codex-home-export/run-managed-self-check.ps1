@@ -34,7 +34,8 @@ if ([string]::IsNullOrWhiteSpace($sourceRootPath)) {
 $resolvedSourceRootPath = [System.IO.Path]::GetFullPath($sourceRootPath)
 $verifyScriptPath = Join-Path $resolvedSourceRootPath 'verify-cutover.ps1'
 $smokeScriptPath = Join-Path $resolvedSourceRootPath 'verify-panel-command-smoke.ps1'
-foreach ($requiredPath in @($resolvedSourceRootPath, $verifyScriptPath, $smokeScriptPath)) {
+$providerAuthCheckScriptPath = Join-Path $resolvedSourceRootPath 'verify-provider-auth.ps1'
+foreach ($requiredPath in @($resolvedSourceRootPath, $verifyScriptPath, $smokeScriptPath, $providerAuthCheckScriptPath)) {
     if (-not (Test-Path $requiredPath)) {
         throw "完整自检缺少源文件：$requiredPath"
     }
@@ -42,7 +43,7 @@ foreach ($requiredPath in @($resolvedSourceRootPath, $verifyScriptPath, $smokeSc
 
 Write-Info "SourceRoot=$resolvedSourceRootPath"
 Write-Info "TargetCodexHome=$resolvedTargetCodexHome"
-Write-Info '开始执行用户自检入口：源仓验真 → 运行态冒烟。'
+Write-Info '开始执行用户自检入口：源仓验真 → 运行态冒烟 → 真实鉴权。'
 
 & $verifyScriptPath `
     -TargetCodexHome $resolvedTargetCodexHome `
@@ -51,6 +52,7 @@ Write-Info '开始执行用户自检入口：源仓验真 → 运行态冒烟。
 & $smokeScriptPath `
     -TargetCodexHome $resolvedTargetCodexHome `
     -ScriptsRootPath $runtimeScriptsRootPath
+& $providerAuthCheckScriptPath -TargetCodexHome $resolvedTargetCodexHome
 
 Write-Host ''
 Write-Ok '自检完成。'

@@ -1,4 +1,4 @@
-# temp/generated 目录说明
+﻿# temp/generated 目录说明
 
 这里存放：
 - 生成物快照

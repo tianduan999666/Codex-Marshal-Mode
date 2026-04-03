@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 $scriptRootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRootPath = Split-Path -Parent (Split-Path -Parent $scriptRootPath)

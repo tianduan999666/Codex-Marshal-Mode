@@ -1,4 +1,4 @@
-# .codex/chancellor 目录说明
+﻿# .codex/chancellor 目录说明
 
 这里是新 V4 的试运行任务包目录。
 

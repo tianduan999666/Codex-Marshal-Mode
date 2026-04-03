@@ -1,4 +1,4 @@
-# V4 公开提交治理硬门禁记录
+﻿# V4 公开提交治理硬门禁记录
 
 时间：2026-03-29 11:54:03
 任务：v4-trial-021-public-commit-governance-gate

@@ -1,4 +1,4 @@
-# V4 Target 主线入口顺序门禁记录
+﻿# V4 Target 主线入口顺序门禁记录
 
 时间：2026-03-29 12:48:12
 任务：v4-trial-024-public-target-entry-order-gate

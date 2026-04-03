@@ -1,4 +1,4 @@
-# V4 MVP 边界与首批任务包建议
+﻿# V4 MVP 边界与首批任务包建议
 
 最后更新：2026-03-28 23:24:58
 来源：旧参考仓 `F:\260321everything-codex 丞相模式测试项目\docs\chancellor-mode\v4\`

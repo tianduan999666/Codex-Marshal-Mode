@@ -100,12 +100,11 @@ try {
         New-Item -ItemType Directory -Force -Path $path | Out-Null
     }
 
-    foreach ($fileName in @('VERSION.json', 'AGENTS.md', 'config.toml', 'invoke-panel-command.ps1', 'start-panel-task.ps1', 'render-panel-response.ps1')) {
+    foreach ($fileName in @('VERSION.json', 'AGENTS.md', 'invoke-panel-command.ps1', 'start-panel-task.ps1', 'render-panel-response.ps1')) {
         Copy-Item -Path (Join-Path $scriptRootPath $fileName) -Destination (Join-Path $sourceRootPath $fileName) -Force
     }
 
     Copy-Item -Path (Join-Path $scriptRootPath 'AGENTS.md') -Destination (Join-Path $targetCodexHomePath 'AGENTS.md') -Force
-    Copy-Item -Path (Join-Path $scriptRootPath 'config.toml') -Destination (Join-Path $targetCodexHomePath 'config.toml') -Force
     Copy-Item -Path (Join-Path $scriptRootPath 'VERSION.json') -Destination (Join-Path $targetConfigPath 'cx-version.json') -Force
     foreach ($fileName in @('invoke-panel-command.ps1', 'start-panel-task.ps1', 'render-panel-response.ps1')) {
         Copy-Item -Path (Join-Path $scriptRootPath $fileName) -Destination (Join-Path $targetScriptRootPath $fileName) -Force

@@ -1,4 +1,4 @@
-# temp/legacy 目录说明
+﻿# temp/legacy 目录说明
 
 这里存放：
 - 淘汰方案

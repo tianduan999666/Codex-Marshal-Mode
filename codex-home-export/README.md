@@ -1,4 +1,4 @@
-# codex-home-export
+﻿# codex-home-export
 
 这是当前仓 `V4` 的**本机生产母体最小骨架**。
 
@@ -22,10 +22,10 @@
 ```powershell
 git clone https://github.com/tianduan999666/Codex-Chancellor-Mode.git
 cd Codex-Chancellor-Mode
-.\codex-home-export\install.cmd
+.\install.cmd
 ```
 
-普通用户只走 `.cmd` 包装入口，不直接运行 `install-to-home.ps1`、`verify-cutover.ps1` 等底层维护脚本。
+普通用户只走 `.cmd` 包装入口，不直接运行 `install-to-home.ps1`、`verify-cutover.ps1` 等底层维护脚本。默认安装不会静默覆盖你现有的 `~/.codex/config.toml`。
 
 ## 当前已落文件
 
@@ -52,6 +52,7 @@ cd Codex-Chancellor-Mode
 - `upgrade-managed-install.ps1`
 - `upgrade.cmd`
 - `verify-panel-command-smoke.ps1`
+- `verify-provider-auth.ps1`
 - `start-panel-acceptance.ps1`
 - `new-panel-acceptance-result.ps1`
 - `verify-panel-acceptance-result.ps1`
@@ -71,6 +72,7 @@ cd Codex-Chancellor-Mode
 - `install-record.json` 是本机安装记录，属于受管本地记录，会随每次生产同步一起更新。
 - `task-start-state.json` 是本地开工状态缓存，只用于同版本轻量复核；`verify-cutover.ps1` 验真通过后会主动回写它；它不属于 `manifest` 受管文件，也不参与公开提交。
 - 当前内部工程命名已统一为 `Chancellor Mode`；运行态主目录统一为 `config/chancellor-mode`，不再继续把 `marshal-mode` 作为主路径。
+- 仓内 `config.toml` 已降级为可选模板，默认只会同步到 `config/chancellor-mode/config.template.toml`；`~/.codex/config.toml` 视为用户自有全局模型配置，不再静默覆盖。
 - 当前对普通用户公开的维护层动作只保留 4 个：`install.cmd / upgrade.cmd / self-check.cmd / rollback.cmd`；底层 `.ps1` 退回维护层。
 - 上述 4 个 `.cmd` 会被同步到 `~/.codex` 根目录；升级、自检、回滚都支持不进仓库目录直接执行。
 - 当前仓没有官方面板前端源码；当前真正可控的是官方 Codex 面板的入口层、脚本层与真源层，不单独扩展独立面板。
@@ -85,20 +87,21 @@ cd Codex-Chancellor-Mode
 
 | 动作 | 命令 | 说明 |
 | --- | --- | --- |
-| 安装 | `.\codex-home-export\install.cmd` | 首次安装到本机 `~/.codex`，并自动做传令冒烟验证 |
-| 升级 | `%USERPROFILE%\.codex\upgrade.cmd` | 从任何目录升级；自动回源仓 `git pull --ff-only` 后重装 |
-| 自检 | `%USERPROFILE%\.codex\self-check.cmd` | 完整验真 + 传令冒烟验证 |
+| 安装 | `.\install.cmd` | 首次安装到本机 `~/.codex`，自动做传令冒烟与真实 provider/auth 探针验证 |
+| 升级 | `%USERPROFILE%\.codex\upgrade.cmd` | 从任何目录升级；自动回源仓 `git pull --ff-only` 后重装，并补真实 provider/auth 探针 |
+| 自检 | `%USERPROFILE%\.codex\self-check.cmd` | 完整验真 + 传令冒烟 + 真实 provider/auth 探针 |
 | 回滚 | `%USERPROFILE%\.codex\rollback.cmd` | 从最近一次备份回滚受管文件 |
 
 ### 当前唯一主线（先看这 4 条）
 
-1. 首次安装先执行：`.\codex-home-export\install.cmd`。
-2. 日常开工优先回官方 `Codex` 面板，直接说：`传令：我要做 XX`。
+1. 首次安装先执行：`.\install.cmd`。
+2. 日常开工优先回官方 `Codex` 面板，直接说：`传令：修一下登录页`。
 3. 若当前版本在本机已经验过，后续任务默认跳过重复验真，直接建任务，并留在当前会话继续。
 4. 若要升级、自检、回滚，只用：`upgrade.cmd / self-check.cmd / rollback.cmd`；普通用户不再直接记底层 `.ps1`。
 5. 当前统一入口链固定为：`VERSION.json` → `invoke-panel-command.ps1` → `render-panel-response.ps1 / start-panel-task.ps1`；其中 `传令：状态` 必须按 `status_bar_slots` 顺序渲染，`传令：升级` 必须按真源 3 行口径渲染，不能自行换序或改写边界。
 6. 当前验板链固定为：`start-panel-acceptance.ps1` → `invoke-panel-command.ps1`；不再允许验板脚本绕过统一路由直接拼查询口径。
-7. 跳过重复验真前仍会轻量复核固定轻检清单：`VERSION.json → config/cx-version.json`、`AGENTS.md`、`config.toml`、`invoke-panel-command.ps1 → config/chancellor-mode/invoke-panel-command.ps1`、`start-panel-task.ps1 → config/chancellor-mode/start-panel-task.ps1`、`render-panel-response.ps1 → config/chancellor-mode/render-panel-response.ps1`；若不一致，自动回到验真流程。
+7. 跳过重复验真前仍会轻量复核固定轻检清单：`VERSION.json → config/cx-version.json`、`AGENTS.md`、`invoke-panel-command.ps1 → config/chancellor-mode/invoke-panel-command.ps1`、`start-panel-task.ps1 → config/chancellor-mode/start-panel-task.ps1`、`render-panel-response.ps1 → config/chancellor-mode/render-panel-response.ps1`；若不一致，自动回到验真流程。
+8. 如需显式套用仓内模板 provider，再单独执行：`.\install.cmd -ApplyTemplateConfig`；默认安装与升级都不会替你切 provider / key。
 
 ### 当前对外感知
 

@@ -1,4 +1,4 @@
-# V4 docs README Target 入口顺序回归补强记录
+﻿# V4 docs README Target 入口顺序回归补强记录
 
 时间：2026-03-29 21:11:47
 任务：第五十六刀（docs README Target 入口顺序回归补强）

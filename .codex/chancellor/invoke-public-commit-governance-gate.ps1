@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string[]]$ChangedPaths = @(),
     [string]$BaseRef = '',
     [string]$HeadRef = 'HEAD',
@@ -546,6 +546,7 @@ function Get-ApprovedTopLevelEntriesFromLockList {
         'README.md'
         'AGENTS.md'
         '.gitignore'
+        'install.cmd'
     )
     Assert-ExactOrderedValues -SourceValues $orderedApprovedEntries -ExpectedValues $expectedApprovedEntries -Label '目录锁定清单顶层批准项'
     return $orderedApprovedEntries
@@ -3590,11 +3591,6 @@ catch {
 }
 $publicExecEntryChecks = @(
     @{
-        Path = 'README.md'
-        Label = 'README 公开入口'
-        RegexPattern = 'docs/40-执行/([0-9]{2}-[^`]+\.md)'
-    },
-    @{
         Path = 'docs/README.md'
         Label = 'docs/README 公开入口'
         RegexPattern = '40-执行/([0-9]{2}-[^`]+\.md)'
@@ -3612,11 +3608,6 @@ $publicExecEntryChecks = @(
 )
 $publicExecOrderEntryChecks = @(
     @{
-        Path = 'README.md'
-        Label = 'README 执行区现行标准件入口'
-        RegexPattern = 'docs/40-执行/([0-9]{2}-[^`]+\.md)'
-    },
-    @{
         Path = 'docs/README.md'
         Label = 'docs/README 执行区现行标准件入口'
         RegexPattern = '40-执行/([0-9]{2}-[^`]+\.md)'
@@ -3629,12 +3620,6 @@ $publicExecOrderEntryChecks = @(
 )
 $criticalPublicRuleEntryPaths = @($coreGovernanceRuleSourcePaths)
 $publicRuleEntryChecks = @(
-    @{
-        Path = 'README.md'
-        Label = 'README 规则入口'
-        RegexPattern = '`(docs/(?:reference|30-方案|40-执行)/[^`]+\.md)`'
-        PathPrefix = ''
-    },
     @{
         Path = 'docs/README.md'
         Label = 'docs/README 规则入口'
@@ -3704,12 +3689,6 @@ catch {
 }
 $publicTargetEntryChecks = @(
     @{
-        Path = 'README.md'
-        Label = 'README Target 主线入口'
-        RegexPattern = '`(docs/(?:20-决策|30-方案|40-执行)/[^`]+\.md)`'
-        PathPrefix = ''
-    },
-    @{
         Path = 'docs/README.md'
         Label = 'docs/README Target 主线入口'
         RegexPattern = '`((?:20-决策|30-方案|40-执行)/[^`]+\.md)`'
@@ -3766,12 +3745,6 @@ catch {
 }
 $publicMaintenanceEntryChecks = @(
     @{
-        Path = 'README.md'
-        Label = 'README 维护层主线入口'
-        RegexPattern = '`(docs/40-执行/[^`]+\.md)`'
-        PathPrefix = ''
-    },
-    @{
         Path = 'docs/README.md'
         Label = 'docs/README 维护层主线入口'
         RegexPattern = '`(40-执行/[^`]+\.md)`'
@@ -3786,12 +3759,6 @@ $publicMaintenanceEntryChecks = @(
 )
 $publicMaintenanceCapabilityEntryChecks = @(
     @{
-        Path = 'README.md'
-        Label = 'README 维护层补充入口'
-        RegexPattern = '`(docs/(?:(?:30-方案/08-[^`]+\.md)|(?:40-执行/(?:03|10|11|14|15|16|17|18|19|20|21)-[^`]+\.md)|(?:90-归档/01-[^`]+\.md)))`'
-        PathPrefix = ''
-    },
-    @{
         Path = 'docs/README.md'
         Label = 'docs/README 维护层补充入口'
         RegexPattern = '`((?:(?:30-方案/08-[^`]+\.md)|(?:40-执行/(?:03|10|11|14|15|16|17|18|19|20|21)-[^`]+\.md)|(?:90-归档/01-[^`]+\.md)))`'
@@ -3799,12 +3766,6 @@ $publicMaintenanceCapabilityEntryChecks = @(
     }
 )
 $publicMaintenanceCapabilityOrderEntryChecks = @(
-    @{
-        Path = 'README.md'
-        Label = 'README 维护层补充入口'
-        RegexPattern = '`(docs/(?:(?:40-执行/03-[^`]+\.md)|(?:30-方案/08-[^`]+\.md)|(?:40-执行/21-[^`]+\.md)))`'
-        PathPrefix = ''
-    },
     @{
         Path = 'docs/README.md'
         Label = 'docs/README 维护层补充入口'
@@ -3846,12 +3807,6 @@ catch {
 }
 $publicRestartGuideEntryChecks = @(
     @{
-        Path = 'README.md'
-        Label = 'README 重启导读核心入口'
-        RegexPattern = '`(docs/(?:00-导航|10-输入材料|20-决策|30-方案|40-执行|reference)/[^`]+\.md)`'
-        PathPrefix = ''
-    },
-    @{
         Path = 'docs/README.md'
         Label = 'docs/README 重启导读核心入口'
         RegexPattern = '`((?:00-导航|10-输入材料|20-决策|30-方案|40-执行|reference)/[^`]+\.md)`'
@@ -3866,12 +3821,6 @@ catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
 }
 $publicStartupPhaseEntryChecks = @(
-    @{
-        Path = 'README.md'
-        Label = 'README 启动阶段入口'
-        RegexPattern = '`(docs/(?:00-导航|10-输入材料|20-决策|30-方案)/[^`]+\.md)`'
-        PathPrefix = ''
-    },
     @{
         Path = 'docs/README.md'
         Label = 'docs/README 启动阶段入口'

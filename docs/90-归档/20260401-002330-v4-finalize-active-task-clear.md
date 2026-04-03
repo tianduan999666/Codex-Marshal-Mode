@@ -1,4 +1,4 @@
-# V4 一键收口补齐 active-task 自动清空记录
+﻿# V4 一键收口补齐 active-task 自动清空记录
 
 时间：2026-04-01 00:23:30
 任务：第一百五十九刀（finalize 收口后自动清空 active-task）
