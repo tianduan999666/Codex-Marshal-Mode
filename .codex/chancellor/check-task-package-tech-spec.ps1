@@ -19,10 +19,21 @@ if (-not (Test-Path $contractPath)) {
 
 $contractContent = Get-Content $contractPath -Raw
 $planningRequired = $false
+$estimatedHours = 0
 
 # 解析 planning_required 字段
 if ($contractContent -match 'planning_required:\s*(true|false)') {
     $planningRequired = $matches[1] -eq 'true'
+}
+
+# 解析 estimated_hours 字段
+if ($contractContent -match 'estimated_hours:\s*(\d+)') {
+    $estimatedHours = [int]$matches[1]
+}
+
+# 自动判断：estimated_hours > 4 触发 planning_required
+if ($estimatedHours -gt 4) {
+    $planningRequired = $true
 }
 
 # 如果不需要技术方案，跳过检查
@@ -80,10 +91,18 @@ if (Test-Path $statePath) {
         $status = $matches[1]
 
         if ($status -in @('drafting', 'planning')) {
-            # 检查是否有代码文件修改
-            $changedFiles = @(git diff --name-only 2>$null)
+            # 检查任务包目录外的代码文件修改
+            $taskDirNormalized = $TaskDir -replace '\\', '/'
+            $changedFiles = @(git diff --name-only 2>$null | Where-Object {
+                $normalized = $_ -replace '\\', '/'
+                -not $normalized.StartsWith($taskDirNormalized)
+            })
+
+            # 定义代码文件后缀（包含 PowerShell）
+            $codeExtensions = @('.ts', '.js', '.py', '.go', '.rs', '.java', '.cs', '.cpp', '.c', '.h', '.tsx', '.jsx', '.ps1', '.psm1')
             $codeFiles = $changedFiles | Where-Object {
-                $_ -match '\.(ts|js|py|go|rs|java|cs|cpp|c|h|tsx|jsx)$'
+                $ext = [System.IO.Path]::GetExtension($_).ToLower()
+                $ext -in $codeExtensions
             }
 
             if ($codeFiles.Count -gt 0) {
