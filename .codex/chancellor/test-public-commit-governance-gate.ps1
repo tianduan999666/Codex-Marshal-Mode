@@ -243,11 +243,27 @@ finally {
     [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
 }
 
+$blockedTaskReadmeExceptionSourceLineText = 'except:.codex/chancellor/tasks/README.md'
 $blockedLogsPrefixSourceLineText = 'prefix:logs/'
 $blockedLogsReadmeExceptionSourceLineText = 'except:logs/README.md'
 
-if ($localSafeFlowLines -notcontains $blockedLogsPrefixSourceLineText -or $localSafeFlowLines -notcontains $blockedLogsReadmeExceptionSourceLineText) {
+if ($localSafeFlowLines -notcontains $blockedTaskReadmeExceptionSourceLineText -or $localSafeFlowLines -notcontains $blockedLogsPrefixSourceLineText -or $localSafeFlowLines -notcontains $blockedLogsReadmeExceptionSourceLineText) {
     throw '测试前置条件不满足：公开提交禁止路径真源测试行缺失。'
+}
+
+Invoke-GateForTestCase -Paths @('.codex/chancellor/tasks/README.md') -ExpectedExitCode 0 -TestName 'allow-task-readme-prefix-exception'
+
+try {
+    $driftedLocalSafeFlowLines = @(
+        $localSafeFlowLines | Where-Object { $_ -ne $blockedTaskReadmeExceptionSourceLineText }
+    )
+    $driftedLocalSafeFlowContent = ($driftedLocalSafeFlowLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($localSafeFlowPath, $driftedLocalSafeFlowContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('.codex/chancellor/tasks/README.md') -ExpectedExitCode 1 -TestName 'block-task-readme-prefix-exception-source-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($localSafeFlowPath, $originalLocalSafeFlowBytes)
 }
 
 try {
@@ -302,21 +318,22 @@ finally {
 }
 
 $blockedTempGeneratedReadmeExceptionSourceLineText = 'except:temp/generated/README.md'
+$blockedTaskReadmeExceptionSourceIndex = [Array]::IndexOf($localSafeFlowLines, $blockedTaskReadmeExceptionSourceLineText)
 $blockedLogsReadmeExceptionSourceIndex = [Array]::IndexOf($localSafeFlowLines, $blockedLogsReadmeExceptionSourceLineText)
 $blockedTempGeneratedReadmeExceptionSourceIndex = [Array]::IndexOf($localSafeFlowLines, $blockedTempGeneratedReadmeExceptionSourceLineText)
 
-if ($blockedLogsReadmeExceptionSourceIndex -lt 0 -or $blockedTempGeneratedReadmeExceptionSourceIndex -lt 0) {
+if ($blockedTaskReadmeExceptionSourceIndex -lt 0 -or $blockedLogsReadmeExceptionSourceIndex -lt 0 -or $blockedTempGeneratedReadmeExceptionSourceIndex -lt 0) {
     throw '测试前置条件不满足：公开提交禁止路径例外顺序测试行缺失。'
 }
 
-if ($blockedLogsReadmeExceptionSourceIndex -gt $blockedTempGeneratedReadmeExceptionSourceIndex) {
+if ($blockedTaskReadmeExceptionSourceIndex -gt $blockedLogsReadmeExceptionSourceIndex -or $blockedLogsReadmeExceptionSourceIndex -gt $blockedTempGeneratedReadmeExceptionSourceIndex) {
     throw '测试前置条件不满足：公开提交禁止路径例外顺序已不是当前现状。'
 }
 
 try {
     $driftedLocalSafeFlowLines = @($localSafeFlowLines)
-    $driftedLocalSafeFlowLines[$blockedLogsReadmeExceptionSourceIndex] = $blockedTempGeneratedReadmeExceptionSourceLineText
-    $driftedLocalSafeFlowLines[$blockedTempGeneratedReadmeExceptionSourceIndex] = $blockedLogsReadmeExceptionSourceLineText
+    $driftedLocalSafeFlowLines[$blockedTaskReadmeExceptionSourceIndex] = $blockedLogsReadmeExceptionSourceLineText
+    $driftedLocalSafeFlowLines[$blockedLogsReadmeExceptionSourceIndex] = $blockedTaskReadmeExceptionSourceLineText
     $driftedLocalSafeFlowContent = ($driftedLocalSafeFlowLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($localSafeFlowPath, $driftedLocalSafeFlowContent, $utf8NoBom)
 

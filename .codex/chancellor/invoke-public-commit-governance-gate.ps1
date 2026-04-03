@@ -3083,6 +3083,7 @@ function Get-BlockedPathRulesFromLocalSafeFlow {
     }
 
     $blockedExceptionOrderPaths = @(
+        '.codex/chancellor/tasks/README.md'
         'logs/README.md'
         'temp/generated/README.md'
     )
