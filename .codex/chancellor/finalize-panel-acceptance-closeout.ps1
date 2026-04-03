@@ -26,6 +26,30 @@ function Write-Ok([string]$Message) {
     Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
+function Write-WarnLine([string]$Message) {
+    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+}
+
+function Stop-FriendlyFinalizeCloseout {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string[]]$NextSteps = @()
+    )
+
+    Write-Host ''
+    Write-Host "[ERROR] $Summary" -ForegroundColor Red
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        Write-WarnLine ("原因：{0}" -f $Detail)
+    }
+
+    foreach ($nextStep in $NextSteps) {
+        Write-Info $nextStep
+    }
+
+    exit 1
+}
+
 function Get-BulletValue {
     param(
         [string]$Content,
@@ -35,7 +59,13 @@ function Get-BulletValue {
     $pattern = '(?m)^- ' + [regex]::Escape($Label) + '：[ \t]*(.*)$'
     $match = [regex]::Match($Content, $pattern)
     if (-not $match.Success) {
-        throw "结果稿缺少字段：$Label"
+        Stop-FriendlyFinalizeCloseout `
+            -Summary '结果稿还没写完整，当前不能继续一键收口。' `
+            -Detail ("结果稿缺少字段：{0}" -f $Label) `
+            -NextSteps @(
+                '先补齐结果稿里的固定字段。',
+                '补完后再重新执行一键收口。'
+            )
     }
 
     return $match.Groups[1].Value.Trim()
@@ -91,7 +121,13 @@ $activeTaskFilePath = [System.IO.Path]::GetFullPath($ActiveTaskFilePath)
 
 foreach ($requiredPath in @($reviewScriptPath, $resolveScriptPath, $resolvedResultPath)) {
     if (-not (Test-Path $requiredPath)) {
-        throw "缺少一键收口所需文件：$requiredPath"
+        Stop-FriendlyFinalizeCloseout `
+            -Summary '一键收口所需文件不齐，当前不能继续。' `
+            -Detail ("缺少一键收口所需文件：{0}" -f $requiredPath) `
+            -NextSteps @(
+                '先确认结果稿和维护脚本都在。',
+                '补齐后再重新执行一键收口。'
+            )
     }
 }
 
@@ -107,8 +143,18 @@ if (-not [string]::IsNullOrWhiteSpace($ActiveTaskFilePath)) {
 if (-not [string]::IsNullOrWhiteSpace($AuditReferenceTimeText)) {
     $reviewParameters['AuditReferenceTimeText'] = $AuditReferenceTimeText
 }
-
-& $reviewScriptPath @reviewParameters
+try {
+    & $reviewScriptPath @reviewParameters
+}
+catch {
+    Stop-FriendlyFinalizeCloseout `
+        -Summary '结果稿复核没有通过，本次一键收口先停在这里。' `
+        -Detail $_.Exception.Message `
+        -NextSteps @(
+            '先按上面的复核提示补齐结果稿或任务状态。',
+            '确认复核通过后再重新执行一键收口。'
+        )
+}
 
 $resolveParameters = @{
     ResultPath = $resolvedResultPath
@@ -126,8 +172,18 @@ if (-not [string]::IsNullOrWhiteSpace($AuditReferenceTimeText)) {
 if ($SkipReview) {
     $resolveParameters['SkipReview'] = $true
 }
-
-& $resolveScriptPath @resolveParameters
+try {
+    & $resolveScriptPath @resolveParameters
+}
+catch {
+    Stop-FriendlyFinalizeCloseout `
+        -Summary '结果回写没有完成，本次一键收口先停在这里。' `
+        -Detail $_.Exception.Message `
+        -NextSteps @(
+            '先按上面的提示处理回写阻塞项。',
+            '处理完成后再重新执行一键收口。'
+        )
+}
 
 $resultContent = [System.IO.File]::ReadAllText($resolvedResultPath)
 $finalResult = Get-BulletValue -Content $resultContent -Label '人工验板最终结果'
@@ -135,7 +191,13 @@ $nextAction = Get-BulletValue -Content $resultContent -Label '下一步'
 
 if ($NormalizeTrial034ToDone) {
     if ($finalResult -ne '通过') {
-        throw '只有人工验板结果为“通过”时，才可归一化 v4-trial-034 为 done。'
+        Stop-FriendlyFinalizeCloseout `
+            -Summary '当前还不能归一化 v4-trial-034。' `
+            -Detail '只有人工验板结果为“通过”时，才可归一化 v4-trial-034 为 done。' `
+            -NextSteps @(
+                '先确认真实人工验板最终结果已经写成“通过”。',
+                '确认通过后再带上 -NormalizeTrial034ToDone 重试。'
+            )
     }
 
     $trial034TaskId = 'v4-trial-034-public-rule-order-gate'
@@ -146,14 +208,26 @@ if ($NormalizeTrial034ToDone) {
 
     foreach ($requiredPath in @($trial034TaskDirectoryPath, $trial034StateFilePath, $trial034ResultFilePath, $trial034DecisionLogFilePath)) {
         if (-not (Test-Path $requiredPath)) {
-            throw "缺少归一化 v4-trial-034 所需文件：$requiredPath"
+            Stop-FriendlyFinalizeCloseout `
+                -Summary 'v4-trial-034 的归一化资料不齐，当前不能继续。' `
+                -Detail ("缺少归一化 v4-trial-034 所需文件：{0}" -f $requiredPath) `
+                -NextSteps @(
+                    '先补齐 v4-trial-034 对应的任务文件。',
+                    '补齐后再重新执行归一化。'
+                )
         }
     }
 
     $trial034StateText = Get-Content -Raw $trial034StateFilePath
     $trial034CurrentStatusMatch = [regex]::Match($trial034StateText, '(?m)^status:\s*(.+)$')
     if (-not $trial034CurrentStatusMatch.Success) {
-        throw 'v4-trial-034 缺少 status 字段。'
+        Stop-FriendlyFinalizeCloseout `
+            -Summary 'v4-trial-034 的状态文件不完整，当前不能归一化。' `
+            -Detail 'v4-trial-034 缺少 status 字段。' `
+            -NextSteps @(
+                '先补齐 state.yaml 里的 status 字段。',
+                '补完后再重新执行归一化。'
+            )
     }
 
     $trial034CurrentStatus = $trial034CurrentStatusMatch.Groups[1].Value.Trim()
@@ -192,7 +266,13 @@ if ($NormalizeTrial034ToDone) {
         Write-Info 'v4-trial-034 当前已是 done，无需重复归一化。'
     }
     else {
-        throw ("v4-trial-034 当前状态不是 completed/done，无法自动归一化：{0}" -f $trial034CurrentStatus)
+        Stop-FriendlyFinalizeCloseout `
+            -Summary 'v4-trial-034 的当前状态不适合自动归一化。' `
+            -Detail ("v4-trial-034 当前状态不是 completed/done，无法自动归一化：{0}" -f $trial034CurrentStatus) `
+            -NextSteps @(
+                '先人工确认 v4-trial-034 的真实状态。',
+                '确认后再决定是手动修正还是重新执行归一化。'
+            )
     }
 }
 

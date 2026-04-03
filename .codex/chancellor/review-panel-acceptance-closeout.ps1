@@ -25,6 +25,29 @@ function Write-WarnLine([string]$Message) {
     Write-Host "[WARN] $Message" -ForegroundColor Yellow
 }
 
+function Throw-FriendlyReviewCloseout {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string[]]$NextSteps = @()
+    )
+
+    $messageLines = @($Summary)
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        $messageLines += ("原因：{0}" -f $Detail)
+    }
+
+    if ($NextSteps.Count -gt 0) {
+        $messageLines += ''
+        $messageLines += '下一步：'
+        foreach ($nextStep in $NextSteps) {
+            $messageLines += ("- {0}" -f $nextStep)
+        }
+    }
+
+    throw ($messageLines -join [Environment]::NewLine)
+}
+
 function Get-BulletValue {
     param(
         [string]$Content,
@@ -34,7 +57,13 @@ function Get-BulletValue {
     $pattern = '(?m)^- ' + [regex]::Escape($Label) + '：[ \t]*(.*)$'
     $match = [regex]::Match($Content, $pattern)
     if (-not $match.Success) {
-        throw "结果稿缺少字段：$Label"
+        Throw-FriendlyReviewCloseout `
+            -Summary '结果稿还没写完整，当前不能继续做收口复盘。' `
+            -Detail ("结果稿缺少字段：{0}" -f $Label) `
+            -NextSteps @(
+                '先补齐结果稿里的固定字段。',
+                '补完后再重新执行收口复盘。'
+            )
     }
 
     return $match.Groups[1].Value.Trim()
@@ -58,7 +87,13 @@ function Write-TaskSection {
 
 foreach ($requiredPath in @($verifyScriptPath, $auditScriptPath, $resolvedResultPath)) {
     if (-not (Test-Path $requiredPath)) {
-        throw "缺少收口联动所需文件：$requiredPath"
+        Throw-FriendlyReviewCloseout `
+            -Summary '收口复盘所需文件不齐，当前不能继续。' `
+            -Detail ("缺少收口联动所需文件：{0}" -f $requiredPath) `
+            -NextSteps @(
+                '先确认结果稿、验板校验脚本和任务审计脚本都在。',
+                '补齐后再重新执行收口复盘。'
+            )
     }
 }
 
