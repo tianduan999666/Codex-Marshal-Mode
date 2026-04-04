@@ -42,12 +42,10 @@
 - `33-ECC功能采纳建议与实施路线图.md`
 - `34-丞相模式ECC功能核实总结.md`
 
-当前自用 MVP 先看：
-- `../../logs/20260402-040300-morning-handoff.md`
+当前自用 MVP 入口：
 - `22-10分钟上手指南.md`
 - `03-面板入口验收.md`
 - `../../codex-home-export/README.md`
-- `../../logs/20260402-022000-self-use-first-run-card.md`
 
 日常开工默认回官方 Codex 面板直接说：`传令：修一下登录页`。
 默认安装不会静默覆盖你现有的 `~/.codex/config.toml`；如需显式套用仓内模板，再执行 `.\install.cmd -ApplyTemplateConfig`。
