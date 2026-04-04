@@ -48,7 +48,7 @@ cd Codex-Chancellor-Mode
 - 当前仓没有官方面板前端源码；只治理官方 Codex 面板的入口层、脚本层与真源层，不另扩独立面板。
 - `invoke-panel-command.ps1` 是当前 `传令：XXXX` 的统一脚本路由入口；查询命令与做事命令都先走它。
 - `start-panel-acceptance.ps1` 也固定通过 `invoke-panel-command.ps1` 取查询与开工口径，确保验板与真实入口同源。
-- `render-panel-response.ps1` 是当前面板输出控制面的统一渲染器；开场白、示例句、状态栏顺序、过程金句与收口模板都应先回到它和 `VERSION.json` 验证。
+- `render-panel-response.ps1` 是当前面板输出控制面的统一渲染器；开场白、状态栏顺序与收口模板等输出口径都应先回到它和 `VERSION.json` 验证。
 - 当前公开受管的 `.ps1/.json/.md/.toml` 与入口 `.cmd` 已统一按 Windows PowerShell 5.1 兼容口径治理：文件编码固定 `UTF-8 with BOM`，脚本内部读 JSON 一律显式指定 `UTF-8`。
 
 ## 使用原则
