@@ -140,6 +140,9 @@ finally {
 $docsReadmePath = Join-Path $repoRootPath 'docs/README.md'
 $originalDocsReadmeBytes = [System.IO.File]::ReadAllBytes($docsReadmePath)
 $docsReadmeLines = Get-Content $docsReadmePath
+$docsReadmeMaintenanceEntrySourceLineText = '- `40-执行/13-维护层总入口.md` 是维护层唯一对外总入口。'
+$docsReadmeMaintenanceMainlineSourceLineText = '- 维护层主线顺序以 `40-执行/13-维护层总入口.md` 的 `维护层主线真源` 为准，`docs/README.md` 不再重复抄整套主线清单。'
+$docsReadmeMaintenanceCapabilitySourceLineText = '- 维护层补充能力以 `40-执行/13-维护层总入口.md` 的 `当前维护层能力` 为准；需要细项时直接查看该文档。'
 $removedRuleEntryLineText = '- `reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`'
 
 if ($docsReadmeLines -notcontains $removedRuleEntryLineText) {
@@ -519,67 +522,46 @@ finally {
     [System.IO.File]::WriteAllBytes($restartGuidePath, $originalRestartGuideBytes)
 }
 
-$removedMaintenanceEntryLineText = '- `40-执行/16-拍板包半自动模板.md`'
-
-if ($docsReadmeLines -notcontains $removedMaintenanceEntryLineText) {
-    throw "测试前置条件不满足：$docsReadmePath 中缺少 $removedMaintenanceEntryLineText"
+if ($docsReadmeLines -notcontains $docsReadmeMaintenanceEntrySourceLineText) {
+    throw "测试前置条件不满足：$docsReadmePath 中缺少 $docsReadmeMaintenanceEntrySourceLineText"
 }
 
 try {
     $driftedDocsReadmeLines = @(
-        $docsReadmeLines | Where-Object { $_ -ne $removedMaintenanceEntryLineText }
+        $docsReadmeLines | Where-Object { $_ -ne $docsReadmeMaintenanceEntrySourceLineText }
     )
     $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-public-maintenance-entry-missing'
+    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-docs-readme-maintenance-entry-source-missing'
 }
 finally {
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
 }
 
-$docsReadmeMaintenanceArchiveEntryLineText = '- `90-归档/01-执行区证据稿归档规则.md`'
-$docsReadmePanelCapabilityEntryLineText = '- `40-执行/03-面板入口验收.md`'
-$docsReadmeGovernanceCapabilityEntryLineText = '- `30-方案/08-V4-治理审计候选规范.md`'
-$docsReadmeConfigCapabilityEntryLineText = '- `40-执行/21-关键配置来源与漂移复核模板.md`'
-
-if ($docsReadmeLines -notcontains $docsReadmeMaintenanceArchiveEntryLineText) {
-    throw "测试前置条件不满足：$docsReadmePath 中缺少 $docsReadmeMaintenanceArchiveEntryLineText"
+if ($docsReadmeLines -notcontains $docsReadmeMaintenanceMainlineSourceLineText) {
+    throw "测试前置条件不满足：$docsReadmePath 中缺少 $docsReadmeMaintenanceMainlineSourceLineText"
 }
 
 try {
-    $driftedDocsReadmeLines = @(
-        $docsReadmeLines | Where-Object { $_ -ne $docsReadmeMaintenanceArchiveEntryLineText }
-    )
-    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    $driftedDocsReadmeContent = (Get-Content $docsReadmePath -Raw).Replace($docsReadmeMaintenanceMainlineSourceLineText, '- 维护层主线以后再整理。')
     [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-public-maintenance-capability-entry-missing'
+    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-docs-readme-maintenance-mainline-source-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
 }
 
-$docsReadmePanelCapabilityEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmePanelCapabilityEntryLineText)
-$docsReadmeGovernanceCapabilityEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeGovernanceCapabilityEntryLineText)
-$docsReadmeConfigCapabilityEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeConfigCapabilityEntryLineText)
-
-if ($docsReadmePanelCapabilityEntryIndex -lt 0 -or $docsReadmeGovernanceCapabilityEntryIndex -lt 0 -or $docsReadmeConfigCapabilityEntryIndex -lt 0) {
-    throw '测试前置条件不满足：维护层补充入口顺序测试行缺失。'
-}
-
-if ($docsReadmePanelCapabilityEntryIndex -gt $docsReadmeGovernanceCapabilityEntryIndex -or $docsReadmeGovernanceCapabilityEntryIndex -gt $docsReadmeConfigCapabilityEntryIndex) {
-    throw '测试前置条件不满足：维护层补充入口顺序已不是当前现状。'
+if ($docsReadmeLines -notcontains $docsReadmeMaintenanceCapabilitySourceLineText) {
+    throw "测试前置条件不满足：$docsReadmePath 中缺少 $docsReadmeMaintenanceCapabilitySourceLineText"
 }
 
 try {
-    $driftedDocsReadmeLines = @($docsReadmeLines)
-    $driftedDocsReadmeLines[$docsReadmePanelCapabilityEntryIndex] = $docsReadmeGovernanceCapabilityEntryLineText
-    $driftedDocsReadmeLines[$docsReadmeGovernanceCapabilityEntryIndex] = $docsReadmePanelCapabilityEntryLineText
-    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    $driftedDocsReadmeContent = (Get-Content $docsReadmePath -Raw).Replace($docsReadmeMaintenanceCapabilitySourceLineText, '- 维护层补充能力以后再补。')
     [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-public-maintenance-capability-entry-order-drift'
+    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-docs-readme-maintenance-capability-source-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
@@ -1468,29 +1450,25 @@ finally {
     [System.IO.File]::WriteAllBytes($concurrentReportDocPath, $originalConcurrentReportDocBytes)
 }
 
-$maintenanceGateEntryLineText = '- 多 gate 与多异常并存处理规则：`docs/40-执行/19-多 gate 与多异常并存处理规则.md`'
-$maintenanceConcurrentEntryLineText = '- 复杂并存汇报骨架模板：`docs/40-执行/20-复杂并存汇报骨架模板.md`'
-$docsReadmeMaintenanceGateEntryLineText = '- `40-执行/19-多 gate 与多异常并存处理规则.md`'
-$docsReadmeMaintenanceConcurrentEntryLineText = '- `40-执行/20-复杂并存汇报骨架模板.md`'
-$docsReadmeMaintenanceGateEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeMaintenanceGateEntryLineText)
-$docsReadmeMaintenanceConcurrentEntryIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeMaintenanceConcurrentEntryLineText)
+$docsReadmeMaintenanceMainlineSourceIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeMaintenanceMainlineSourceLineText)
+$docsReadmeMaintenanceCapabilitySourceIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeMaintenanceCapabilitySourceLineText)
 
-if ($docsReadmeMaintenanceGateEntryIndex -lt 0 -or $docsReadmeMaintenanceConcurrentEntryIndex -lt 0) {
-    throw "测试前置条件不满足：$docsReadmePath 中缺少维护层主线关键入口测试行。"
+if ($docsReadmeMaintenanceMainlineSourceIndex -lt 0 -or $docsReadmeMaintenanceCapabilitySourceIndex -lt 0) {
+    throw "测试前置条件不满足：$docsReadmePath 中缺少维护层入口真源说明测试行。"
 }
 
-if ($docsReadmeMaintenanceGateEntryIndex -gt $docsReadmeMaintenanceConcurrentEntryIndex) {
-    throw "测试前置条件不满足：$docsReadmePath 中维护层入口顺序已不是当前现状。"
+if ($docsReadmeMaintenanceMainlineSourceIndex -gt $docsReadmeMaintenanceCapabilitySourceIndex) {
+    throw "测试前置条件不满足：$docsReadmePath 中维护层入口真源说明顺序已不是当前现状。"
 }
 
 try {
     $driftedDocsReadmeLines = @($docsReadmeLines)
-    $driftedDocsReadmeLines[$docsReadmeMaintenanceGateEntryIndex] = $docsReadmeMaintenanceConcurrentEntryLineText
-    $driftedDocsReadmeLines[$docsReadmeMaintenanceConcurrentEntryIndex] = $docsReadmeMaintenanceGateEntryLineText
+    $driftedDocsReadmeLines[$docsReadmeMaintenanceMainlineSourceIndex] = $docsReadmeMaintenanceCapabilitySourceLineText
+    $driftedDocsReadmeLines[$docsReadmeMaintenanceCapabilitySourceIndex] = $docsReadmeMaintenanceMainlineSourceLineText
     $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-public-maintenance-entry-order-drift'
+    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-docs-readme-maintenance-source-order-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
@@ -1702,14 +1680,12 @@ finally {
 
 $execReadmeCurrentEntryLineText = '- `11-任务包半自动起包.md`'
 $execReadmeTargetEntryLineText = '- `12-V4-Target-实施计划.md`'
-$docsReadmeExecCurrentEntryLineText = '- `40-执行/11-任务包半自动起包.md`'
 $navOverviewCurrentExecEntryMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+`docs/40-执行/11-任务包半自动起包\.md`$'
 $navOverviewReadingExecEntryMatch = Find-LineMatch -Lines $navOverviewLines -Pattern '^\d+\.\s+需要更快起包时，看 `docs/40-执行/11-任务包半自动起包\.md`$'
 $navOverviewCurrentExecEntryLineText = $navOverviewCurrentExecEntryMatch.LineText
 $navOverviewReadingExecEntryLineText = $navOverviewReadingExecEntryMatch.LineText
-$maintenanceGuideExecEntryLineText = '- 文档：`docs/40-执行/11-任务包半自动起包.md`'
 
-if ($execReadmeLines -notcontains $execReadmeCurrentEntryLineText -or $execReadmeLines -notcontains $execReadmeTargetEntryLineText -or $docsReadmeLines -notcontains $docsReadmeExecCurrentEntryLineText -or $null -eq $navOverviewCurrentExecEntryMatch -or $null -eq $navOverviewReadingExecEntryMatch -or $maintenanceGuideLines -notcontains $maintenanceGuideExecEntryLineText) {
+if ($execReadmeLines -notcontains $execReadmeCurrentEntryLineText -or $execReadmeLines -notcontains $execReadmeTargetEntryLineText -or $null -eq $navOverviewCurrentExecEntryMatch -or $null -eq $navOverviewReadingExecEntryMatch) {
     throw '测试前置条件不满足：执行区真源联动测试行缺失。'
 }
 
@@ -1744,31 +1720,17 @@ try {
     $driftedExecReadmeContent = ($driftedExecReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($execReadmePath, $driftedExecReadmeContent, $utf8NoBom)
 
-    $driftedDocsReadmeLines = @(
-        $docsReadmeLines | Where-Object { $_ -ne $docsReadmeExecCurrentEntryLineText }
-    )
-    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
-    [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
-
     $driftedNavOverviewLines = @(
         $navOverviewLines | Where-Object { $_ -ne $navOverviewCurrentExecEntryLineText -and $_ -ne $navOverviewReadingExecEntryLineText }
     )
     $driftedNavOverviewContent = ($driftedNavOverviewLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($navOverviewPath, $driftedNavOverviewContent, $utf8NoBom)
 
-    $driftedMaintenanceGuideLines = @(
-        $maintenanceGuideLines | Where-Object { $_ -ne $maintenanceGuideExecEntryLineText }
-    )
-    $driftedMaintenanceGuideContent = ($driftedMaintenanceGuideLines -join [Environment]::NewLine) + [Environment]::NewLine
-    [System.IO.File]::WriteAllText($maintenanceGuidePath, $driftedMaintenanceGuideContent, $utf8NoBom)
-
-    Invoke-GateForTestCase -Paths @('docs/00-导航/02-现行标准件总览.md', 'docs/40-执行/README.md', 'docs/40-执行/13-维护层总入口.md') -ExpectedExitCode 0 -TestName 'allow-exec-standard-source-sync'
+    Invoke-GateForTestCase -Paths @('docs/00-导航/02-现行标准件总览.md', 'docs/40-执行/README.md') -ExpectedExitCode 0 -TestName 'allow-exec-standard-source-sync'
 }
 finally {
     [System.IO.File]::WriteAllBytes($execReadmePath, $originalExecReadmeBytes)
-    [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
     [System.IO.File]::WriteAllBytes($navOverviewPath, $originalNavOverviewBytes)
-    [System.IO.File]::WriteAllBytes($maintenanceGuidePath, $originalMaintenanceGuideBytes)
 }
 
 $coreGovernanceRuleSourceExtraLineText = '7. `docs/40-执行/21-关键配置来源与漂移复核模板.md`'

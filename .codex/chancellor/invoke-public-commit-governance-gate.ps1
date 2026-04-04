@@ -2812,6 +2812,23 @@ function Get-CanonicalMaintenanceCapabilityDocPaths {
         throw "维护层总入口未解析到维护能力文档：$maintenanceGuidePath"
     }
 
+    $expectedMaintenanceCapabilityPaths = @(
+        'docs/40-执行/10-本地安全提交流程.md'
+        'docs/40-执行/11-任务包半自动起包.md'
+        'docs/90-归档/01-执行区证据稿归档规则.md'
+        'docs/40-执行/14-维护层动作矩阵与收口检查表.md'
+        'docs/40-执行/15-拍板包准备与收口规范.md'
+        'docs/40-执行/16-拍板包半自动模板.md'
+        'docs/40-执行/17-拍板结果回写模板.md'
+        'docs/40-执行/18-异常路径与回退模板.md'
+        'docs/40-执行/19-多 gate 与多异常并存处理规则.md'
+        'docs/40-执行/20-复杂并存汇报骨架模板.md'
+        'docs/40-执行/03-面板入口验收.md'
+        'docs/30-方案/08-V4-治理审计候选规范.md'
+        'docs/40-执行/21-关键配置来源与漂移复核模板.md'
+    )
+    Assert-ExactOrderedValues -SourceValues $maintenanceCapabilityPaths -ExpectedValues $expectedMaintenanceCapabilityPaths -Label '维护层补充能力真源'
+
     $maintenanceCapabilityOrderPaths = @(
         'docs/40-执行/03-面板入口验收.md'
         'docs/30-方案/08-V4-治理审计候选规范.md'
@@ -2848,6 +2865,32 @@ function Get-CanonicalMaintenanceLifecycleEntryPaths {
     )
     Assert-RequiredPathsPresent -SourcePaths $maintenanceLifecyclePaths -RequiredPaths $requiredMaintenanceLifecyclePaths -Label '维护层主线真源'
     return $maintenanceLifecyclePaths
+}
+
+function Get-CanonicalDocsReadmeMaintenanceSourceSummaryLines {
+    $docsReadmePath = 'docs/README.md'
+    $expectedDocsReadmeMaintenanceSourceSummaryLines = @(
+        '`40-执行/13-维护层总入口.md` 是维护层唯一对外总入口。'
+        '维护层主线顺序以 `40-执行/13-维护层总入口.md` 的 `维护层主线真源` 为准，`docs/README.md` 不再重复抄整套主线清单。'
+        '维护层补充能力以 `40-执行/13-维护层总入口.md` 的 `当前维护层能力` 为准；需要细项时直接查看该文档。'
+    )
+
+    $sectionContent = Get-FileSectionContent -FilePath $docsReadmePath -SectionStartMarker '## 维护层入口' -SectionEndMarker '## 当前分层'
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "docs/README 未解析到维护层入口真源说明：$docsReadmePath"
+    }
+
+    $maintenanceSourceSummaryLines = @(
+        [regex]::Matches($sectionContent, '(?m)^- (.+?)\r?$') |
+            ForEach-Object { $_.Groups[1].Value.Trim() } |
+            Where-Object { $_ -ne '' }
+    )
+    if ($maintenanceSourceSummaryLines.Count -eq 0) {
+        throw "docs/README 未解析到维护层入口真源说明列点：$docsReadmePath"
+    }
+
+    Assert-ExactOrderedValues -SourceValues $maintenanceSourceSummaryLines -ExpectedValues $expectedDocsReadmeMaintenanceSourceSummaryLines -Label 'docs/README 维护层入口真源说明'
+    return $expectedDocsReadmeMaintenanceSourceSummaryLines
 }
 
 function Get-CanonicalMaintenanceGuideRecommendedOrderItems {
@@ -3730,9 +3773,14 @@ try {
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
 }
-$canonicalMaintenanceCapabilityDocPaths = @()
 try {
-    $canonicalMaintenanceCapabilityDocPaths = Get-CanonicalMaintenanceCapabilityDocPaths
+    [void](Get-CanonicalMaintenanceCapabilityDocPaths)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    [void](Get-CanonicalDocsReadmeMaintenanceSourceSummaryLines)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
@@ -3767,38 +3815,11 @@ catch {
 }
 $publicMaintenanceEntryChecks = @(
     @{
-        Path = 'docs/README.md'
-        Label = 'docs/README 维护层主线入口'
-        RegexPattern = '`(40-执行/[^`]+\.md)`'
-        PathPrefix = 'docs/'
-    },
-    @{
         Path = 'docs/00-导航/02-现行标准件总览.md'
         Label = '现行标准件总览维护层主线入口'
         RegexPattern = '`(docs/40-执行/[^`]+\.md)`'
         PathPrefix = ''
     }
-)
-$publicMaintenanceCapabilityEntryChecks = @(
-    @{
-        Path = 'docs/README.md'
-        Label = 'docs/README 维护层补充入口'
-        RegexPattern = '`((?:(?:30-方案/08-[^`]+\.md)|(?:40-执行/(?:03|10|11|14|15|16|17|18|19|20|21)-[^`]+\.md)|(?:90-归档/01-[^`]+\.md)))`'
-        PathPrefix = 'docs/'
-    }
-)
-$publicMaintenanceCapabilityOrderEntryChecks = @(
-    @{
-        Path = 'docs/README.md'
-        Label = 'docs/README 维护层补充入口'
-        RegexPattern = '`((?:(?:40-执行/03-[^`]+\.md)|(?:30-方案/08-[^`]+\.md)|(?:40-执行/21-[^`]+\.md)))`'
-        PathPrefix = 'docs/'
-    }
-)
-$criticalMaintenanceCapabilityOrderPaths = @(
-    'docs/40-执行/03-面板入口验收.md'
-    'docs/30-方案/08-V4-治理审计候选规范.md'
-    'docs/40-执行/21-关键配置来源与漂移复核模板.md'
 )
 $readingOrderTargetEntryChecks = @(
     @{
@@ -4051,35 +4072,6 @@ foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChec
     $violationMessages.Add($entryViolationMessage)
 }
 foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicMaintenanceEntryChecks -CriticalEntryPaths $criticalMaintenanceLifecycleEntryPaths -MissingFileLabel '维护层主线入口文件' -MissingEntryLabel '维护层关键入口' -OrderDriftLabel '维护层关键入口顺序漂移')) {
-    $violationMessages.Add($entryViolationMessage)
-}
-if ($canonicalMaintenanceCapabilityDocPaths.Count -gt 0) {
-    foreach ($entryCheck in $publicMaintenanceCapabilityEntryChecks) {
-        if (-not (Test-Path $entryCheck.Path)) {
-            $violationMessages.Add("缺少维护层补充入口文件：$($entryCheck.Path)")
-            continue
-        }
-
-        $actualMaintenanceCapabilityPaths = Get-MatchedNormalizedDocPathsFromFile -FilePath $entryCheck.Path -RegexPattern $entryCheck.RegexPattern -PathPrefix $entryCheck.PathPrefix
-        $missingMaintenanceCapabilityPaths = @(
-            $canonicalMaintenanceCapabilityDocPaths |
-                Where-Object { $_ -notin $actualMaintenanceCapabilityPaths }
-        )
-        $extraMaintenanceCapabilityPaths = @(
-            $actualMaintenanceCapabilityPaths |
-                Where-Object { $_ -notin $canonicalMaintenanceCapabilityDocPaths }
-        )
-
-        if ($missingMaintenanceCapabilityPaths.Count -gt 0) {
-            $violationMessages.Add("$($entryCheck.Label) 缺少维护层补充入口：$($missingMaintenanceCapabilityPaths -join '、')")
-        }
-
-        if ($extraMaintenanceCapabilityPaths.Count -gt 0) {
-            $violationMessages.Add("$($entryCheck.Label) 存在未受控的维护层补充入口：$($extraMaintenanceCapabilityPaths -join '、')")
-        }
-    }
-}
-foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicMaintenanceCapabilityOrderEntryChecks -CriticalEntryPaths $criticalMaintenanceCapabilityOrderPaths -MissingFileLabel '维护层补充入口文件' -MissingEntryLabel '维护层补充入口' -OrderDriftLabel '维护层补充入口顺序漂移')) {
     $violationMessages.Add($entryViolationMessage)
 }
 foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $readingOrderTargetEntryChecks -CriticalEntryPaths $criticalTargetLifecycleEntryPaths -MissingFileLabel '阅读顺序区文件' -MissingEntryLabel '阅读顺序关键入口' -OrderDriftLabel '阅读顺序建议顺序漂移')) {
