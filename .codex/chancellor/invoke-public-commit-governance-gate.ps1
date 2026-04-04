@@ -3025,8 +3025,34 @@ function Get-CanonicalTargetLifecycleEntryPaths {
         'docs/30-方案/08-V4-治理审计候选规范.md'
         'docs/40-执行/12-V4-Target-实施计划.md'
     )
-    Assert-RequiredPathsPresent -SourcePaths $targetLifecycleSlice -RequiredPaths $requiredTargetLifecyclePaths -Label 'Target 主线真源'
-    return $targetLifecycleSlice
+    Assert-ExactOrderedValues -SourceValues $targetLifecycleSlice -ExpectedValues $requiredTargetLifecyclePaths -Label 'Target 主线真源'
+    return $requiredTargetLifecyclePaths
+}
+
+function Get-CanonicalDocsReadmeTargetSourceSummaryLines {
+    $docsReadmePath = 'docs/README.md'
+    $expectedDocsReadmeTargetSourceSummaryLines = @(
+        '`40-执行/12-V4-Target-实施计划.md` 是 Target 主线唯一对外总入口。'
+        'Target 主线入口以 `40-执行/12-V4-Target-实施计划.md` 的 `Target 主线真源` 为准，`docs/README.md` 不再重复抄整套主线清单。'
+        'Target 推进顺序以 `40-执行/12-V4-Target-实施计划.md` 的 `推荐推进顺序` 为准；需要细项时直接查看该文档。'
+    )
+
+    $sectionContent = Get-FileSectionContent -FilePath $docsReadmePath -SectionStartMarker '## Target 主线入口' -SectionEndMarker '## 维护层入口'
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "docs/README 未解析到 Target 主线入口真源说明：$docsReadmePath"
+    }
+
+    $targetSourceSummaryLines = @(
+        [regex]::Matches($sectionContent, '(?m)^- (.+?)\r?$') |
+            ForEach-Object { $_.Groups[1].Value.Trim() } |
+            Where-Object { $_ -ne '' }
+    )
+    if ($targetSourceSummaryLines.Count -eq 0) {
+        throw "docs/README 未解析到 Target 主线入口真源说明列点：$docsReadmePath"
+    }
+
+    Assert-ExactOrderedValues -SourceValues $targetSourceSummaryLines -ExpectedValues $expectedDocsReadmeTargetSourceSummaryLines -Label 'docs/README Target 主线入口真源说明'
+    return $expectedDocsReadmeTargetSourceSummaryLines
 }
 
 function Get-CanonicalStartupPhaseEntryPaths {
@@ -3778,13 +3804,13 @@ try {
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
 }
+try {
+    [void](Get-CanonicalDocsReadmeTargetSourceSummaryLines)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
 $publicTargetEntryChecks = @(
-    @{
-        Path = 'docs/README.md'
-        Label = 'docs/README Target 主线入口'
-        RegexPattern = '`((?:20-决策|30-方案|40-执行)/[^`]+\.md)`'
-        PathPrefix = 'docs/'
-    },
     @{
         Path = 'docs/00-导航/02-现行标准件总览.md'
         Label = '现行标准件总览 Target 主线入口'
