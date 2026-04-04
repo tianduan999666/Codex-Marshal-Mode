@@ -86,10 +86,8 @@ cd Codex-Chancellor-Mode
 
 ### 当前次级材料（先不作为日常主路径）
 
-- `install-to-home.ps1`、`verify-cutover.ps1`、`rollback-from-backup.ps1`：维护层脚本，普通用户不必直接记。
-- `run-managed-install.ps1`、`run-managed-self-check.ps1`、`upgrade-managed-install.ps1`：给 `.cmd` 包装入口调用的编排层，不作为普通用户公开心智负担。
-- `start-panel-acceptance.ps1`、`new-panel-acceptance-result.ps1`、`verify-panel-acceptance-result.ps1`：保留作维护层补充动作，不作为当前自用 MVP 主路径。
-- `panel-acceptance-*` 文档：保留作补充参考，不作为当前日常必经步骤。
+- `install-to-home.ps1`、`verify-cutover.ps1`、`rollback-from-backup.ps1` 与 `run-managed-*`：都属于维护层底层脚本或编排层，不作为普通用户日常主路径。
+- `start-panel-acceptance.ps1`、`new-panel-acceptance-result.ps1`、`verify-panel-acceptance-result.ps1` 与 `panel-acceptance-*` 文档：都属于验板补充材料，不作为当前自用 MVP 日常必经步骤。
 
 ### 维护层真源预览（只给维护者备用）
 
