@@ -1,23 +1,6 @@
 ﻿# docs 目录说明
 
-普通用户先装，再回官方 Codex 面板输入 `传令：版本 / 传令：状态 / 传令：修一下登录页`。这里不再铺满整仓文档，只保留最短入口和现行导航。
-
-## 普通用户一张卡片
-
-```powershell
-git clone https://github.com/tianduan999666/Codex-Chancellor-Mode.git
-cd Codex-Chancellor-Mode
-.\install.cmd
-```
-
-然后去官方 Codex 面板输入：
-
-- `传令：版本`
-- `传令：状态`
-- `传令：修一下登录页`
-- 默认安装只同步丞相模式受管件，不静默覆盖你现有的 `~/.codex/config.toml`。
-- 只有显式执行 `.\install.cmd -ApplyTemplateConfig`，才会把仓内模板 provider 写入全局。
-- 若当前 provider 是 `CRS`，统一探针可能提示需真人验证一次；这时以上 3 句就是最终验收。
+普通用户安装与首次开工以仓根 `README.md` 为准；这里不再重复安装卡片和首轮传令，只保留文档导航与现行入口。默认安装不会静默覆盖你现有的 `~/.codex/config.toml`。
 
 ## 启动阶段入口
 
