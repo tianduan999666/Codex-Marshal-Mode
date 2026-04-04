@@ -3049,8 +3049,8 @@ function Get-CanonicalStartupPhaseEntryPaths {
         'docs/30-方案/02-V4-目录锁定清单.md'
         'docs/30-方案/03-V4-MVP边界清单.md'
     )
-    Assert-RequiredPathsPresent -SourcePaths $startupPhaseSlice -RequiredPaths $requiredStartupPhasePaths -Label '启动阶段真源'
-    return $startupPhaseSlice
+    Assert-ExactOrderedValues -SourceValues $startupPhaseSlice -ExpectedValues $requiredStartupPhasePaths -Label '启动阶段真源'
+    return $requiredStartupPhasePaths
 }
 
 function Get-CanonicalRestartGuideEntryPaths {
@@ -3076,8 +3076,34 @@ function Get-CanonicalRestartGuideEntryPaths {
         'docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md'
         'docs/reference/02-仓库卫生与命名规范.md'
     )
-    Assert-RequiredPathsPresent -SourcePaths $restartGuideCanonicalEntryPaths -RequiredPaths $requiredRestartGuideEntryPaths -Label '重启导读核心入口真源'
-    return $restartGuideCanonicalEntryPaths
+    Assert-ExactOrderedValues -SourceValues $restartGuideCanonicalEntryPaths -ExpectedValues $requiredRestartGuideEntryPaths -Label '重启导读核心入口真源'
+    return $requiredRestartGuideEntryPaths
+}
+
+function Get-CanonicalDocsReadmeStartupSourceSummaryLines {
+    $docsReadmePath = 'docs/README.md'
+    $expectedDocsReadmeStartupSourceSummaryLines = @(
+        '`00-导航/01-V4-重启导读.md` 是启动阶段唯一对外总入口。'
+        '启动阶段核心入口以 `00-导航/01-V4-重启导读.md` 的 `先看什么` 为准，`docs/README.md` 不再重复抄整套入口清单。'
+        '启动阶段顺序以 `00-导航/01-V4-重启导读.md` 的 `启动阶段真源` 为准；需要细项时直接查看该文档。'
+    )
+
+    $sectionContent = Get-FileSectionContent -FilePath $docsReadmePath -SectionStartMarker '## 启动阶段入口' -SectionEndMarker '## 继续深读'
+    if ([string]::IsNullOrWhiteSpace($sectionContent)) {
+        throw "docs/README 未解析到启动阶段入口真源说明：$docsReadmePath"
+    }
+
+    $startupSourceSummaryLines = @(
+        [regex]::Matches($sectionContent, '(?m)^- (.+?)\r?$') |
+            ForEach-Object { $_.Groups[1].Value.Trim() } |
+            Where-Object { $_ -ne '' }
+    )
+    if ($startupSourceSummaryLines.Count -eq 0) {
+        throw "docs/README 未解析到启动阶段入口真源说明列点：$docsReadmePath"
+    }
+
+    Assert-ExactOrderedValues -SourceValues $startupSourceSummaryLines -ExpectedValues $expectedDocsReadmeStartupSourceSummaryLines -Label 'docs/README 启动阶段入口真源说明'
+    return $expectedDocsReadmeStartupSourceSummaryLines
 }
 
 function Get-CanonicalCoreGovernanceRuleSourcePaths {
@@ -3841,36 +3867,24 @@ $readingOrderMaintenanceEntryChecks = @(
         SectionEndMarker = '## 什么不是现行标准件'
     }
 )
-$restartGuideCanonicalEntryPaths = @()
 try {
-    $restartGuideCanonicalEntryPaths = Get-CanonicalRestartGuideEntryPaths
+    [void](Get-CanonicalRestartGuideEntryPaths)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
 }
-$publicRestartGuideEntryChecks = @(
-    @{
-        Path = 'docs/README.md'
-        Label = 'docs/README 重启导读核心入口'
-        RegexPattern = '`((?:00-导航|10-输入材料|20-决策|30-方案|40-执行|reference)/[^`]+\.md)`'
-        PathPrefix = 'docs/'
-    }
-)
-$criticalStartupPhaseEntryPaths = @()
 try {
-    $criticalStartupPhaseEntryPaths = Get-CanonicalStartupPhaseEntryPaths
+    [void](Get-CanonicalStartupPhaseEntryPaths)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
 }
-$publicStartupPhaseEntryChecks = @(
-    @{
-        Path = 'docs/README.md'
-        Label = 'docs/README 启动阶段入口'
-        RegexPattern = '`((?:00-导航|10-输入材料|20-决策|30-方案)/[^`]+\.md)`'
-        PathPrefix = 'docs/'
-    }
-)
+try {
+    [void](Get-CanonicalDocsReadmeStartupSourceSummaryLines)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
 
 $changedPathList = Get-NormalizedChangedPaths
 if ($changedPathList.Count -eq 0) {
@@ -4061,13 +4075,6 @@ foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChec
 foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $agentConstraintEntryChecks -CriticalEntryPaths $criticalAgentConstraintPaths -MissingFileLabel 'AGENTS 文件' -MissingEntryLabel '核心约束入口' -OrderDriftLabel '核心约束入口顺序漂移')) {
     $violationMessages.Add($entryViolationMessage)
 }
-foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicRestartGuideEntryChecks -CriticalEntryPaths $restartGuideCanonicalEntryPaths -MissingFileLabel '重启导读核心入口文件' -MissingEntryLabel '重启导读核心入口' -OrderDriftLabel '重启导读核心入口顺序漂移')) {
-    $violationMessages.Add($entryViolationMessage)
-}
-foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicStartupPhaseEntryChecks -CriticalEntryPaths $criticalStartupPhaseEntryPaths -MissingFileLabel '启动阶段入口文件' -MissingEntryLabel '启动阶段关键入口' -OrderDriftLabel '启动阶段入口顺序漂移')) {
-    $violationMessages.Add($entryViolationMessage)
-}
-
 foreach ($entryViolationMessage in (Get-OrderedEntryViolationMessages -EntryChecks $publicTargetEntryChecks -CriticalEntryPaths $criticalTargetLifecycleEntryPaths -MissingFileLabel 'Target 主线入口文件' -MissingEntryLabel '关键主线入口' -OrderDriftLabel '关键主线入口顺序漂移')) {
     $violationMessages.Add($entryViolationMessage)
 }

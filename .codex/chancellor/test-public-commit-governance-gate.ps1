@@ -140,6 +140,9 @@ finally {
 $docsReadmePath = Join-Path $repoRootPath 'docs/README.md'
 $originalDocsReadmeBytes = [System.IO.File]::ReadAllBytes($docsReadmePath)
 $docsReadmeLines = Get-Content $docsReadmePath
+$docsReadmeStartupEntrySourceLineText = '- `00-导航/01-V4-重启导读.md` 是启动阶段唯一对外总入口。'
+$docsReadmeStartupCoreSourceLineText = '- 启动阶段核心入口以 `00-导航/01-V4-重启导读.md` 的 `先看什么` 为准，`docs/README.md` 不再重复抄整套入口清单。'
+$docsReadmeStartupPhaseSourceLineText = '- 启动阶段顺序以 `00-导航/01-V4-重启导读.md` 的 `启动阶段真源` 为准；需要细项时直接查看该文档。'
 $docsReadmeMaintenanceEntrySourceLineText = '- `40-执行/13-维护层总入口.md` 是维护层唯一对外总入口。'
 $docsReadmeMaintenanceMainlineSourceLineText = '- 维护层主线顺序以 `40-执行/13-维护层总入口.md` 的 `维护层主线真源` 为准，`docs/README.md` 不再重复抄整套主线清单。'
 $docsReadmeMaintenanceCapabilitySourceLineText = '- 维护层补充能力以 `40-执行/13-维护层总入口.md` 的 `当前维护层能力` 为准；需要细项时直接查看该文档。'
@@ -390,20 +393,70 @@ finally {
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
 }
 
-$removedRestartGuideCoreEntryLineText = '- `10-输入材料/01-旧仓必需资产清单.md`'
-
-if ($docsReadmeLines -notcontains $removedRestartGuideCoreEntryLineText) {
-    throw "测试前置条件不满足：$docsReadmePath 中缺少 $removedRestartGuideCoreEntryLineText"
+if ($docsReadmeLines -notcontains $docsReadmeStartupEntrySourceLineText) {
+    throw "测试前置条件不满足：$docsReadmePath 中缺少 $docsReadmeStartupEntrySourceLineText"
 }
 
 try {
     $driftedDocsReadmeLines = @(
-        $docsReadmeLines | Where-Object { $_ -ne $removedRestartGuideCoreEntryLineText }
+        $docsReadmeLines | Where-Object { $_ -ne $docsReadmeStartupEntrySourceLineText }
     )
     $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
     [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
 
-    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-restart-guide-core-entry-missing'
+    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-docs-readme-startup-entry-source-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
+}
+
+if ($docsReadmeLines -notcontains $docsReadmeStartupCoreSourceLineText) {
+    throw "测试前置条件不满足：$docsReadmePath 中缺少 $docsReadmeStartupCoreSourceLineText"
+}
+
+try {
+    $driftedDocsReadmeContent = (Get-Content $docsReadmePath -Raw).Replace($docsReadmeStartupCoreSourceLineText, '- 启动阶段核心入口以后再整理。')
+    [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-docs-readme-startup-core-source-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
+}
+
+if ($docsReadmeLines -notcontains $docsReadmeStartupPhaseSourceLineText) {
+    throw "测试前置条件不满足：$docsReadmePath 中缺少 $docsReadmeStartupPhaseSourceLineText"
+}
+
+try {
+    $driftedDocsReadmeContent = (Get-Content $docsReadmePath -Raw).Replace($docsReadmeStartupPhaseSourceLineText, '- 启动阶段顺序以后再补。')
+    [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-docs-readme-startup-phase-source-drift'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
+}
+
+$docsReadmeStartupCoreSourceIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeStartupCoreSourceLineText)
+$docsReadmeStartupPhaseSourceIndex = [Array]::IndexOf($docsReadmeLines, $docsReadmeStartupPhaseSourceLineText)
+
+if ($docsReadmeStartupCoreSourceIndex -lt 0 -or $docsReadmeStartupPhaseSourceIndex -lt 0) {
+    throw "测试前置条件不满足：$docsReadmePath 中缺少启动阶段入口真源说明测试行。"
+}
+
+if ($docsReadmeStartupCoreSourceIndex -gt $docsReadmeStartupPhaseSourceIndex) {
+    throw "测试前置条件不满足：$docsReadmePath 中启动阶段入口真源说明顺序已不是当前现状。"
+}
+
+try {
+    $driftedDocsReadmeLines = @($docsReadmeLines)
+    $driftedDocsReadmeLines[$docsReadmeStartupCoreSourceIndex] = $docsReadmeStartupPhaseSourceLineText
+    $driftedDocsReadmeLines[$docsReadmeStartupPhaseSourceIndex] = $docsReadmeStartupCoreSourceLineText
+    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-docs-readme-startup-source-order-drift'
 }
 finally {
     [System.IO.File]::WriteAllBytes($docsReadmePath, $originalDocsReadmeBytes)
