@@ -2128,6 +2128,7 @@ $codexHomeExportStageLineText = @(
     $codexHomeExportReadmeLines |
         Where-Object { $_ -match '^- `stage`：`[^`]+`$' }
 ) | Select-Object -First 1
+$codexHomeExportLandedSourceLineText = '- `manifest.json` 的 `included` 是当前生产母体受管文件清单唯一真源。'
 $codexHomeExportManifestIncludedTarget = 'verify-cutover.ps1'
 
 if ($codexHomeExportManifestInfo.included -notcontains $codexHomeExportManifestIncludedTarget) {
@@ -2136,6 +2137,10 @@ if ($codexHomeExportManifestInfo.included -notcontains $codexHomeExportManifestI
 
 if ([string]::IsNullOrWhiteSpace($codexHomeExportStageLineText)) {
     throw "测试前置条件不满足：$codexHomeExportReadmePath 中缺少 stage 行。"
+}
+
+if ($codexHomeExportReadmeLines -notcontains $codexHomeExportLandedSourceLineText) {
+    throw "测试前置条件不满足：$codexHomeExportReadmePath 中缺少 $codexHomeExportLandedSourceLineText"
 }
 
 try {
@@ -2172,7 +2177,7 @@ try {
     foreach ($readmeLine in $codexHomeExportReadmeLines[0..($readmeLandedEndIndex - 1)]) {
         [void]$driftedReadmeLines.Add($readmeLine)
     }
-    [void]$driftedReadmeLines.Insert($readmeLandedEndIndex - 1, ('- `{0}`' -f $untrackedCodexHomeExportFileName))
+    [void]$driftedReadmeLines.Insert($readmeLandedEndIndex - 1, ('- `{0}` 已被视为当前受管文件。' -f $untrackedCodexHomeExportFileName))
     foreach ($readmeLine in $codexHomeExportReadmeLines[$readmeLandedEndIndex..($codexHomeExportReadmeLines.Count - 1)]) {
         [void]$driftedReadmeLines.Add($readmeLine)
     }

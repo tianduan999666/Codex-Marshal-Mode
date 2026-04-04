@@ -690,16 +690,22 @@ function Get-CodexHomeExportConsistencyState {
     }
 
     $readmeLandedSection = Get-FileSectionContent -FilePath $readmePath -SectionStartMarker '## 当前已落文件' -SectionEndMarker '## 当前未落文件'
-    $readmeLandedFiles = @(
+    $readmeLandedSummaryLines = @(
         Get-OrderedUniqueValues -Values @(
-            [regex]::Matches($readmeLandedSection, '(?m)^- `([^`]+)`\r?$') |
-                ForEach-Object { $_.Groups[1].Value }
+            [regex]::Matches($readmeLandedSection, '(?m)^- (.+?)\r?$') |
+                ForEach-Object { $_.Groups[1].Value.Trim() } |
+                Where-Object { $_ -ne '' }
         )
     )
-    if ($readmeLandedFiles.Count -eq 0) {
-        throw "生产母体 README 未解析到当前已落文件：$readmePath"
+    if ($readmeLandedSummaryLines.Count -eq 0) {
+        throw "生产母体 README 未解析到当前已落文件真源说明：$readmePath"
     }
-    Assert-ExactOrderedValues -SourceValues $readmeLandedFiles -ExpectedValues $manifestIncludedFiles -Label '生产母体 README 当前已落文件'
+    $expectedReadmeLandedSummaryLines = @(
+        '`manifest.json` 的 `included` 是当前生产母体受管文件清单唯一真源。'
+        'README 这里只保留阶段、入口与使用说明，不再重复抄整份落文件列表。'
+        '如需核对具体受管文件，请直接查看 `manifest.json`。'
+    )
+    Assert-ExactOrderedValues -SourceValues $readmeLandedSummaryLines -ExpectedValues $expectedReadmeLandedSummaryLines -Label '生产母体 README 当前已落文件真源说明'
 
     $readmeStageSection = Get-FileSectionContent -FilePath $readmePath -SectionStartMarker '## 当前阶段' -SectionEndMarker '## 当前已落文件'
     $readmeStageValues = @(

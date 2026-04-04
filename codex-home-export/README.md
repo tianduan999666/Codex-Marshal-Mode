@@ -29,40 +29,9 @@ cd Codex-Chancellor-Mode
 
 ## 当前已落文件
 
-- `README.md`
-- `AGENTS.md`
-- `config.toml`
-- `VERSION.json`
-- `manifest.json`
-- `install.cmd`
-- `install-to-home.ps1`
-- `initialize-workspace.ps1`
-- `invoke-panel-command.ps1`
-- `invoke-panel-command.test.ps1`
-- `new-task.ps1`
-- `render-panel-response.ps1`
-- `render-panel-response.test.ps1`
-- `rollback.cmd`
-- `start-panel-task.ps1`
-- `run-managed-install.ps1`
-- `run-managed-self-check.ps1`
-- `run-managed-self-check.test.ps1`
-- `rollback-from-backup.ps1`
-- `self-check.cmd`
-- `verify-cutover.ps1`
-- `upgrade-managed-install.ps1`
-- `upgrade-managed-install.test.ps1`
-- `upgrade.cmd`
-- `verify-panel-command-smoke.ps1`
-- `verify-provider-auth.ps1`
-- `verify-provider-auth.test.ps1`
-- `start-panel-acceptance.ps1`
-- `new-panel-acceptance-result.ps1`
-- `verify-panel-acceptance-result.ps1`
-- `panel-acceptance-checklist.md`
-- `panel-acceptance-three-step-card.md`
-- `panel-acceptance-pass-fail-sheet.md`
-- `panel-acceptance-result-template.md`
+- `manifest.json` 的 `included` 是当前生产母体受管文件清单唯一真源。
+- README 这里只保留阶段、入口与使用说明，不再重复抄整份落文件列表。
+- 如需核对具体受管文件，请直接查看 `manifest.json`。
 
 ## 当前未落文件
 
