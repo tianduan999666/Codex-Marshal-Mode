@@ -149,17 +149,14 @@ $docsReadmeTargetOrderSourceLineText = '- Target 推进顺序以 `40-执行/12-V
 $docsReadmeMaintenanceEntrySourceLineText = '- `40-执行/13-维护层总入口.md` 是维护层唯一对外总入口。'
 $docsReadmeMaintenanceMainlineSourceLineText = '- 维护层主线顺序以 `40-执行/13-维护层总入口.md` 的 `维护层主线真源` 为准，`docs/README.md` 不再重复抄整套主线清单。'
 $docsReadmeMaintenanceCapabilitySourceLineText = '- 维护层补充能力以 `40-执行/13-维护层总入口.md` 的 `当前维护层能力` 为准；需要细项时直接查看该文档。'
-$removedRuleEntryLineText = '- `reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`'
+$docsReadmeGovernanceSummaryLineText = '- 核心治理与公开边界以 `reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`、`reference/02-仓库卫生与命名规范.md`、`30-方案/02-V4-目录锁定清单.md`、`30-方案/08-V4-治理审计候选规范.md`、`40-执行/10-本地安全提交流程.md`、`40-执行/14-维护层动作矩阵与收口检查表.md`、`40-执行/21-关键配置来源与漂移复核模板.md` 为准。'
 
-if ($docsReadmeLines -notcontains $removedRuleEntryLineText) {
-    throw "测试前置条件不满足：$docsReadmePath 中缺少 $removedRuleEntryLineText"
+if ($docsReadmeLines -notcontains $docsReadmeGovernanceSummaryLineText) {
+    throw "测试前置条件不满足：$docsReadmePath 中缺少 $docsReadmeGovernanceSummaryLineText"
 }
 
 try {
-    $driftedDocsReadmeLines = @(
-        $docsReadmeLines | Where-Object { $_ -ne $removedRuleEntryLineText }
-    )
-    $driftedDocsReadmeContent = ($driftedDocsReadmeLines -join [Environment]::NewLine) + [Environment]::NewLine
+    $driftedDocsReadmeContent = (Get-Content $docsReadmePath -Raw).Replace('`reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md`', '`reference/01-占位漂移.md`')
     [System.IO.File]::WriteAllText($docsReadmePath, $driftedDocsReadmeContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/README.md') -ExpectedExitCode 1 -TestName 'block-public-rule-entry-drift'
