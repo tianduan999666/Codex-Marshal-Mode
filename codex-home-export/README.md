@@ -105,4 +105,4 @@ powershell.exe -ExecutionPolicy Bypass -File .\codex-home-export\render-panel-re
 
 ## 说明
 
-当前目录的存在，表示“新仓已完成本机生产桥接切换，并开始承担生产母体最小真源与控制面”；不表示“已经完成全量生产母体重构”。
+当前目录仅表示“已完成本机生产桥接切换，并接管生产母体最小真源与控制面”；不表示“已完成全量生产母体重构”。
