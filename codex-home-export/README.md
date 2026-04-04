@@ -45,7 +45,7 @@ cd Codex-Chancellor-Mode
 - 仓内 `config.toml` 已降级为可选模板，默认只会同步到 `config/chancellor-mode/config.template.toml`；`~/.codex/config.toml` 视为用户自有全局模型配置，不再静默覆盖。
 - 当前对普通用户公开的维护层动作只保留 4 个：`install.cmd / upgrade.cmd / self-check.cmd / rollback.cmd`；底层 `.ps1` 退回维护层。
 - 上述 4 个 `.cmd` 会被同步到 `~/.codex` 根目录；升级、自检、回滚都支持不进仓库目录直接执行。
-- 当前仓没有官方面板前端源码；当前真正可控的是官方 Codex 面板的入口层、脚本层与真源层，不单独扩展独立面板。
+- 当前仓没有官方面板前端源码；只治理官方 Codex 面板的入口层、脚本层与真源层，不另扩独立面板。
 - `invoke-panel-command.ps1` 是当前 `传令：XXXX` 的统一脚本路由入口；查询命令与做事命令都先走它。
 - `start-panel-acceptance.ps1` 也固定通过 `invoke-panel-command.ps1` 取查询与开工口径，确保验板与真实入口同源。
 - `render-panel-response.ps1` 是当前面板输出控制面的统一渲染器；开场白、示例句、状态栏顺序、过程金句与收口模板都应先回到它和 `VERSION.json` 验证。
