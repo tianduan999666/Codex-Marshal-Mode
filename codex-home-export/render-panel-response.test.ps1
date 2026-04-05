@@ -72,11 +72,14 @@ $hintLines = @(& $renderScriptPath -Kind 'hint' -VersionPath $versionPath)
 Assert-PanelResponseLineCount -ActualLines $hintLines -ExpectedCount 1 -Message 'hint 应只返回 1 行'
 Assert-PanelResponseEqual -Actual $hintLines[0] -Expected $versionInfo.new_chat_hint -Message 'hint 应返回真源示例句'
 
-$taskEntryLines = @(& $renderScriptPath -Kind 'task-entry' -VersionPath $versionPath)
-Assert-PanelResponseLineCount -ActualLines $taskEntryLines -ExpectedCount 3 -Message 'task-entry 应返回 3 行固定骨架'
+$taskEntryLines = @(& $renderScriptPath -Kind 'task-entry' -VersionPath $versionPath -TaskEntryMode 'unchecked')
+Assert-PanelResponseLineCount -ActualLines $taskEntryLines -ExpectedCount 2 -Message 'task-entry 在未进入检查阶段时应返回 2 行骨架'
 Assert-PanelResponseEqual -Actual $taskEntryLines[0] -Expected $versionInfo.opening_line -Message 'task-entry 第 1 行应返回真源开场白'
-Assert-PanelResponseEqual -Actual $taskEntryLines[1] -Expected $versionInfo.boundary_prompt -Message 'task-entry 第 2 行应返回真源边界提示'
-Assert-PanelResponseEqual -Actual $taskEntryLines[2] -Expected $versionInfo.process_quotes_minimal.task_entry -Message 'task-entry 第 3 行应返回接令句'
+Assert-PanelResponseEqual -Actual $taskEntryLines[1] -Expected $versionInfo.process_quotes_minimal.task_entry -Message 'task-entry 第 2 行应返回接令句'
+
+$taskEntryWithCheckLines = @(& $renderScriptPath -Kind 'task-entry' -VersionPath $versionPath -TaskEntryMode 'checked')
+Assert-PanelResponseLineCount -ActualLines $taskEntryWithCheckLines -ExpectedCount 3 -Message 'task-entry 在进入检查阶段时应返回 3 行骨架'
+Assert-PanelResponseEqual -Actual $taskEntryWithCheckLines[1] -Expected $versionInfo.boundary_prompt -Message 'task-entry checked 第 2 行应返回真源边界提示'
 
 $analysisQuote = @(& $renderScriptPath -Kind 'process-quote' -Phase 'analysis' -VersionPath $versionPath)
 Assert-PanelResponseLineCount -ActualLines $analysisQuote -ExpectedCount 1 -Message 'process-quote 应只返回 1 行'
@@ -162,6 +165,11 @@ try {
     $runtimeStatusLines = @(& (Join-Path $targetScriptRootPath 'render-panel-response.ps1') -Kind 'status' -RepoRootPath $tempRootPath -TargetCodexHome $targetCodexHomePath)
     Assert-PanelResponseLineCount -ActualLines $runtimeStatusLines -ExpectedCount 6 -Message '运行态 status 应返回 6 行固定状态栏'
     Assert-PanelResponseEqual -Actual $runtimeStatusLines[3] -Expected '关键文件一致性：一致' -Message '运行态 status 应根据 task-start-state.json 回写一致状态'
+
+    $runtimeTaskEntryLines = @(& (Join-Path $targetScriptRootPath 'render-panel-response.ps1') -Kind 'task-entry' -RepoRootPath $tempRootPath -TargetCodexHome $targetCodexHomePath)
+    Assert-PanelResponseLineCount -ActualLines $runtimeTaskEntryLines -ExpectedCount 2 -Message '运行态 task-entry 在沿用已通过状态时不应重复显示边界提示'
+    Assert-PanelResponseEqual -Actual $runtimeTaskEntryLines[0] -Expected $versionInfo.opening_line -Message '运行态 task-entry 第 1 行应返回开场白'
+    Assert-PanelResponseEqual -Actual $runtimeTaskEntryLines[1] -Expected $versionInfo.process_quotes_minimal.task_entry -Message '运行态 task-entry 第 2 行应返回接令句'
 }
 finally {
     if (Test-Path $tempRootPath) {

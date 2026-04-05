@@ -729,6 +729,35 @@ function Get-CodexHomeExportConsistencyState {
     }
 }
 
+function Get-CodexHomeManagedVersionDisciplineViolation {
+    param(
+        [string[]]$ChangedPaths,
+        [string[]]$IncludedFiles
+    )
+
+    if (($null -eq $IncludedFiles) -or ($IncludedFiles.Count -eq 0)) {
+        return ''
+    }
+
+    $managedChangedPaths = @(
+        $ChangedPaths |
+            Where-Object {
+                $_.StartsWith('codex-home-export/') -and
+                ($_.Substring('codex-home-export/'.Length) -in $IncludedFiles)
+            } |
+            Sort-Object -Unique
+    )
+    if ($managedChangedPaths.Count -eq 0) {
+        return ''
+    }
+
+    if ($managedChangedPaths -contains 'codex-home-export/VERSION.json') {
+        return ''
+    }
+
+    return "生产母体受管文件已改动但未同步版本真源：$($managedChangedPaths -join '、')；请同时更新 codex-home-export/VERSION.json，或先重新安装/同步后再提交。"
+}
+
 function Get-CanonicalPanelCommandState {
     $agentsPath = 'AGENTS.md'
     $codexHomeAgentsPath = 'codex-home-export/AGENTS.md'
@@ -759,6 +788,10 @@ function Get-CanonicalPanelCommandState {
     $expectedBoundaryPrompt = '提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。'
     $expectedQuoteSystemVersion = '2.0'
     $expectedTaskEntryTemplate = @(
+        '🪶 军令入帐。亮，即刻接管全局。'
+        '军令已明，亮先接手。'
+    )
+    $expectedTaskEntryWithCheckTemplate = @(
         '🪶 军令入帐。亮，即刻接管全局。'
         $expectedBoundaryPrompt
         '军令已明，亮先接手。'
@@ -791,7 +824,8 @@ function Get-CanonicalPanelCommandState {
     }
     $expectedReplySkeletonLines = @(
         '## 标准回复骨架'
-        '- 开工默认骨架固定为：`开场白 → 固定边界提示 → 接令句`'
+        '- 开工默认骨架固定为：`开场白 → 接令句`'
+        '- 进入检查阶段时固定补 1 行边界提示：`开场白 → 固定边界提示 → 接令句`'
         '- `传令：版本` 固定按 3 行回复：`版本号 / 版本来源 / 真源路径`'
         '- `传令：状态` 固定按 6 行回复：`版本 / 上次检查 / 自动修复 / 关键文件一致性 / 当前模式 / 当前任务`'
         '- 收口默认固定为 3 段：`已完成 / 结果 / 下一步`'
@@ -809,7 +843,8 @@ function Get-CanonicalPanelCommandState {
         '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
         '- 新对话自动提示：`例如：传令：计算1+1=?`'
         '- 默认开场白：`🪶 军令入帐。亮，即刻接管全局。`'
-        '- 固定开工骨架：`开场白 → 固定边界提示 → 接令句`'
+        '- 固定开工骨架：`开场白 → 接令句`'
+        '- 进入检查阶段时：`开场白 → 固定边界提示 → 接令句`'
         ('- 对外流程：`' + ($expectedTaskEntryFlow -join ' → ') + '`')
         ('- 固定边界提示：`' + $expectedBoundaryPrompt + '`')
         '- 固定收口格式：`已完成 / 结果 / 下一步`'
@@ -832,10 +867,12 @@ function Get-CanonicalPanelCommandState {
         '- `触发方式`：只在用户主动输入 `传令：升级` 时触发。'
         '3. 先看系统是否给出示例：`例如：传令：计算1+1=?`'
         '5. 检查回复是否使用固定开场白：`🪶 军令入帐。亮，即刻接管全局。`'
+        '6. 检查回复是否只在进入检查阶段时带出固定边界提示；若未进入检查阶段，不重复显示，也不把检查对象误说成你的项目。'
         '7. 输入 `传令：版本`，检查版本号、版本来源、真源路径是否清楚。'
         '8. 输入 `传令：状态`，检查是否能按固定 6 行说清当前状态。'
         '9. 如需确认升级口径，再输入 `传令：升级`，检查是否明确“默认不自动升级，需用户主动提出”。'
         '- 开工默认骨架稳定，不回退为散乱长段落。'
+        '- 仅在进入检查阶段时显示固定边界提示；不检查时不重复显示。'
         '- `传令：版本` 能说清版本号、版本来源、真源路径。'
         '- `传令：状态` 能按固定 6 行说清当前状态。'
         '- 过程提示一次只显示 1 句，不刷屏。'
@@ -849,7 +886,8 @@ function Get-CanonicalPanelCommandState {
         '- 唯一做事入口：`传令：XXXX`'
         '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
         '- 默认开场白：`🪶 军令入帐。亮，即刻接管全局。`'
-        '- 固定开工骨架：`开场白 → 固定边界提示 → 接令句`'
+        '- 固定开工骨架：`开场白 → 接令句`'
+        '- 进入检查阶段时骨架：`开场白 → 固定边界提示 → 接令句`'
         '- 新对话自动提示：`例如：传令：计算1+1=?`'
         ('- 固定边界提示：`' + $expectedBoundaryPrompt + '`')
         '- 固定收口格式：`已完成 / 结果 / 下一步`'
@@ -859,9 +897,9 @@ function Get-CanonicalPanelCommandState {
         '6. 再输入：`传令：状态`'
         '7. 如需确认升级口径，再输入：`传令：升级`'
         '- `开场白对不对`：是否固定为 `🪶 军令入帐。亮，即刻接管全局。`'
-        '- `开工骨架顺不顺`：是否先开场白，再边界提示，再接令句'
+        '- `开工骨架顺不顺`：是否先开场白，再接令句；若进入检查阶段，再在中间插入边界提示'
         '- `提示清不清楚`：是否给出示例 `例如：传令：计算1+1=?`'
-        '- `边界稳不稳`：是否明确只检查丞相自己，不检查你的项目'
+        '- `边界稳不稳`：是否只在需要检查时显示，且明确只检查丞相自己，不检查你的项目'
         '- `版本对不对`：能否说清版本号、版本来源、真源路径'
         '- `状态稳不稳`：能否按固定 6 行说清当前状态'
         '- `过程句多不多`：是否一次只显示 1 句，不乱刷'
@@ -968,6 +1006,7 @@ function Get-CanonicalPanelCommandState {
     Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.task_entry_flow)) -ExpectedValues $expectedTaskEntryFlow -Label '生产母体 task_entry_flow'
     Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.status_bar_slots)) -ExpectedValues $expectedStatusBarSlots -Label '生产母体 status_bar_slots'
     Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.standard_response_templates.task_entry)) -ExpectedValues $expectedTaskEntryTemplate -Label '生产母体 standard_response_templates.task_entry'
+    Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.standard_response_templates.task_entry_with_check)) -ExpectedValues $expectedTaskEntryWithCheckTemplate -Label '生产母体 standard_response_templates.task_entry_with_check'
     Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.standard_response_templates.version)) -ExpectedValues $expectedVersionTemplate -Label '生产母体 standard_response_templates.version'
     Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.standard_response_templates.status)) -ExpectedValues $expectedStatusTemplate -Label '生产母体 standard_response_templates.status'
     Assert-ExactOrderedValues -SourceValues @(Get-OrderedUniqueValues -Values @($versionInfo.standard_response_templates.closeout_sections)) -ExpectedValues $expectedCloseoutSections -Label '生产母体 standard_response_templates.closeout_sections'
@@ -3428,8 +3467,9 @@ try {
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
 }
+$codexHomeExportConsistencyState = $null
 try {
-    [void](Get-CodexHomeExportConsistencyState)
+    $codexHomeExportConsistencyState = Get-CodexHomeExportConsistencyState
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
@@ -3936,6 +3976,13 @@ foreach ($changedPath in $changedPathList) {
 
     if ((Test-PathStartsWithAnyPrefix -TargetPath $changedPath -Prefixes $blockedPrefixes) -and ($changedPath -notin $blockedPrefixExceptions)) {
         $violationMessages.Add("禁止把运行态或本地工具状态带入公开提交：$changedPath")
+    }
+}
+
+if ($null -ne $codexHomeExportConsistencyState) {
+    $codexHomeManagedVersionViolation = Get-CodexHomeManagedVersionDisciplineViolation -ChangedPaths $changedPathList -IncludedFiles $codexHomeExportConsistencyState.IncludedFiles
+    if (-not [string]::IsNullOrWhiteSpace($codexHomeManagedVersionViolation)) {
+        $violationMessages.Add($codexHomeManagedVersionViolation)
     }
 }
 

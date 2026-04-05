@@ -89,6 +89,11 @@ $testCases = @(
         ExpectedExitCode = 0
     },
     @{
+        Name = 'block-codex-home-export-managed-change-without-version'
+        Paths = @('codex-home-export/README.md')
+        ExpectedExitCode = 1
+    },
+    @{
         Name = 'allow-panel-command-consistency'
         Paths = @('AGENTS.md', 'codex-home-export/VERSION.json', 'codex-home-export/panel-acceptance-checklist.md', 'docs/40-执行/03-面板入口验收.md')
         ExpectedExitCode = 0
@@ -2246,17 +2251,17 @@ finally {
 
 $agentsTaskEntryLineText = '| `传令：XXXX` | 唯一做事入口；`XXXX` 直接写自然语言需求 |'
 $agentsUpgradeLineText = '| `传令：升级` | 仅在用户主动要求时，再处理升级动作 |'
-$agentsReplySkeletonLineText = '- 开工默认骨架固定为：`开场白 → 固定边界提示 → 接令句`'
+$agentsReplySkeletonLineText = '- 开工默认骨架固定为：`开场白 → 接令句`'
 $panelProtocolLineText = '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
 $panelBoundaryLineText = '- 固定边界提示：`提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。`'
-$panelReplySkeletonLineText = '- 固定开工骨架：`开场白 → 固定边界提示 → 接令句`'
+$panelReplySkeletonLineText = '- 固定开工骨架：`开场白 → 接令句`'
 $panelProcessQuoteLineText = '- `收口`：`此事已交卷，现呈结果。`'
 $panelStatusSlotLineText = '- `关键文件一致性`：关键文件是否一致。'
 $panelUpgradeStepLineText = '9. 如需确认升级口径，再输入 `传令：升级`，检查是否明确“默认不自动升级，需用户主动提出”。'
 $checklistCommandSourceLineText = '当前验板命令口径以 `codex-home-export/VERSION.json` 为准。'
 $checklistProtocolLineText = '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
 $checklistBoundaryLineText = '- 固定边界提示：`提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。`'
-$checklistReplySkeletonLineText = '- 固定开工骨架：`开场白 → 固定边界提示 → 接令句`'
+$checklistReplySkeletonLineText = '- 固定开工骨架：`开场白 → 接令句`'
 $checklistCloseoutLineText = '- `收口顺不顺`：如触发收口，能否按 `已完成 / 结果 / 下一步`'
 $checklistStepLineText = '7. 如需确认升级口径，再输入：`传令：升级`'
 $checklistLegacyGuardLineText = '- 入口口径没有回退为旧的多命令体系。'
@@ -2372,7 +2377,7 @@ finally {
 
 try {
     $driftedVersionInfo = Get-Content $codexHomeExportVersionPath -Raw | ConvertFrom-Json
-    $driftedVersionInfo.standard_response_templates.task_entry[2] = '军令已明，亮先随便看看。'
+    $driftedVersionInfo.standard_response_templates.task_entry[1] = '军令已明，亮先随便看看。'
     $driftedVersionContent = ($driftedVersionInfo | ConvertTo-Json -Depth 10)
     [System.IO.File]::WriteAllText($codexHomeExportVersionPath, $driftedVersionContent + [Environment]::NewLine, $utf8NoBom)
 

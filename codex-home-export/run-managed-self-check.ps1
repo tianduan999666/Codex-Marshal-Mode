@@ -1,5 +1,6 @@
 ﻿param(
-    [string]$TargetCodexHome = (Join-Path $env:USERPROFILE '.codex')
+    [string]$TargetCodexHome = (Join-Path $env:USERPROFILE '.codex'),
+    [switch]$MaintainerMode
 )
 
 $ErrorActionPreference = 'Stop'
@@ -118,6 +119,7 @@ Invoke-ManagedSelfCheckStep `
         TargetCodexHome = $resolvedTargetCodexHome
         ExpectedSourceRoot = $resolvedSourceRootPath
         RequireBackupRoot = $true
+        MaintainerMode = $MaintainerMode
     } `
     -Summary '自检卡在“运行态验真”这一步，说明当前安装状态还没完全对齐。' `
     -NextSteps @(

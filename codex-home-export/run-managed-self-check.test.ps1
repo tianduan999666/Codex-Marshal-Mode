@@ -68,10 +68,14 @@ try {
 param(
     [string]$TargetCodexHome = '',
     [string]$ExpectedSourceRoot = '',
-    [switch]$RequireBackupRoot
+    [switch]$RequireBackupRoot,
+    [switch]$MaintainerMode
 )
 
 Write-Host 'STUB: verify-cutover'
+if ($MaintainerMode) {
+    Write-Host 'STUB: verify-cutover maintainer-mode'
+}
 '@
     $smokeStubContent = @'
 param(
@@ -106,6 +110,14 @@ Write-Host 'STUB: verify-provider-auth'
     Assert-OutputContains -Lines $happyOutput -ExpectedText 'STUB: verify-panel-command-smoke' -Message '应执行面板冒烟脚本'
     Assert-OutputContains -Lines $happyOutput -ExpectedText 'STUB: verify-provider-auth' -Message '应执行真实鉴权脚本'
     Assert-OutputContains -Lines $happyOutput -ExpectedText '自检完成。' -Message '三段通过后应返回完成提示'
+
+    $maintainerOutput = @(
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $selfCheckScriptPath -TargetCodexHome $happyTargetCodexHomePath -MaintainerMode 2>&1
+    )
+    $maintainerExitCode = $LASTEXITCODE
+
+    Assert-ExitCode -Actual $maintainerExitCode -Expected 0 -Message '维护者模式自检在三段都通过时也应成功'
+    Assert-OutputContains -Lines $maintainerOutput -ExpectedText 'STUB: verify-cutover maintainer-mode' -Message '维护者模式应把参数传给 verify-cutover'
 }
 finally {
     if (Test-Path $tempRootPath) {

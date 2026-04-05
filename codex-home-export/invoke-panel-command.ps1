@@ -122,6 +122,7 @@ function Write-ContinueActiveTaskLines {
     $currentTaskText = Format-ActiveTaskDisplayText -ActiveTaskContext $ActiveTaskContext
     Write-PanelCommandLinesSafe -Arguments @{
         Kind = 'task-entry'
+        TaskEntryMode = 'unchecked'
         VersionPath = $versionSourcePath
         RepoRootPath = $resolvedRepoRootPath
         TargetCodexHome = $resolvedTargetCodexHome
@@ -183,6 +184,7 @@ switch ($PSCmdlet.ParameterSetName) {
     'task-preview' {
         Write-PanelCommandLinesSafe -Arguments @{
             Kind = 'task-entry'
+            TaskEntryMode = 'unchecked'
             VersionPath = $versionSourcePath
             RepoRootPath = $resolvedRepoRootPath
             TargetCodexHome = $resolvedTargetCodexHome

@@ -191,7 +191,7 @@ Write-Info "结果模板：$resultTemplatePath"
 Write-Info "结果稿：$resultDraftPath"
 Write-Info ("结果复核：填完结果稿后，执行 verify-panel-acceptance-result.ps1 -ResultPath ""{0}""。" -f $resultDraftPath)
 Write-Info ("当前官句：{0}" -f $taskEntryLines[0])
-Write-Info ("当前开工骨架：{0} → {1} → {2}" -f $taskEntryLines[0], $taskEntryLines[1], $taskEntryLines[2])
+Write-Info ("当前开工骨架：{0}" -f ($taskEntryLines -join ' → '))
 Write-Info ("当前版本口径：{0}" -f ($versionPreviewLines -join ' | '))
 Write-Info ("当前状态栏顺序：{0}" -f ($statusLabelOrder -join ' / '))
 Write-Info ("当前升级口径：{0}" -f ($upgradePreviewLines -join ' | '))

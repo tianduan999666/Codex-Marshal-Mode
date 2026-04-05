@@ -2,7 +2,8 @@
     [string]$TargetCodexHome = (Join-Path $env:USERPROFILE '.codex'),
     [string]$ExpectedVersion,
     [string]$ExpectedSourceRoot,
-    [switch]$RequireBackupRoot
+    [switch]$RequireBackupRoot,
+    [switch]$MaintainerMode
 )
 
 $ErrorActionPreference = 'Stop'
@@ -79,6 +80,16 @@ function Write-Utf8BomJson([string]$Path, [object]$Payload) {
     $utf8Bom = New-Object System.Text.UTF8Encoding($true)
     $jsonText = ($Payload | ConvertTo-Json -Depth 6)
     [System.IO.File]::WriteAllText($Path, $jsonText, $utf8Bom)
+}
+
+function Format-FriendlyList([string[]]$Items) {
+    $orderedItems = @(
+        $Items |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Sort-Object -Unique
+    )
+
+    return ($orderedItems -join '、')
 }
 
 function Get-ManagedFileMappings {
@@ -264,32 +275,69 @@ foreach ($fileMapping in $managedFileMappings) {
     $expectedHashByPath[$fileMapping.RelativeName] = Get-Sha256Text -Path $fileMapping.SourcePath
 }
 
+$runtimeDriftPaths = New-Object System.Collections.Generic.List[string]
+$missingSyncedHashPaths = New-Object System.Collections.Generic.List[string]
+$recordHashDriftPaths = New-Object System.Collections.Generic.List[string]
 foreach ($fileMapping in $managedFileMappings) {
     $hashPath = $fileMapping.RelativeName
     $runtimeHash = Get-Sha256Text -Path $fileMapping.TargetPath
     if ($runtimeHash -ne $expectedHashByPath[$hashPath]) {
-        Stop-FriendlyCutoverCheck `
-            -Summary '运行态文件和源仓不同步。' `
-            -Detail ("不同步文件：{0}" -f $hashPath) `
-            -NextStep '先重跑 install.cmd 或 upgrade.cmd；如果仍不通过，再执行 rollback.cmd。'
+        if ($MaintainerMode) {
+            [void]$runtimeDriftPaths.Add($hashPath)
+        }
+        else {
+            Stop-FriendlyCutoverCheck `
+                -Summary '运行态文件和源仓不同步。' `
+                -Detail ("不同步文件：{0}" -f $hashPath) `
+                -NextStep '先重跑 install.cmd 或 upgrade.cmd；如果仍不通过，再执行 rollback.cmd。'
+        }
     }
 
     if ($runtimeInstallRecord.PSObject.Properties.Name -contains 'synced_hashes') {
         $recordHashItem = @($runtimeInstallRecord.synced_hashes | Where-Object { $_.path -eq $hashPath } | Select-Object -First 1)
         if ($recordHashItem.Count -eq 0) {
-            Stop-FriendlyCutoverCheck `
-                -Summary '安装记录不完整，当前没法确认同步结果。' `
-                -Detail ("缺少 synced_hashes 项：{0}" -f $hashPath) `
-                -NextStep '先重跑 install.cmd，让安装记录重新生成。'
+            if ($MaintainerMode) {
+                [void]$missingSyncedHashPaths.Add($hashPath)
+                continue
+            }
+            else {
+                Stop-FriendlyCutoverCheck `
+                    -Summary '安装记录不完整，当前没法确认同步结果。' `
+                    -Detail ("缺少 synced_hashes 项：{0}" -f $hashPath) `
+                    -NextStep '先重跑 install.cmd，让安装记录重新生成。'
+            }
         }
 
         if ($recordHashItem[0].sha256 -ne $expectedHashByPath[$hashPath]) {
-            Stop-FriendlyCutoverCheck `
-                -Summary '安装记录里的哈希和当前真源不一致。' `
-                -Detail ("哈希不匹配文件：{0}" -f $hashPath) `
-                -NextStep '先重跑 install.cmd 或 upgrade.cmd，再重新验真。'
+            if ($MaintainerMode) {
+                [void]$recordHashDriftPaths.Add($hashPath)
+            }
+            else {
+                Stop-FriendlyCutoverCheck `
+                    -Summary '安装记录里的哈希和当前真源不一致。' `
+                    -Detail ("哈希不匹配文件：{0}" -f $hashPath) `
+                    -NextStep '先重跑 install.cmd 或 upgrade.cmd，再重新验真。'
+            }
         }
     }
+}
+
+if ($MaintainerMode -and (($runtimeDriftPaths.Count -gt 0) -or ($missingSyncedHashPaths.Count -gt 0) -or ($recordHashDriftPaths.Count -gt 0))) {
+    $detailParts = New-Object System.Collections.Generic.List[string]
+    if ($runtimeDriftPaths.Count -gt 0) {
+        [void]$detailParts.Add(("运行态不同步文件：{0}" -f (Format-FriendlyList -Items $runtimeDriftPaths)))
+    }
+    if ($missingSyncedHashPaths.Count -gt 0) {
+        [void]$detailParts.Add(("安装记录缺少 synced_hashes 项：{0}" -f (Format-FriendlyList -Items $missingSyncedHashPaths)))
+    }
+    if ($recordHashDriftPaths.Count -gt 0) {
+        [void]$detailParts.Add(("安装记录哈希不匹配文件：{0}" -f (Format-FriendlyList -Items $recordHashDriftPaths)))
+    }
+
+    Stop-FriendlyCutoverCheck `
+        -Summary '运行态受管文件存在漂移。' `
+        -Detail ($detailParts -join '；') `
+        -NextStep '先重跑 install.cmd 或 upgrade.cmd；如果仍不通过，再执行 rollback.cmd。'
 }
 
 if ($RequireBackupRoot) {

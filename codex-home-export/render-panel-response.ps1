@@ -4,6 +4,8 @@
     [string]$Kind,
     [ValidateSet('', 'task_entry', 'analysis', 'breakdown', 'dispatch', 'wrap_up', 'closeout')]
     [string]$Phase = '',
+    [ValidateSet('auto', 'checked', 'unchecked')]
+    [string]$TaskEntryMode = 'auto',
     [string]$RepoRootPath = '',
     [string]$TargetCodexHome = (Join-Path $env:USERPROFILE '.codex'),
     [string]$VersionPath = '',
@@ -306,9 +308,21 @@ function Get-PanelResponseHintLines([object]$VersionInfo, [hashtable]$BaseTokens
     return @($templateLines | ForEach-Object { Resolve-PanelResponseTemplateLine -Template $_ -TokenMap $BaseTokens })
 }
 
-function Get-PanelResponseTaskEntryLines([object]$VersionInfo, [hashtable]$BaseTokens, [bool]$NeedsCheck = $false) {
-    $templateKey = if ($NeedsCheck) { 'task_entry_with_check' } else { 'task_entry' }
-    $fallbackLines = @('<opening_line>', '<boundary_prompt>', '军令已明，亮先接手。')
+function Get-PanelResponseTaskEntryLines([object]$VersionInfo, [hashtable]$BaseTokens, [string]$TaskEntryMode = 'auto', [bool]$NeedsCheck = $false) {
+    $resolvedTaskEntryMode = switch ($TaskEntryMode) {
+        'checked' { 'checked' }
+        'unchecked' { 'unchecked' }
+        default {
+            if ($NeedsCheck) { 'checked' } else { 'unchecked' }
+        }
+    }
+    $templateKey = if ($resolvedTaskEntryMode -eq 'checked') { 'task_entry_with_check' } else { 'task_entry' }
+    $fallbackLines = if ($resolvedTaskEntryMode -eq 'checked') {
+        @('<opening_line>', '<boundary_prompt>', '军令已明，亮先接手。')
+    }
+    else {
+        @('<opening_line>', '军令已明，亮先接手。')
+    }
 
     if (($null -ne $VersionInfo.standard_response_templates) -and ($null -ne $VersionInfo.standard_response_templates.$templateKey)) {
         $templateLines = Get-PanelResponseArrayOrDefault -Value $VersionInfo.standard_response_templates.$templateKey -Fallback $fallbackLines
@@ -449,7 +463,7 @@ switch ($Kind) {
         Write-Output (Get-PanelResponseHintLines -VersionInfo $versionInfo -BaseTokens $baseTokens)
     }
     'task-entry' {
-        Write-Output (Get-PanelResponseTaskEntryLines -VersionInfo $versionInfo -BaseTokens $baseTokens -NeedsCheck $needsLightCheck)
+        Write-Output (Get-PanelResponseTaskEntryLines -VersionInfo $versionInfo -BaseTokens $baseTokens -TaskEntryMode $TaskEntryMode -NeedsCheck $needsLightCheck)
     }
     'version' {
         Write-Output (Get-PanelResponseVersionLines -VersionInfo $versionInfo -BaseTokens $baseTokens)
