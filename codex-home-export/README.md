@@ -47,6 +47,7 @@ cd Codex-Chancellor-Mode
 - 上述 4 个 `.cmd` 会被同步到 `~/.codex` 根目录；升级、自检、回滚都支持不进仓库目录直接执行。
 - 当前仓没有官方面板前端源码；只治理官方 Codex 面板的入口层、脚本层与真源层，不另扩独立面板。
 - `invoke-panel-command.ps1` 是当前 `传令：XXXX` 的统一脚本路由入口；查询命令与做事命令都先走它。
+- `sync-task-context.ps1` 是当前任务级进度快照、交班单与接班摘要的统一脚本入口；`交班 / 接班 / 继续当前任务 / 一句话开工` 都会复用它。
 - `start-panel-acceptance.ps1` 也固定通过 `invoke-panel-command.ps1` 取查询与开工口径，确保验板与真实入口同源。
 - `render-panel-response.ps1` 是当前面板输出控制面的统一渲染器；开场白、状态栏顺序与收口模板等输出口径都应先回到它和 `VERSION.json` 验证。
 - 公开受管的 `.ps1/.json/.md/.toml` 与入口 `.cmd` 统一按 Windows PowerShell 5.1 兼容治理：文件固定 `UTF-8 with BOM`，脚本内读 JSON 显式指定 `UTF-8`。
@@ -67,11 +68,12 @@ cd Codex-Chancellor-Mode
 1. 首次安装只用上表“安装”。
 2. 日常开工优先回官方 `Codex` 面板，直接说：`传令：修一下登录页`。
 3. 若当前版本在本机已经验过，后续任务默认跳过重复验真，直接建任务；默认开工骨架只显示“开场白 → 接令句”，只有真的进入检查阶段时才补固定边界提示；若已有激活任务，也可直接说：`传令：继续` 或 `传令：继续当前任务`。
-4. 若要升级、自检、回滚，直接回上表 4 个动作；普通用户不再单记底层 `.ps1`。
+4. 若准备切到新聊天，先在当前会话说：`传令：交班`；系统会把 `progress-snapshot.md` 与 `handoff.md` 写到当前任务目录下，并提示你新聊天只需输入：`传令：接班`。
+5. 若要升级、自检、回滚，直接回上表 4 个动作；普通用户不再单记底层 `.ps1`。
 
 ### 维护层补充口径（备用）
 
-1. 当前统一入口链固定为：`VERSION.json` → `invoke-panel-command.ps1` → `render-panel-response.ps1 / start-panel-task.ps1`；其中 `传令：状态` 必须按 `status_bar_slots` 顺序渲染，`传令：升级` 必须按真源 3 行口径渲染，任务入口默认只显示“开场白 → 接令句”，进入检查阶段时才插入固定边界提示，不能自行换序或改写边界。
+1. 当前统一入口链固定为：`VERSION.json` → `invoke-panel-command.ps1` → `render-panel-response.ps1 / start-panel-task.ps1 / sync-task-context.ps1`；其中 `传令：状态` 必须按 `status_bar_slots` 顺序渲染，`传令：升级` 必须按真源 3 行口径渲染，`传令：交班 / 接班` 必须读写当前任务目录下的 `progress-snapshot.md / handoff.md`，任务入口默认只显示“开场白 → 接令句”，进入检查阶段时才插入固定边界提示，不能自行换序或改写边界。
 2. 当前验板链固定为：`start-panel-acceptance.ps1` → `invoke-panel-command.ps1`；不再允许验板脚本绕过统一路由直接拼查询口径。
 3. 跳过重复验真前仍会轻量复核固定轻检清单：`VERSION.json → config/cx-version.json`、`AGENTS.md`、`invoke-panel-command.ps1 → config/chancellor-mode/invoke-panel-command.ps1`、`start-panel-task.ps1 → config/chancellor-mode/start-panel-task.ps1`、`render-panel-response.ps1 → config/chancellor-mode/render-panel-response.ps1`；若不一致，自动回到验真流程。
 4. 如需显式套用仓内模板 provider，再单独执行：`.\install.cmd -ApplyTemplateConfig`；默认安装与升级都不会替你切 provider / key。

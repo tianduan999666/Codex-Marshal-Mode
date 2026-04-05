@@ -11,6 +11,8 @@
   decision-log.md
   gates.yaml
   result.md
+  progress-snapshot.md  # 可选，任务级进度快照
+  handoff.md            # 可选，跨聊天交班单
 ```
 
 模板说明见：`docs/40-执行/02-任务包模板.md`

@@ -23,6 +23,7 @@ $verifyScriptPath = Join-Path $scriptRootPath 'verify-cutover.ps1'
 $installScriptPath = Join-Path $scriptRootPath 'install-to-home.ps1'
 $newTaskScriptPath = Join-Path $scriptRootPath 'new-task.ps1'
 $renderPanelResponseScriptPath = Join-Path $scriptRootPath 'render-panel-response.ps1'
+$syncTaskContextScriptPath = Join-Path $scriptRootPath 'sync-task-context.ps1'
 $versionSourcePath = Join-Path $scriptRootPath 'VERSION.json'
 $agentsSourcePath = Join-Path $scriptRootPath 'AGENTS.md'
 $runtimeVersionPath = Join-Path $resolvedTargetCodexHome 'config\cx-version.json'
@@ -136,6 +137,28 @@ function Invoke-ManagedTaskStep {
     }
 
     return 0
+}
+
+function Invoke-TaskContextSync {
+    param(
+        [string]$Summary,
+        [string[]]$NextSteps = @()
+    )
+
+    $global:LASTEXITCODE = 0
+    try {
+        & $syncTaskContextScriptPath -Mode snapshot -RepoRootPath $resolvedRepoRootPath -TargetCodexHome $resolvedTargetCodexHome -Quiet
+    }
+    catch {
+        Stop-FriendlyTaskStart `
+            -Summary $Summary `
+            -Detail $_.Exception.Message.Trim() `
+            -NextSteps $NextSteps
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
 }
 
 function Write-Utf8BomJson([string]$Path, [object]$Payload) {
@@ -268,7 +291,7 @@ function New-LightCheckHashesPayload([object[]]$ResolvedTargets) {
     )
 }
 
-foreach ($requiredPath in @($verifyScriptPath, $installScriptPath, $newTaskScriptPath, $renderPanelResponseScriptPath, $versionSourcePath, $agentsSourcePath, $runtimeAgentsPath)) {
+foreach ($requiredPath in @($verifyScriptPath, $installScriptPath, $newTaskScriptPath, $renderPanelResponseScriptPath, $syncTaskContextScriptPath, $versionSourcePath, $agentsSourcePath, $runtimeAgentsPath)) {
     if (-not (Test-Path $requiredPath)) {
         Stop-FriendlyTaskStart `
             -Summary '一句话开工缺少必要文件，当前还不能继续。' `
@@ -437,6 +460,12 @@ Invoke-ManagedTaskStep `
     -NextSteps @(
         '先检查任务模板和任务目录是否完整。',
         '修好后再重新发起当前任务。'
+    )
+Invoke-TaskContextSync `
+    -Summary '任务已经记下来了，但任务级进度快照刷新失败了。' `
+    -NextSteps @(
+        '先核对当前任务包 5 件套是否完整。',
+        '修好后再重新发起当前任务，或手动补跑 `sync-task-context.ps1 -Mode snapshot`。'
     )
 Write-RenderedPanelLinesSafe -Arguments @{
     Kind = 'process-quote'

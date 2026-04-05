@@ -1,6 +1,6 @@
 ﻿{
   "name": "chancellor-mode-home-export",
-  "version": "CX-202604051503",
+  "version": "CX-202604052120",
   "stage": "bridge-ready",
   "source_codex_home": "C:/Users/tianduan999/.codex",
   "included": [
@@ -22,6 +22,8 @@
     "run-managed-install.ps1",
     "run-managed-self-check.ps1",
     "run-managed-self-check.test.ps1",
+    "sync-task-context.ps1",
+    "sync-task-context.test.ps1",
     "rollback-from-backup.ps1",
     "self-check.cmd",
     "verify-cutover.ps1",

@@ -2251,8 +2251,10 @@ finally {
 
 $agentsTaskEntryLineText = '| `传令：XXXX` | 唯一做事入口；`XXXX` 直接写自然语言需求 |'
 $agentsUpgradeLineText = '| `传令：升级` | 仅在用户主动要求时，再处理升级动作 |'
+$agentsHandoffLineText = '| `传令：交班` | 为当前激活任务生成交班单与进度快照 |'
 $agentsReplySkeletonLineText = '- 开工默认骨架固定为：`开场白 → 接令句`'
 $panelProtocolLineText = '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
+$panelCrossChatLineText = '- 2 个跨聊天命令：`传令：交班 / 传令：接班`'
 $panelBoundaryLineText = '- 固定边界提示：`提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。`'
 $panelReplySkeletonLineText = '- 固定开工骨架：`开场白 → 接令句`'
 $panelProcessQuoteLineText = '- `收口`：`此事已交卷，现呈结果。`'
@@ -2260,6 +2262,7 @@ $panelStatusSlotLineText = '- `关键文件一致性`：关键文件是否一致
 $panelUpgradeStepLineText = '9. 如需确认升级口径，再输入 `传令：升级`，检查是否明确“默认不自动升级，需用户主动提出”。'
 $checklistCommandSourceLineText = '当前验板命令口径以 `codex-home-export/VERSION.json` 为准。'
 $checklistProtocolLineText = '- 3 个可查命令：`传令：状态 / 传令：版本 / 传令：升级`'
+$checklistCrossChatLineText = '- 2 个跨聊天命令：`传令：交班 / 传令：接班`'
 $checklistBoundaryLineText = '- 固定边界提示：`提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。`'
 $checklistReplySkeletonLineText = '- 固定开工骨架：`开场白 → 接令句`'
 $checklistCloseoutLineText = '- `收口顺不顺`：如触发收口，能否按 `已完成 / 结果 / 下一步`'
@@ -2283,12 +2286,20 @@ if ($agentsLines -notcontains $agentsUpgradeLineText) {
     throw "测试前置条件不满足：$agentsPath 中缺少 $agentsUpgradeLineText"
 }
 
+if ($agentsLines -notcontains $agentsHandoffLineText) {
+    throw "测试前置条件不满足：$agentsPath 中缺少 $agentsHandoffLineText"
+}
+
 if ($agentsLines -notcontains $agentsReplySkeletonLineText) {
     throw "测试前置条件不满足：$agentsPath 中缺少 $agentsReplySkeletonLineText"
 }
 
 if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelProtocolLineText) {
     throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelProtocolLineText"
+}
+
+if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelCrossChatLineText) {
+    throw "测试前置条件不满足：$panelAcceptanceDocPath 中缺少 $panelCrossChatLineText"
 }
 
 if ((Get-Content $panelAcceptanceDocPath) -notcontains $panelBoundaryLineText) {
@@ -2317,6 +2328,10 @@ if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistComm
 
 if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistProtocolLineText) {
     throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistProtocolLineText"
+}
+
+if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistCrossChatLineText) {
+    throw "测试前置条件不满足：$codexHomeExportPanelChecklistPath 中缺少 $checklistCrossChatLineText"
 }
 
 if ((Get-Content $codexHomeExportPanelChecklistPath) -notcontains $checklistBoundaryLineText) {

@@ -19,6 +19,7 @@ $resolvedRepoRootPath = [System.IO.Path]::GetFullPath($RepoRootPath)
 $resolvedTargetCodexHome = [System.IO.Path]::GetFullPath($TargetCodexHome)
 $renderPanelResponseScriptPath = Join-Path $scriptRootPath 'render-panel-response.ps1'
 $startPanelTaskScriptPath = Join-Path $scriptRootPath 'start-panel-task.ps1'
+$syncTaskContextScriptPath = Join-Path $scriptRootPath 'sync-task-context.ps1'
 $sourceVersionPath = Join-Path $scriptRootPath 'VERSION.json'
 $runtimeVersionPath = Join-Path (Split-Path -Parent $scriptRootPath) 'cx-version.json'
 $versionSourcePath = if (Test-Path $sourceVersionPath) { $sourceVersionPath } else { $runtimeVersionPath }
@@ -163,7 +164,61 @@ function Invoke-PanelTaskStart {
     }
 }
 
-foreach ($requiredPath in @($renderPanelResponseScriptPath, $startPanelTaskScriptPath, $versionSourcePath)) {
+function Invoke-TaskContextStep {
+    param(
+        [ValidateSet('snapshot', 'write', 'read')]
+        [string]$Mode
+    )
+
+    $global:LASTEXITCODE = 0
+    try {
+        return @(
+            & $syncTaskContextScriptPath `
+                -Mode $Mode `
+                -RepoRootPath $resolvedRepoRootPath `
+                -TargetCodexHome $resolvedTargetCodexHome
+        )
+    }
+    catch {
+        $messageByMode = @{
+            snapshot = '当前任务存在，但任务级进度快照刷新失败了。'
+            write = '丞相已经接到交班传令，但交班材料落盘失败了。'
+            read = '丞相已经接到接班传令，但读取交班材料失败了。'
+        }
+        Stop-FriendlyPanelEntry `
+            -Summary ("{0} 原始错误：{1}" -f $messageByMode[$Mode], $_.Exception.Message.Trim()) `
+            -NextStep '先核对当前任务包 5 件套是否完整，再重试当前传令。'
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+
+    return @()
+}
+
+function Write-TaskContextCommandLines {
+    param(
+        [ValidateSet('write', 'read')]
+        [string]$Mode
+    )
+
+    Write-PanelCommandLinesSafe -Arguments @{
+        Kind = 'task-entry'
+        TaskEntryMode = 'unchecked'
+        VersionPath = $versionSourcePath
+        RepoRootPath = $resolvedRepoRootPath
+        TargetCodexHome = $resolvedTargetCodexHome
+    } -Summary '丞相已经接到传令，但开工骨架渲染失败了。' -NextStep '先执行 `self-check.cmd` 检查渲染链路，再回面板重试。'
+
+    foreach ($line in @(Invoke-TaskContextStep -Mode $Mode)) {
+        if (-not [string]::IsNullOrWhiteSpace([string]$line)) {
+            Write-Output $line
+        }
+    }
+}
+
+foreach ($requiredPath in @($renderPanelResponseScriptPath, $startPanelTaskScriptPath, $syncTaskContextScriptPath, $versionSourcePath)) {
     if (-not (Test-Path $requiredPath)) {
         Stop-FriendlyPanelEntry `
             -Summary '丞相入口缺少必要脚本，当前没法正常接令。' `
@@ -237,7 +292,29 @@ switch ($commandPayload) {
             break
         }
 
+        Invoke-TaskContextStep -Mode 'snapshot' | Out-Null
+
         Write-ContinueActiveTaskLines -ActiveTaskContext $activeTaskContext
+        break
+    }
+    '交班' {
+        if ($null -eq $activeTaskContext) {
+            Stop-FriendlyPanelEntry `
+                -Summary '当前没有激活任务，不能直接交班。' `
+                -NextStep '请先输入 `传令：你的需求` 建立任务，或用 `传令：继续当前任务` 接上现有任务。'
+        }
+
+        Write-TaskContextCommandLines -Mode 'write'
+        break
+    }
+    '接班' {
+        if ($null -eq $activeTaskContext) {
+            Stop-FriendlyPanelEntry `
+                -Summary '当前没有激活任务，不能直接接班。' `
+                -NextStep '请先输入 `传令：你的需求` 建立任务，或用 `传令：继续当前任务` 接上现有任务。'
+        }
+
+        Write-TaskContextCommandLines -Mode 'read'
         break
     }
     default {
