@@ -50,6 +50,7 @@ cd Codex-Chancellor-Mode
 - `sync-task-context.ps1` 是当前任务级进度快照、交班单与接班摘要的统一脚本入口；`交班 / 接班 / 继续当前任务 / 一句话开工` 都会复用它。
 - `start-panel-acceptance.ps1` 也固定通过 `invoke-panel-command.ps1` 取查询与开工口径，确保验板与真实入口同源。
 - `render-panel-response.ps1` 是当前面板输出控制面的统一渲染器；开场白、状态栏顺序与收口模板等输出口径都应先回到它和 `VERSION.json` 验证。
+- `quote-candidates.json` 是丞相候选金句库；只放备用开场句、完成态句与补信息句，不接主流程默认槽位。
 - 公开受管的 `.ps1/.json/.md/.toml` 与入口 `.cmd` 统一按 Windows PowerShell 5.1 兼容治理：文件固定 `UTF-8 with BOM`，脚本内读 JSON 显式指定 `UTF-8`。
 
 ## 使用原则

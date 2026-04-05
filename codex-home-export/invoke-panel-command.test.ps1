@@ -18,6 +18,21 @@ function Assert-PanelCommandLineCount([string[]]$ActualLines, [int]$ExpectedCoun
     }
 }
 
+function Invoke-PanelCommandExternal([hashtable]$Arguments) {
+    $argumentList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $invokeScriptPath)
+    foreach ($key in $Arguments.Keys) {
+        $argumentList += ('-{0}' -f $key)
+        $argumentList += [string]$Arguments[$key]
+    }
+
+    $lines = @(& powershell.exe @argumentList *>&1 | ForEach-Object { [string]$_ })
+    return [pscustomobject]@{
+        ExitCode = $LASTEXITCODE
+        Lines = $lines
+        Text = ($lines -join "`n")
+    }
+}
+
 if (-not (Test-Path $invokeScriptPath)) {
     throw "缺少入口路由脚本：$invokeScriptPath"
 }
@@ -57,6 +72,27 @@ $taskPreviewLines = @(& $invokeScriptPath '传令：修一下登录页' -DryRunT
 Assert-PanelCommandLineCount -ActualLines $taskPreviewLines -ExpectedCount 2 -Message 'DryRunTaskStart 应返回 2 行'
 Assert-PanelCommandEqual -Actual $taskPreviewLines[0] -Expected '路由结果：task-start' -Message 'DryRunTaskStart 应返回 task-start 路由结果'
 Assert-PanelCommandEqual -Actual $taskPreviewLines[1] -Expected '任务标题：修一下登录页' -Message 'DryRunTaskStart 应返回任务标题'
+
+$missingTaskRoot = Join-Path $env:TEMP ('cx-missing-task-' + [guid]::NewGuid().ToString('N'))
+try {
+    New-Item -ItemType Directory -Force -Path $missingTaskRoot | Out-Null
+    $missingTaskResult = Invoke-PanelCommandExternal -Arguments @{
+        CommandText = '传令：继续'
+        RepoRootPath = $missingTaskRoot
+    }
+    Assert-PanelCommandEqual -Actual ([string]$missingTaskResult.ExitCode) -Expected '1' -Message '无激活任务时传令：继续 应返回失败退出码'
+    if ($missingTaskResult.Text -notlike '*亮已看见主线，还需主公补一段范围。*') {
+        throw ('无激活任务时传令：继续 应先给出丞相补范围提示；实际：{0}' -f $missingTaskResult.Text)
+    }
+    if ($missingTaskResult.Text -notlike '*当前没有激活任务，不能直接继续。*') {
+        throw ('无激活任务时传令：继续 应说明当前没有激活任务；实际：{0}' -f $missingTaskResult.Text)
+    }
+}
+finally {
+    if (Test-Path $missingTaskRoot) {
+        Remove-Item -Recurse -Force -LiteralPath $missingTaskRoot
+    }
+}
 
 $continueTestRoot = Join-Path $env:TEMP ('cx-continue-' + [guid]::NewGuid().ToString('N'))
 try {

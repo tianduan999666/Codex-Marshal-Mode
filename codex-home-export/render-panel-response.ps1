@@ -1,9 +1,10 @@
 ﻿param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('hint', 'task-entry', 'version', 'status', 'upgrade', 'process-quote', 'closeout')]
+    [ValidateSet('hint', 'task-entry', 'version', 'status', 'upgrade', 'process-quote', 'support-quote', 'closeout')]
     [string]$Kind,
     [ValidateSet('', 'task_entry', 'analysis', 'breakdown', 'dispatch', 'wrap_up', 'closeout')]
     [string]$Phase = '',
+    [string]$QuoteKey = '',
     [ValidateSet('auto', 'checked', 'unchecked')]
     [string]$TaskEntryMode = 'auto',
     [string]$RepoRootPath = '',
@@ -70,6 +71,11 @@ function Get-PanelResponseStringOrDefault([string]$Value, [string]$Fallback) {
     return $Value
 }
 
+function Get-PanelResponseOptionalQuoteLibraryPath([object]$VersionInfo, [string]$ScriptRootPath) {
+    $relativePath = Get-PanelResponseStringOrDefault -Value ([string]$VersionInfo.optional_quote_library_path) -Fallback 'quote-candidates.json'
+    return Join-Path $ScriptRootPath ($relativePath -replace '/', '\')
+}
+
 function Get-PanelResponseArrayOrDefault([object]$Value, [object[]]$Fallback) {
     if ($null -eq $Value) {
         return $Fallback
@@ -103,6 +109,15 @@ function Get-PanelResponseSha256OrEmpty([string]$Path) {
     }
 
     return ([System.BitConverter]::ToString($hashBytes) -replace '-', '').ToLowerInvariant()
+}
+
+function Read-PanelResponseQuoteCandidates([object]$VersionInfo, [string]$ScriptRootPath) {
+    $quoteLibraryPath = Get-PanelResponseOptionalQuoteLibraryPath -VersionInfo $VersionInfo -ScriptRootPath $ScriptRootPath
+    if (-not (Test-Path $quoteLibraryPath)) {
+        return $null
+    }
+
+    return (Get-Content -Raw -Encoding UTF8 -Path $quoteLibraryPath | ConvertFrom-Json)
 }
 
 function Resolve-PanelResponseTemplateLine([string]$Template, [hashtable]$TokenMap) {
@@ -420,6 +435,37 @@ function Get-PanelResponseProcessQuoteText([object]$VersionInfo, [string]$PhaseN
     return Get-PanelResponseStringOrDefault -Value $quoteText -Fallback $defaultQuoteMap[$PhaseName]
 }
 
+function Get-PanelResponseSupportQuoteText([object]$VersionInfo, [string]$ScriptRootPath, [string]$RequestedQuoteKey) {
+    $fallbackQuoteMap = @{
+        missing_info = '此局可破，但还缺一份关键信报。'
+        need_scope = '亮已看见主线，还需主公补一段范围。'
+        need_decision = '此处有两路都能走，请主公拍板哪一路更重。'
+        high_risk = '若强行动手，快是快，未必稳；请主公补一项关键前提。'
+    }
+
+    if ([string]::IsNullOrWhiteSpace($RequestedQuoteKey)) {
+        Stop-FriendlyPanelRender `
+            -Summary '渲染补信息提示时缺少 QuoteKey，当前没法继续。' `
+            -Detail 'Kind=support-quote 时必须提供 QuoteKey。'
+    }
+
+    if (-not $fallbackQuoteMap.ContainsKey($RequestedQuoteKey)) {
+        Stop-FriendlyPanelRender `
+            -Summary '渲染补信息提示时收到未登记的 QuoteKey，当前没法继续。' `
+            -Detail ("未登记的 QuoteKey：{0}" -f $RequestedQuoteKey)
+    }
+
+    $quoteCandidates = Read-PanelResponseQuoteCandidates -VersionInfo $VersionInfo -ScriptRootPath $ScriptRootPath
+    if (($null -ne $quoteCandidates) -and ($null -ne $quoteCandidates.support_quotes)) {
+        $propertyNames = @($quoteCandidates.support_quotes.PSObject.Properties.Name)
+        if ($propertyNames -contains $RequestedQuoteKey) {
+            return Get-PanelResponseStringOrDefault -Value ([string]$quoteCandidates.support_quotes.$RequestedQuoteKey) -Fallback $fallbackQuoteMap[$RequestedQuoteKey]
+        }
+    }
+
+    return $fallbackQuoteMap[$RequestedQuoteKey]
+}
+
 function Get-PanelResponseCloseoutLines([object]$VersionInfo, [string]$ExplicitCompletedText, [string]$ExplicitResultText, [string]$ExplicitNextStepText) {
     $defaultSections = @('已完成', '结果', '下一步')
     $sections = if (($null -ne $VersionInfo.standard_response_templates) -and ($null -ne $VersionInfo.standard_response_templates.closeout_sections)) {
@@ -482,6 +528,9 @@ switch ($Kind) {
         }
 
         Write-Output (Get-PanelResponseProcessQuoteText -VersionInfo $versionInfo -PhaseName $Phase)
+    }
+    'support-quote' {
+        Write-Output (Get-PanelResponseSupportQuoteText -VersionInfo $versionInfo -ScriptRootPath $scriptRootPath -RequestedQuoteKey $QuoteKey)
     }
     'closeout' {
         Write-Output (Get-PanelResponseCloseoutLines -VersionInfo $versionInfo -ExplicitCompletedText $CompletedText -ExplicitResultText $ResultText -ExplicitNextStepText $NextStepText)

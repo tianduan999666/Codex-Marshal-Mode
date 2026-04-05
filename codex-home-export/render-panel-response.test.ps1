@@ -86,6 +86,11 @@ Assert-PanelResponseLineCount -ActualLines $analysisQuote -ExpectedCount 1 -Mess
 Assert-PanelResponseEqual -Actual $analysisQuote[0] -Expected $versionInfo.process_quotes_minimal.analysis -Message 'analysis 过程金句应来自真源'
 Assert-PanelResponseThrows -Action { & $renderScriptPath -Kind 'process-quote' -VersionPath $versionPath } -ExpectedText '渲染最小过程提示时缺少阶段参数' -Message 'process-quote 缺少 Phase 时应报人话'
 
+$supportQuote = @(& $renderScriptPath -Kind 'support-quote' -QuoteKey 'need_scope' -VersionPath $versionPath)
+Assert-PanelResponseLineCount -ActualLines $supportQuote -ExpectedCount 1 -Message 'support-quote 应只返回 1 行'
+Assert-PanelResponseEqual -Actual $supportQuote[0] -Expected '亮已看见主线，还需主公补一段范围。' -Message 'need_scope 补信息句应来自候选金句库'
+Assert-PanelResponseThrows -Action { & $renderScriptPath -Kind 'support-quote' -VersionPath $versionPath } -ExpectedText '渲染补信息提示时缺少 QuoteKey' -Message 'support-quote 缺少 QuoteKey 时应报人话'
+
 $missingVersionPath = Join-Path $env:TEMP ('cx-render-missing-' + [guid]::NewGuid().ToString('N') + '.json')
 Assert-PanelResponseThrows -Action { & $renderScriptPath -Kind 'version' -VersionPath $missingVersionPath } -ExpectedText '渲染口径缺少真源版本文件' -Message '缺少版本文件时应报人话'
 

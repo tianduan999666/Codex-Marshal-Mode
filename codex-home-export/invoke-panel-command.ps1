@@ -27,8 +27,13 @@ $versionSourcePath = if (Test-Path $sourceVersionPath) { $sourceVersionPath } el
 function Stop-FriendlyPanelEntry {
     param(
         [string]$Summary,
+        [string]$LeadLine = '',
         [string]$NextStep = ''
     )
+
+    if (-not [string]::IsNullOrWhiteSpace($LeadLine)) {
+        Write-Host $LeadLine
+    }
 
     if ([string]::IsNullOrWhiteSpace($NextStep)) {
         Write-Host "[ERROR] $Summary" -ForegroundColor Red
@@ -64,6 +69,49 @@ function Write-PanelCommandLinesSafe {
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
+}
+
+function Get-PanelSupportQuoteLine([string]$QuoteKey) {
+    if ([string]::IsNullOrWhiteSpace($QuoteKey)) {
+        return ''
+    }
+
+    $fallbackMap = @{
+        missing_info = '此局可破，但还缺一份关键信报。'
+        need_scope = '亮已看见主线，还需主公补一段范围。'
+        need_decision = '此处有两路都能走，请主公拍板哪一路更重。'
+        high_risk = '若强行动手，快是快，未必稳；请主公补一项关键前提。'
+    }
+
+    $global:LASTEXITCODE = 0
+    try {
+        $quoteLines = @(
+            & $renderPanelResponseScriptPath `
+                -Kind 'support-quote' `
+                -QuoteKey $QuoteKey `
+                -VersionPath $versionSourcePath `
+                -RepoRootPath $resolvedRepoRootPath `
+                -TargetCodexHome $resolvedTargetCodexHome
+        )
+    }
+    catch {
+        return $fallbackMap[$QuoteKey]
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        return $fallbackMap[$QuoteKey]
+    }
+
+    $matchedLine = @(
+        $quoteLines |
+            Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
+            Select-Object -First 1
+    )
+    if ($matchedLine.Count -gt 0) {
+        return [string]$matchedLine[0]
+    }
+
+    return $fallbackMap[$QuoteKey]
 }
 
 function Get-PanelCommandPayload([string]$RawCommandText) {
@@ -282,6 +330,7 @@ switch ($commandPayload) {
     { $_ -in @('继续', '继续当前任务') } {
         if ($null -eq $activeTaskContext) {
             Stop-FriendlyPanelEntry `
+                -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'need_scope') `
                 -Summary '当前没有激活任务，不能直接继续。' `
                 -NextStep '请直接输入 `传令：你的需求`，例如：`传令：修一下登录页`。'
         }
@@ -300,6 +349,7 @@ switch ($commandPayload) {
     '交班' {
         if ($null -eq $activeTaskContext) {
             Stop-FriendlyPanelEntry `
+                -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'need_scope') `
                 -Summary '当前没有激活任务，不能直接交班。' `
                 -NextStep '请先输入 `传令：你的需求` 建立任务，或用 `传令：继续当前任务` 接上现有任务。'
         }
@@ -310,6 +360,7 @@ switch ($commandPayload) {
     '接班' {
         if ($null -eq $activeTaskContext) {
             Stop-FriendlyPanelEntry `
+                -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'need_scope') `
                 -Summary '当前没有激活任务，不能直接接班。' `
                 -NextStep '请先输入 `传令：你的需求` 建立任务，或用 `传令：继续当前任务` 接上现有任务。'
         }
