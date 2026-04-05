@@ -234,7 +234,7 @@ foreach ($candidateUrl in $candidateUrls) {
     if (($probeResult.status_code -in @(401, 403)) -or $lowerBody.Contains('user not found') -or $lowerBody.Contains('invalid') -or $lowerBody.Contains('unauthorized') -or $lowerBody.Contains('forbidden') -or $lowerBody.Contains('api key')) {
         Stop-FriendlyProviderAuthCheck `
             -Summary ("当前 provider={0} 的真实鉴权没通过。" -f $providerName) `
-            -Detail ("url={0} status={1}" -f $candidateUrl, $probeResult.status_code) `
+            -Detail ("真实鉴权接口拒绝了这次请求（URL：{0}，HTTP 状态：{1}）。" -f $candidateUrl, $probeResult.status_code) `
             -NextStep '先确认 config.toml 里的 provider、base_url 和 auth.json 里的 key 是同一套；确认前先不要直接开始真实开发任务。'
     }
 
@@ -255,7 +255,7 @@ if (($null -ne $lastResult) -and ($lastResult.status_code -eq 404)) {
 if ($null -ne $lastResult) {
     Stop-FriendlyProviderAuthCheck `
         -Summary ("当前 provider={0} 的真实鉴权检查没拿到可用响应。" -f $providerName) `
-        -Detail ("status={0} message={1}" -f $lastResult.status_code, $lastResult.message) `
+        -Detail ("真实鉴权接口没返回可用结果（HTTP 状态：{0}，原始信息：{1}）。" -f $lastResult.status_code, $lastResult.message) `
         -NextStep '先确认网络、base_url 和 key，再回官方 Codex 面板做一次真人验证。'
 }
 
