@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 $scriptRootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $targetScriptPath = Join-Path $scriptRootPath 'resolve-git-index-lock.ps1'
@@ -80,6 +80,10 @@ $blockingGitProcess = $null
 
 try {
     New-Item -ItemType Directory -Path $gitDirectoryPath -Force | Out-Null
+
+    $missingRepoPath = Join-Path $testRootPath 'missing-repo'
+    $missingRepoLines = Invoke-LockCase -TargetScriptPath $targetScriptPath -RepoRootPath $missingRepoPath
+    Assert-OutputContains -Lines $missingRepoLines -ExpectedText '指定的仓库路径不存在，当前没法检查 index.lock。' -Message '缺路径场景应提示仓库路径不存在'
 
     $noLockLines = Invoke-LockCase -TargetScriptPath $targetScriptPath -RepoRootPath $repoRootPath
     Assert-OutputContains -Lines $noLockLines -ExpectedText '未发现 `.git/index.lock`' -Message '无锁场景应提示可继续'

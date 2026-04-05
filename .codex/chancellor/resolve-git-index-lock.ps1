@@ -1,14 +1,44 @@
-param(
+﻿param(
     [string]$RepoRootPath = '.',
     [switch]$ClearStaleLock
 )
 
 $ErrorActionPreference = 'Stop'
 
+function Write-WarnLine([string]$Message) {
+    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+}
+
+function Stop-FriendlyGitIndexLock {
+    param(
+        [string]$Summary,
+        [string]$Detail = '',
+        [string]$NextStep = ''
+    )
+
+    Write-Host ''
+    Write-Host "[ERROR] $Summary" -ForegroundColor Red
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        Write-WarnLine ("原因：{0}" -f $Detail)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($NextStep)) {
+        Write-Output ("下一步：{0}" -f $NextStep)
+    }
+
+    exit 1
+}
+
 function Resolve-GitDirectoryPath {
     param([string]$RepoRootPath)
 
-    $resolvedRepoRootPath = (Resolve-Path $RepoRootPath).Path
+    if (-not (Test-Path -LiteralPath $RepoRootPath)) {
+        Stop-FriendlyGitIndexLock `
+            -Summary '指定的仓库路径不存在，当前没法检查 index.lock。' `
+            -Detail ("RepoRootPath 不存在：{0}" -f $RepoRootPath) `
+            -NextStep '先确认仓库路径写对了，再重新执行 resolve-git-index-lock.ps1。'
+    }
+
+    $resolvedRepoRootPath = (Resolve-Path -LiteralPath $RepoRootPath).Path
     $dotGitPath = Join-Path $resolvedRepoRootPath '.git'
 
     if (Test-Path $dotGitPath -PathType Container) {
@@ -26,7 +56,10 @@ function Resolve-GitDirectoryPath {
         }
     }
 
-    throw "未找到有效 Git 目录：$resolvedRepoRootPath"
+    Stop-FriendlyGitIndexLock `
+        -Summary '当前目录看起来不是有效 Git 仓库，没法继续检查 index.lock。' `
+        -Detail ("未找到有效 Git 目录：{0}" -f $resolvedRepoRootPath) `
+        -NextStep '先确认这里是正确的 Git 仓库根目录，再重新执行 resolve-git-index-lock.ps1。'
 }
 
 function Get-ActiveGitProcesses {
@@ -70,7 +103,7 @@ function Get-LockRelevantGitProcesses {
     )
 }
 
-$resolvedRepoRootPath = (Resolve-Path $RepoRootPath).Path
+$resolvedRepoRootPath = [System.IO.Path]::GetFullPath($RepoRootPath)
 $gitDirectoryPath = Resolve-GitDirectoryPath -RepoRootPath $resolvedRepoRootPath
 $indexLockPath = Join-Path $gitDirectoryPath 'index.lock'
 
