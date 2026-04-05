@@ -73,12 +73,12 @@ Assert-PanelResponseLineCount -ActualLines $hintLines -ExpectedCount 1 -Message 
 Assert-PanelResponseEqual -Actual $hintLines[0] -Expected $versionInfo.new_chat_hint -Message 'hint 应返回真源示例句'
 
 $taskEntryLines = @(& $renderScriptPath -Kind 'task-entry' -VersionPath $versionPath -TaskEntryMode 'unchecked')
-Assert-PanelResponseLineCount -ActualLines $taskEntryLines -ExpectedCount 2 -Message 'task-entry 在未进入检查阶段时应返回 2 行骨架'
+Assert-PanelResponseLineCount -ActualLines $taskEntryLines -ExpectedCount 2 -Message 'task-entry 在未实际执行自检前应返回 2 行骨架'
 Assert-PanelResponseEqual -Actual $taskEntryLines[0] -Expected $versionInfo.opening_line -Message 'task-entry 第 1 行应返回真源开场白'
 Assert-PanelResponseEqual -Actual $taskEntryLines[1] -Expected $versionInfo.process_quotes_minimal.task_entry -Message 'task-entry 第 2 行应返回接令句'
 
 $taskEntryWithCheckLines = @(& $renderScriptPath -Kind 'task-entry' -VersionPath $versionPath -TaskEntryMode 'checked')
-Assert-PanelResponseLineCount -ActualLines $taskEntryWithCheckLines -ExpectedCount 3 -Message 'task-entry 在进入检查阶段时应返回 3 行骨架'
+Assert-PanelResponseLineCount -ActualLines $taskEntryWithCheckLines -ExpectedCount 3 -Message 'task-entry 在实际执行自检前应返回 3 行骨架'
 Assert-PanelResponseEqual -Actual $taskEntryWithCheckLines[1] -Expected $versionInfo.boundary_prompt -Message 'task-entry checked 第 2 行应返回真源边界提示'
 
 $analysisQuote = @(& $renderScriptPath -Kind 'process-quote' -Phase 'analysis' -VersionPath $versionPath)

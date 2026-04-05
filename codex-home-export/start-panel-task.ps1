@@ -97,7 +97,7 @@ function Write-RenderedPanelLinesSafe {
     )
 
     try {
-        Write-RenderedPanelLines @Arguments
+        Write-RenderedPanelLines -Arguments $Arguments
     }
     catch {
         Stop-FriendlyTaskStart `
@@ -317,10 +317,23 @@ $currentRuntimeVersion = if ($null -ne $runtimeVersionInfo) { $runtimeVersionInf
 $currentSourceRoot = $scriptRootPath
 $currentSourceAgentsHash = Get-Sha256TextOrEmpty -Path $agentsSourcePath
 $currentRuntimeAgentsHash = Get-Sha256TextOrEmpty -Path $runtimeAgentsPath
+$authExists = Test-Path $authPath
+
+$canSkipVerify = $false
+if (-not $ForceVerify) {
+    if (($null -ne $taskStartState) -and ($taskStartState.verify_status -eq 'passed') -and ($taskStartState.cx_version -eq $currentSourceVersion) -and ($taskStartState.runtime_version -eq $currentRuntimeVersion) -and ($taskStartState.source_root -eq $currentSourceRoot) -and ($currentSourceVersion -eq $currentRuntimeVersion) -and (Test-LightCheckTargetsSatisfied -TaskStartState $taskStartState -ResolvedTargets $lightCheckTargets)) {
+        $canSkipVerify = $true
+    }
+}
+
+$repairUsed = $false
+$verifySkipped = $false
+$taskEntryMode = if ($canSkipVerify -or (-not $authExists)) { 'unchecked' } else { 'checked' }
 
 Write-Host ''
 Write-RenderedPanelLinesSafe -Arguments @{
     Kind = 'task-entry'
+    TaskEntryMode = $taskEntryMode
     VersionPath = $versionSourcePath
     RepoRootPath = $resolvedRepoRootPath
     TargetCodexHome = $resolvedTargetCodexHome
@@ -337,15 +350,6 @@ Write-RenderedPanelLinesSafe -Arguments @{
     '修好后再重新发起当前任务。'
 )
 
-$canSkipVerify = $false
-if (-not $ForceVerify) {
-    if (($null -ne $taskStartState) -and ($taskStartState.verify_status -eq 'passed') -and ($taskStartState.cx_version -eq $currentSourceVersion) -and ($taskStartState.runtime_version -eq $currentRuntimeVersion) -and ($taskStartState.source_root -eq $currentSourceRoot) -and ($currentSourceVersion -eq $currentRuntimeVersion) -and (Test-LightCheckTargetsSatisfied -TaskStartState $taskStartState -ResolvedTargets $lightCheckTargets)) {
-        $canSkipVerify = $true
-    }
-}
-
-$repairUsed = $false
-$verifySkipped = $false
 Write-RenderedPanelLinesSafe -Arguments @{
     Kind = 'process-quote'
     Phase = 'breakdown'
@@ -359,7 +363,7 @@ if ($canSkipVerify) {
     Write-Info ("检测到当前版本 {0} 已完成上次自检，本次直接进入记任务与执行。" -f $currentSourceVersion)
 }
 else {
-    if (-not (Test-Path $authPath)) {
+    if (-not $authExists) {
         Stop-FriendlyTaskStart `
             -Summary '当前还没登录官方 Codex，不能自动开工。' `
             -NextSteps @(
