@@ -236,7 +236,7 @@ if ($runtimeVersionInfo.cx_version -ne $expectedVersionValue) {
 if ($runtimeVersionInfo.source_of_truth -ne 'codex-home-export') {
     Stop-FriendlyCutoverCheck `
         -Summary '运行态真源标记不对，当前不能算接管完成。' `
-        -Detail ("source_of_truth={0}" -f $runtimeVersionInfo.source_of_truth) `
+        -Detail ("运行态真源标记值不对（字段：source_of_truth，实际：{0}）。" -f $runtimeVersionInfo.source_of_truth) `
         -NextStep '先重新安装当前仓版本，再重新验真。'
 }
 
