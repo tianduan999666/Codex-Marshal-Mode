@@ -219,6 +219,8 @@ Write-Info ("ProbeBaseUrl={0}" -f $providerBaseUrl.Trim().TrimEnd('/'))
 Write-Info '本次只检查当前 provider/auth 能不能连通，不会改你的项目。'
 
 $lastResult = $null
+$bestFailureResult = $null
+$bestFailureUrl = ''
 foreach ($candidateUrl in $candidateUrls) {
     Write-Info ("尝试真实鉴权探针：GET {0}" -f $candidateUrl)
     $probeResult = Test-ProviderProbeUrl -Uri $candidateUrl -ApiKey $apiKey
@@ -227,6 +229,11 @@ foreach ($candidateUrl in $candidateUrls) {
     if ($probeResult.success) {
         Write-Ok ("真实 provider/auth 鉴权检查通过：HTTP {0}" -f $probeResult.status_code)
         exit 0
+    }
+
+    if (($probeResult.status_code -gt 0) -and ($probeResult.status_code -ne 404) -and ($null -eq $bestFailureResult)) {
+        $bestFailureResult = $probeResult
+        $bestFailureUrl = $candidateUrl
     }
 
     $responseBody = [string]$probeResult.body
@@ -250,6 +257,13 @@ if (($null -ne $lastResult) -and ($lastResult.status_code -eq 404)) {
         Write-WarnLine $manualValidationHint
     }
     exit 0
+}
+
+if ($null -ne $bestFailureResult) {
+    Stop-FriendlyProviderAuthCheck `
+        -Summary ("当前 provider={0} 的真实鉴权检查没拿到可用响应。" -f $providerName) `
+        -Detail ("真实鉴权接口没返回可用结果（URL：{0}，HTTP 状态：{1}，原始信息：{2}）。" -f $bestFailureUrl, $bestFailureResult.status_code, $bestFailureResult.message) `
+        -NextStep '先确认网络、base_url 和 key，再回官方 Codex 面板做一次真人验证。'
 }
 
 if ($null -ne $lastResult) {
