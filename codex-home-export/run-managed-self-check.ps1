@@ -85,7 +85,7 @@ $sourceRootPath = [string]$installRecord.source_root
 if ([string]::IsNullOrWhiteSpace($sourceRootPath)) {
     Stop-FriendlySelfCheck `
         -Summary '安装记录不完整，当前自检不能继续。' `
-        -Detail ("安装记录缺少 source_root：{0}" -f $runtimeInstallRecordPath) `
+        -Detail ("安装记录里少了源仓路径（字段：source_root，记录文件：{0}）。" -f $runtimeInstallRecordPath) `
         -NextSteps @(
             '先重新执行 `install.cmd` 修复安装记录。',
             '如果仍不通过，再考虑 `rollback.cmd`。'
