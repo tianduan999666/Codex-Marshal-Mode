@@ -1,6 +1,6 @@
 ﻿{
   "name": "chancellor-mode-home-export",
-  "version": "CX-202604060145",
+  "version": "CX-202604060148",
   "stage": "bridge-ready",
   "source_codex_home": "C:/Users/tianduan999/.codex",
   "included": [
@@ -34,6 +34,7 @@
     "upgrade-managed-install.test.ps1",
     "upgrade.cmd",
     "verify-panel-command-smoke.ps1",
+    "verify-panel-command-smoke.test.ps1",
     "verify-provider-auth.ps1",
     "verify-provider-auth.test.ps1",
     "start-panel-acceptance.ps1",

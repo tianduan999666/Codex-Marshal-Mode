@@ -118,6 +118,32 @@ Write-Host 'STUB: verify-provider-auth'
 
     Assert-ExitCode -Actual $maintainerExitCode -Expected 0 -Message '维护者模式自检在三段都通过时也应成功'
     Assert-OutputContains -Lines $maintainerOutput -ExpectedText 'STUB: verify-cutover maintainer-mode' -Message '维护者模式应把参数传给 verify-cutover'
+
+    $verifyFailureStubContent = @'
+param(
+    [string]$TargetCodexHome = '',
+    [string]$ExpectedSourceRoot = '',
+    [switch]$RequireBackupRoot,
+    [switch]$MaintainerMode
+)
+
+Write-Host '若强行动手，快是快，未必稳；请主公补一项关键前提。'
+Write-Host '[ERROR] 运行态受管文件存在漂移。'
+Write-Host '[WARN] 原因：运行态文件内容没对齐：config/chancellor-mode/render-panel-response.ps1；安装记录缺少同步哈希记录（字段：synced_hashes）：config/chancellor-mode/start-panel-task.ps1'
+exit 1
+'@
+    Write-Utf8BomFile -Path $verifyStubPath -Content $verifyFailureStubContent
+
+    $maintainerFailureOutput = @(
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $selfCheckScriptPath -TargetCodexHome $happyTargetCodexHomePath -MaintainerMode 2>&1
+    )
+    $maintainerFailureExitCode = $LASTEXITCODE
+
+    Assert-ExitCode -Actual $maintainerFailureExitCode -Expected 1 -Message '维护者模式下 verify-cutover 失败时自检应停止'
+    Assert-OutputContains -Lines $maintainerFailureOutput -ExpectedText '若强行动手，快是快，未必稳；请主公补一项关键前提。' -Message '维护者模式失败时应保留漂移补位句'
+    Assert-OutputContains -Lines $maintainerFailureOutput -ExpectedText '运行态受管文件存在漂移。' -Message '维护者模式失败时应保留汇总标题'
+    Assert-OutputContains -Lines $maintainerFailureOutput -ExpectedText 'config/chancellor-mode/render-panel-response.ps1' -Message '维护者模式失败时应保留运行态漂移明细'
+    Assert-OutputContains -Lines $maintainerFailureOutput -ExpectedText 'config/chancellor-mode/start-panel-task.ps1' -Message '维护者模式失败时应保留同步哈希缺失明细'
 }
 finally {
     if (Test-Path $tempRootPath) {
