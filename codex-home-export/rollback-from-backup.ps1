@@ -60,14 +60,14 @@ $resolvedBackupRoot = if ([string]::IsNullOrWhiteSpace($BackupRoot)) { $installR
 if ([string]::IsNullOrWhiteSpace($resolvedBackupRoot)) {
     Stop-FriendlyRollback `
         -Summary '当前没有可用备份目录，回滚现在不能继续。' `
-        -Detail '安装记录缺少 backup_root，且未显式传入 -BackupRoot。' `
+        -Detail '安装记录里少了备份目录路径（字段：backup_root），且这次也没显式传入 -BackupRoot。' `
         -NextStep '先找到一份可用备份，再执行 rollback-from-backup.ps1。'
 }
 
 if (-not (Test-Path $resolvedBackupRoot)) {
     Stop-FriendlyRollback `
         -Summary '备份目录不存在，当前不能继续回滚。' `
-        -Detail ("BackupRoot={0}" -f $resolvedBackupRoot) `
+        -Detail ("备份目录路径不存在（BackupRoot={0}）。" -f $resolvedBackupRoot) `
         -NextStep '先确认备份目录路径是否正确；确认前不要继续执行回滚。'
 }
 
