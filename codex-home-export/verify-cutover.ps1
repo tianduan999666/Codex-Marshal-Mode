@@ -265,7 +265,7 @@ foreach ($requiredManagedFile in $managedRelativeNames + @('config/chancellor-mo
     if (-not ($runtimeInstallRecord.managed_files -contains $requiredManagedFile)) {
         Stop-FriendlyCutoverCheck `
             -Summary '安装记录不完整，当前没法确认受管文件都已落地。' `
-            -Detail ("缺少 managed_files 项：{0}" -f $requiredManagedFile) `
+            -Detail ("安装记录里少了受管文件落地记录（字段：managed_files，缺少：{0}）。" -f $requiredManagedFile) `
             -NextStep '先重跑 install.cmd，让安装记录重新生成。'
     }
 }
@@ -303,7 +303,7 @@ foreach ($fileMapping in $managedFileMappings) {
             else {
                 Stop-FriendlyCutoverCheck `
                     -Summary '安装记录不完整，当前没法确认同步结果。' `
-                    -Detail ("缺少 synced_hashes 项：{0}" -f $hashPath) `
+                    -Detail ("安装记录里少了同步哈希记录（字段：synced_hashes，缺少：{0}）。" -f $hashPath) `
                     -NextStep '先重跑 install.cmd，让安装记录重新生成。'
             }
         }
@@ -328,7 +328,7 @@ if ($MaintainerMode -and (($runtimeDriftPaths.Count -gt 0) -or ($missingSyncedHa
         [void]$detailParts.Add(("运行态不同步文件：{0}" -f (Format-FriendlyList -Items $runtimeDriftPaths)))
     }
     if ($missingSyncedHashPaths.Count -gt 0) {
-        [void]$detailParts.Add(("安装记录缺少 synced_hashes 项：{0}" -f (Format-FriendlyList -Items $missingSyncedHashPaths)))
+        [void]$detailParts.Add(("安装记录缺少同步哈希记录（字段：synced_hashes）：{0}" -f (Format-FriendlyList -Items $missingSyncedHashPaths)))
     }
     if ($recordHashDriftPaths.Count -gt 0) {
         [void]$detailParts.Add(("安装记录哈希不匹配文件：{0}" -f (Format-FriendlyList -Items $recordHashDriftPaths)))
