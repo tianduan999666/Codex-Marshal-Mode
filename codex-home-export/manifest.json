@@ -1,6 +1,6 @@
 ﻿{
   "name": "chancellor-mode-home-export",
-  "version": "CX-202604060148",
+  "version": "CX-202604060150",
   "stage": "bridge-ready",
   "source_codex_home": "C:/Users/tianduan999/.codex",
   "included": [
@@ -22,6 +22,7 @@
     "start-panel-task.ps1",
     "start-panel-task.test.ps1",
     "run-managed-install.ps1",
+    "run-managed-install.test.ps1",
     "run-managed-self-check.ps1",
     "run-managed-self-check.test.ps1",
     "sync-task-context.ps1",
