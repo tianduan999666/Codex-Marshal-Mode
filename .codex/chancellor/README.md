@@ -20,4 +20,5 @@
 
 - 想知道“当前该走哪条维护路径”，先看 `docs/40-执行/13-维护层总入口.md`。
 - 想确认“这个运行态文件能不能进公开仓”，先看 `docs/30-方案/02-V4-目录锁定清单.md`，再看 `docs/40-执行/10-本地安全提交流程.md`。
+- 遇到 `.git/index.lock` 疑虑时，先执行 `powershell.exe -ExecutionPolicy Bypass -File .\.codex\chancellor\resolve-git-index-lock.ps1`，不要直接连续重试 Git 命令；脚本会优先按锁文件时间窗口过滤后台常驻 Git 进程，降低误报。
 - 想直接查看当前目录已有脚本，再执行 `Get-ChildItem .codex/chancellor`。
