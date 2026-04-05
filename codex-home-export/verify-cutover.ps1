@@ -11,6 +11,7 @@ $sourceRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $resolvedTargetCodexHome = [System.IO.Path]::GetFullPath($TargetCodexHome)
 $versionSourcePath = Join-Path $sourceRoot 'VERSION.json'
 $manifestSourcePath = Join-Path $sourceRoot 'manifest.json'
+$renderPanelResponseScriptPath = Join-Path $sourceRoot 'render-panel-response.ps1'
 $runtimeMetaRoot = Join-Path $resolvedTargetCodexHome 'config\chancellor-mode'
 $runtimeVersionPath = Join-Path $resolvedTargetCodexHome 'config\cx-version.json'
 $runtimeManifestPath = Join-Path $runtimeMetaRoot 'manifest.json'
@@ -29,11 +30,15 @@ function Write-Ok([string]$Message) {
 function Stop-FriendlyCutoverCheck {
     param(
         [string]$Summary,
+        [string]$LeadLine = '',
         [string]$Detail = '',
         [string]$NextStep = ''
     )
 
     Write-Host ''
+    if (-not [string]::IsNullOrWhiteSpace($LeadLine)) {
+        Write-Host $LeadLine -ForegroundColor Yellow
+    }
     Write-Host "[ERROR] $Summary" -ForegroundColor Red
     if (-not [string]::IsNullOrWhiteSpace($Detail)) {
         Write-Host ("[WARN] 原因：{0}" -f $Detail) -ForegroundColor Yellow
@@ -66,6 +71,52 @@ function Get-Sha256Text([string]$Path) {
 
 function Read-JsonFile([string]$Path) {
     return (Get-Content -Raw -Encoding UTF8 -Path $Path | ConvertFrom-Json)
+}
+
+function Get-PanelSupportQuoteLine([string]$QuoteKey) {
+    if ([string]::IsNullOrWhiteSpace($QuoteKey)) {
+        return ''
+    }
+
+    $fallbackMap = @{
+        missing_info = '此局可破，但还缺一份关键信报。'
+        need_scope = '亮已看见主线，还需主公补一段范围。'
+        need_decision = '此处有两路都能走，请主公拍板哪一路更重。'
+        high_risk = '若强行动手，快是快，未必稳；请主公补一项关键前提。'
+    }
+
+    if (-not (Test-Path $renderPanelResponseScriptPath)) {
+        return $fallbackMap[$QuoteKey]
+    }
+
+    $global:LASTEXITCODE = 0
+    try {
+        $quoteLines = @(
+            & $renderPanelResponseScriptPath `
+                -Kind 'support-quote' `
+                -QuoteKey $QuoteKey `
+                -VersionPath $versionSourcePath `
+                -TargetCodexHome $resolvedTargetCodexHome
+        )
+    }
+    catch {
+        return $fallbackMap[$QuoteKey]
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        return $fallbackMap[$QuoteKey]
+    }
+
+    $matchedLine = @(
+        $quoteLines |
+            Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
+            Select-Object -First 1
+    )
+    if ($matchedLine.Count -gt 0) {
+        return [string]$matchedLine[0]
+    }
+
+    return $fallbackMap[$QuoteKey]
 }
 
 function Ensure-ParentDirectory([string]$Path) {
@@ -200,6 +251,7 @@ foreach ($requiredPath in @($versionSourcePath, $manifestSourcePath, $runtimeVer
     if (-not (Test-Path $requiredPath)) {
         Stop-FriendlyCutoverCheck `
             -Summary '验真缺少必要文件，说明当前安装还没完整落地。' `
+            -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'missing_info') `
             -Detail ("当前机器上少了验真必需文件（文件：{0}）。" -f $requiredPath) `
             -NextStep '先执行 install.cmd 或 upgrade.cmd，把丞相文件重新同步到本机。'
     }
@@ -221,6 +273,7 @@ foreach ($requiredPath in $requiredSourcePaths + $requiredRuntimePaths) {
     if (-not (Test-Path $requiredPath)) {
         Stop-FriendlyCutoverCheck `
             -Summary '验真缺少必要文件，说明源仓或运行态文件不完整。' `
+            -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'missing_info') `
             -Detail ("源仓或运行态里少了验真必需文件（文件：{0}）。" -f $requiredPath) `
             -NextStep '先补齐仓库文件或重跑 install.cmd / upgrade.cmd，再重新验真。'
     }
@@ -229,6 +282,7 @@ foreach ($requiredPath in $requiredSourcePaths + $requiredRuntimePaths) {
 if ($runtimeVersionInfo.cx_version -ne $expectedVersionValue) {
     Stop-FriendlyCutoverCheck `
         -Summary '运行态版本和当前真源版本没对齐。' `
+        -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'high_risk') `
         -Detail ("运行态版本值不对（期望：{0}，实际：{1}）。" -f $expectedVersionValue, $runtimeVersionInfo.cx_version) `
         -NextStep '先重跑 install.cmd 或 upgrade.cmd，让运行态版本追上真源。'
 }
@@ -236,6 +290,7 @@ if ($runtimeVersionInfo.cx_version -ne $expectedVersionValue) {
 if ($runtimeVersionInfo.source_of_truth -ne 'codex-home-export') {
     Stop-FriendlyCutoverCheck `
         -Summary '运行态真源标记不对，当前不能算接管完成。' `
+        -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'high_risk') `
         -Detail ("运行态真源标记值不对（字段：source_of_truth，实际：{0}）。" -f $runtimeVersionInfo.source_of_truth) `
         -NextStep '先重新安装当前仓版本，再重新验真。'
 }
@@ -243,6 +298,7 @@ if ($runtimeVersionInfo.source_of_truth -ne 'codex-home-export') {
 if ($runtimeInstallRecord.source_root -ne $expectedSourceRootValue) {
     Stop-FriendlyCutoverCheck `
         -Summary '安装记录指向的源仓不对，当前运行态可能接的是旧仓。' `
+        -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'high_risk') `
         -Detail ("安装记录里的源仓路径不对（字段：source_root，期望：{0}，实际：{1}）。" -f $expectedSourceRootValue, $runtimeInstallRecord.source_root) `
         -NextStep '先用当前仓重新执行 install.cmd 或 upgrade.cmd。'
 }
@@ -250,6 +306,7 @@ if ($runtimeInstallRecord.source_root -ne $expectedSourceRootValue) {
 if ($runtimeInstallRecord.cx_version -ne $expectedVersionValue) {
     Stop-FriendlyCutoverCheck `
         -Summary '安装记录里的版本和当前真源版本不一致。' `
+        -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'high_risk') `
         -Detail ("安装记录里的版本值不对（字段：cx_version，期望：{0}，实际：{1}）。" -f $expectedVersionValue, $runtimeInstallRecord.cx_version) `
         -NextStep '先重跑 install.cmd 或 upgrade.cmd。'
 }
@@ -257,6 +314,7 @@ if ($runtimeInstallRecord.cx_version -ne $expectedVersionValue) {
 if ($runtimeManifestInfo.version -ne $expectedVersionValue) {
     Stop-FriendlyCutoverCheck `
         -Summary '运行态 manifest 版本和真源版本不一致。' `
+        -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'high_risk') `
         -Detail ("运行态 manifest 版本值不对（字段：version，期望：{0}，实际：{1}）。" -f $expectedVersionValue, $runtimeManifestInfo.version) `
         -NextStep '先重新安装当前版本，再重试验真。'
 }
@@ -359,6 +417,7 @@ if ($RequireBackupRoot) {
 if (-not (Test-Path $authPath)) {
     Stop-FriendlyCutoverCheck `
         -Summary '当前还没完成 Codex 登录，所以这次不能算验真通过。' `
+        -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'missing_info') `
         -Detail ("当前登录凭证文件还没落地（auth.json：{0}）。" -f $authPath) `
         -NextStep '先完成登录，再重跑 self-check.cmd 或 verify-cutover.ps1。'
 }
