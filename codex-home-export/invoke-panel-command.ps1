@@ -28,6 +28,7 @@ function Stop-FriendlyPanelEntry {
     param(
         [string]$Summary,
         [string]$LeadLine = '',
+        [string]$Detail = '',
         [string]$NextStep = ''
     )
 
@@ -35,14 +36,28 @@ function Stop-FriendlyPanelEntry {
         Write-Host $LeadLine
     }
 
-    if ([string]::IsNullOrWhiteSpace($NextStep)) {
-        Write-Host "[ERROR] $Summary" -ForegroundColor Red
-        exit 1
+    Write-Host ("[ERROR] {0}" -f $Summary) -ForegroundColor Red
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) {
+        Write-Host ("[WARN] 原始错误：{0}" -f $Detail) -ForegroundColor Yellow
+    }
+    if (-not [string]::IsNullOrWhiteSpace($NextStep)) {
+        Write-Host ("[INFO] 下一步：{0}" -f $NextStep) -ForegroundColor Cyan
+    }
+    exit 1
+}
+
+function Get-FriendlyChildFailureDetail([object[]]$ChildOutput, [int]$ExitCode) {
+    $detailLines = @(
+        $ChildOutput |
+            ForEach-Object { [string]$_ } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+
+    if ($detailLines.Count -gt 0) {
+        return ($detailLines -join '；')
     }
 
-    Write-Host ("[ERROR] {0}" -f $Summary) -ForegroundColor Red
-    Write-Host ("[INFO] 下一步：{0}" -f $NextStep) -ForegroundColor Cyan
-    exit 1
+    return ("子脚本退出码：{0}" -f $ExitCode)
 }
 
 function Write-PanelCommandLinesSafe {
@@ -199,7 +214,12 @@ function Invoke-PanelTaskStart {
 
     $global:LASTEXITCODE = 0
     try {
-        & $startPanelTaskScriptPath -Title $TaskTitle -RepoRootPath $resolvedRepoRootPath -TargetCodexHome $resolvedTargetCodexHome
+        $stepOutput = @(
+            & $startPanelTaskScriptPath `
+                -Title $TaskTitle `
+                -RepoRootPath $resolvedRepoRootPath `
+                -TargetCodexHome $resolvedTargetCodexHome
+        )
     }
     catch {
         Stop-FriendlyPanelEntry `
@@ -208,7 +228,16 @@ function Invoke-PanelTaskStart {
     }
 
     if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+        Stop-FriendlyPanelEntry `
+            -Summary '丞相已接到任务，但真正开工这一步没走完。' `
+            -Detail (Get-FriendlyChildFailureDetail -ChildOutput $stepOutput -ExitCode $LASTEXITCODE) `
+            -NextStep '先按上面这段原始提示处理；如果还不清楚，再执行 `self-check.cmd` 看入口链路。'
+    }
+
+    foreach ($line in $stepOutput) {
+        if (-not [string]::IsNullOrWhiteSpace([string]$line)) {
+            Write-Output $line
+        }
     }
 }
 
@@ -219,8 +248,13 @@ function Invoke-TaskContextStep {
     )
 
     $global:LASTEXITCODE = 0
+    $messageByMode = @{
+        snapshot = '当前任务存在，但刷新任务快照这一步没走完。'
+        write = '丞相已经接到交班传令，但交班材料落盘失败了。'
+        read = '丞相已经接到接班传令，但读取交班材料失败了。'
+    }
     try {
-        return @(
+        $stepOutput = @(
             & $syncTaskContextScriptPath `
                 -Mode $Mode `
                 -RepoRootPath $resolvedRepoRootPath `
@@ -228,21 +262,19 @@ function Invoke-TaskContextStep {
         )
     }
     catch {
-        $messageByMode = @{
-            snapshot = '当前任务存在，但任务级进度快照刷新失败了。'
-            write = '丞相已经接到交班传令，但交班材料落盘失败了。'
-            read = '丞相已经接到接班传令，但读取交班材料失败了。'
-        }
         Stop-FriendlyPanelEntry `
             -Summary ("{0} 原始错误：{1}" -f $messageByMode[$Mode], $_.Exception.Message.Trim()) `
             -NextStep '先核对当前任务包 5 件套是否完整，再重试当前传令。'
     }
 
     if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+        Stop-FriendlyPanelEntry `
+            -Summary $messageByMode[$Mode] `
+            -Detail (Get-FriendlyChildFailureDetail -ChildOutput $stepOutput -ExitCode $LASTEXITCODE) `
+            -NextStep '先按上面这段原始提示处理；如果还不清楚，再核对当前任务包 5 件套。'
     }
 
-    return @()
+    return $stepOutput
 }
 
 function Write-TaskContextCommandLines {
