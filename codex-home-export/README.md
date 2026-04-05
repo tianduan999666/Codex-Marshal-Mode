@@ -76,7 +76,10 @@ cd Codex-Chancellor-Mode
 3. 跳过重复验真前仍会轻量复核固定轻检清单：`VERSION.json → config/cx-version.json`、`AGENTS.md`、`invoke-panel-command.ps1 → config/chancellor-mode/invoke-panel-command.ps1`、`start-panel-task.ps1 → config/chancellor-mode/start-panel-task.ps1`、`render-panel-response.ps1 → config/chancellor-mode/render-panel-response.ps1`；若不一致，自动回到验真流程。
 4. 如需显式套用仓内模板 provider，再单独执行：`.\install.cmd -ApplyTemplateConfig`；默认安装与升级都不会替你切 provider / key。
 5. 若当前 provider=`crs` 且统一 `/models` 探针返回 404，脚本会明确提示“需回官方 Codex 面板真人验证一次”；不再把这种情况当成静默通过。
-6. 如需一次看全受管文件漂移，执行：`powershell.exe -ExecutionPolicy Bypass -File .\codex-home-export\verify-cutover.ps1 -MaintainerMode`；`run-managed-self-check.ps1 -MaintainerMode` 也会把该参数透传过去。
+6. 如需一次看全受管文件漂移，优先执行：`%USERPROFILE%\.codex\self-check.cmd -MaintainerMode`；若在源仓直跑，也可执行 `powershell.exe -ExecutionPolicy Bypass -File .\codex-home-export\verify-cutover.ps1 -MaintainerMode`，或执行 `run-managed-self-check.ps1 -MaintainerMode` 透传该参数。
+7. `-MaintainerMode` 只建议用于维护、排障、发布前复核；默认不开成日常自动模式，避免普通开工链被冗长漂移清单淹没。
+8. 只要改动了 `manifest.json` 的 `included` 所覆盖的任一受管文件，就必须同步 bump `VERSION.json`，然后重装或重同步运行态，并重新通过验真；禁止出现“同版本不同内容”。
+9. `.codex/chancellor/.rate-limit-state.json` 属于本地运行态噪音文件，应保持未跟踪；它不是任务产物，也不是公开提交对象。
 
 ### 当前对外感知
 

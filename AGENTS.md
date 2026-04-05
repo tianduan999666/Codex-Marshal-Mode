@@ -83,6 +83,12 @@
 - 生成物、缓存、旧实验目录不得长期堆在根目录。
 - 新文件命名必须语义化，禁止 `最终版`、`临时`、`new2`、`test1` 之类命名。
 
+## 受管文件与版本纪律
+- `codex-home-export/VERSION.json` 是当前公开协议真源；`codex-home-export/manifest.json` 的 `included` 是当前受管文件清单真源。
+- 只要改动 `manifest.json` 的 `included` 所覆盖的任一 `codex-home-export` 受管文件，就必须同步 bump `codex-home-export/VERSION.json`。
+- 受管文件改完后，必须重装或重同步运行态，并重新通过验真；禁止出现“同版本不同内容”。
+- `.codex/chancellor/.rate-limit-state.json` 属于本地运行态噪音文件，必须保持未跟踪，不得当成任务产物、真源或公开提交对象。
+
 ## 当前运行态约定
 - 试运行任务包放在 `.codex/chancellor/tasks/`
 - 当前激活任务记录在 `.codex/chancellor/active-task.txt`

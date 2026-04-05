@@ -84,6 +84,12 @@
 - `.codex/` 视为运行态目录，不作为长期手改源头。
 - 终端维护入口只保留 `cx`、`codex` 与必要脚本，不再给普通用户暴露终端丞相别名。
 
+## 受管文件与版本纪律
+- `codex-home-export/VERSION.json` 是当前公开协议真源；`codex-home-export/manifest.json` 的 `included` 是当前受管文件清单真源。
+- 只要改动 `manifest.json` 的 `included` 所覆盖的任一 `codex-home-export` 受管文件，就必须同步 bump `codex-home-export/VERSION.json`。
+- 受管文件改完后，必须重装或重同步运行态，并重新通过验真；禁止出现“同版本不同内容”。
+- `.codex/chancellor/.rate-limit-state.json` 属于本地运行态噪音文件，必须保持未跟踪，不得当成任务产物、真源或公开提交对象。
+
 ## 根目录卫生与命名规则
 - 下述根目录卫生与命名规则只约束 `丞相模式` 本体仓、`codex-home-export/` 与本地运行态产物，不外溢到丞相正在代你开发的软件项目。
 - 根目录只允许保留运行核心、必要状态文件和明确职责目录；非运行核心默认不准落在根目录。
