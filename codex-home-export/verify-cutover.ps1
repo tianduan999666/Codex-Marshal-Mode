@@ -344,14 +344,14 @@ if ($RequireBackupRoot) {
     if ([string]::IsNullOrWhiteSpace($runtimeInstallRecord.backup_root)) {
         Stop-FriendlyCutoverCheck `
             -Summary '当前没有可回滚备份，所以这次不能算完整验真通过。' `
-            -Detail '安装记录缺少 backup_root。' `
+            -Detail '安装记录里少了备份目录路径（字段：backup_root）。' `
             -NextStep '先重新执行 install.cmd，让系统补一份新备份。'
     }
 
     if (-not (Test-Path $runtimeInstallRecord.backup_root)) {
         Stop-FriendlyCutoverCheck `
             -Summary '安装记录里写了备份目录，但这份备份已经找不到了。' `
-            -Detail ("backup_root 不存在：{0}" -f $runtimeInstallRecord.backup_root) `
+            -Detail ("备份目录路径不存在（backup_root={0}）。" -f $runtimeInstallRecord.backup_root) `
             -NextStep '先重新执行 install.cmd，生成新的可回滚备份。'
     }
 }
