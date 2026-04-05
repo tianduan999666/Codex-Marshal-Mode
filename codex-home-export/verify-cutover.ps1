@@ -229,7 +229,7 @@ foreach ($requiredPath in $requiredSourcePaths + $requiredRuntimePaths) {
 if ($runtimeVersionInfo.cx_version -ne $expectedVersionValue) {
     Stop-FriendlyCutoverCheck `
         -Summary '运行态版本和当前真源版本没对齐。' `
-        -Detail ("期望 {0}，实际 {1}" -f $expectedVersionValue, $runtimeVersionInfo.cx_version) `
+        -Detail ("运行态版本值不对（期望：{0}，实际：{1}）。" -f $expectedVersionValue, $runtimeVersionInfo.cx_version) `
         -NextStep '先重跑 install.cmd 或 upgrade.cmd，让运行态版本追上真源。'
 }
 
@@ -243,21 +243,21 @@ if ($runtimeVersionInfo.source_of_truth -ne 'codex-home-export') {
 if ($runtimeInstallRecord.source_root -ne $expectedSourceRootValue) {
     Stop-FriendlyCutoverCheck `
         -Summary '安装记录指向的源仓不对，当前运行态可能接的是旧仓。' `
-        -Detail ("期望 {0}，实际 {1}" -f $expectedSourceRootValue, $runtimeInstallRecord.source_root) `
+        -Detail ("安装记录里的源仓路径不对（字段：source_root，期望：{0}，实际：{1}）。" -f $expectedSourceRootValue, $runtimeInstallRecord.source_root) `
         -NextStep '先用当前仓重新执行 install.cmd 或 upgrade.cmd。'
 }
 
 if ($runtimeInstallRecord.cx_version -ne $expectedVersionValue) {
     Stop-FriendlyCutoverCheck `
         -Summary '安装记录里的版本和当前真源版本不一致。' `
-        -Detail ("期望 {0}，实际 {1}" -f $expectedVersionValue, $runtimeInstallRecord.cx_version) `
+        -Detail ("安装记录里的版本值不对（字段：cx_version，期望：{0}，实际：{1}）。" -f $expectedVersionValue, $runtimeInstallRecord.cx_version) `
         -NextStep '先重跑 install.cmd 或 upgrade.cmd。'
 }
 
 if ($runtimeManifestInfo.version -ne $expectedVersionValue) {
     Stop-FriendlyCutoverCheck `
         -Summary '运行态 manifest 版本和真源版本不一致。' `
-        -Detail ("期望 {0}，实际 {1}" -f $expectedVersionValue, $runtimeManifestInfo.version) `
+        -Detail ("运行态 manifest 版本值不对（字段：version，期望：{0}，实际：{1}）。" -f $expectedVersionValue, $runtimeManifestInfo.version) `
         -NextStep '先重新安装当前版本，再重试验真。'
 }
 
