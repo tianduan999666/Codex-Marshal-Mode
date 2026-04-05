@@ -588,6 +588,8 @@ function Get-ApprovedTrackedCodexFilesFromLockList {
         '.codex/chancellor/resolve-panel-acceptance-closeout.ps1'
         '.codex/chancellor/resolve-git-index-lock.test.ps1'
         '.codex/chancellor/review-panel-acceptance-closeout.ps1'
+        '.codex/chancellor/sync-current-state-table.ps1'
+        '.codex/chancellor/sync-current-state-table.test.ps1'
         '.codex/chancellor/test-panel-acceptance-closeout-review.ps1'
         '.codex/chancellor/tasks/README.md'
         '.codex/chancellor/Test-Phase2Prerequisites.ps1'
