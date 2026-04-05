@@ -140,6 +140,7 @@ exit 1
     $maintainerFailureExitCode = $LASTEXITCODE
 
     Assert-ExitCode -Actual $maintainerFailureExitCode -Expected 1 -Message '维护者模式下 verify-cutover 失败时自检应停止'
+    Assert-OutputContains -Lines $maintainerFailureOutput -ExpectedText '自检卡在“运行态验真”这一步，说明当前安装状态还没完全对齐。' -Message '维护者模式失败时应先给维护入口总结'
     Assert-OutputContains -Lines $maintainerFailureOutput -ExpectedText '若强行动手，快是快，未必稳；请主公补一项关键前提。' -Message '维护者模式失败时应保留漂移补位句'
     Assert-OutputContains -Lines $maintainerFailureOutput -ExpectedText '运行态受管文件存在漂移。' -Message '维护者模式失败时应保留汇总标题'
     Assert-OutputContains -Lines $maintainerFailureOutput -ExpectedText 'config/chancellor-mode/render-panel-response.ps1' -Message '维护者模式失败时应保留运行态漂移明细'

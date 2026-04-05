@@ -56,7 +56,7 @@ function Invoke-ManagedSelfCheckStep {
 
     $global:LASTEXITCODE = 0
     try {
-        & $ScriptPath @Arguments
+        $stepOutput = @(& $ScriptPath @Arguments)
     }
     catch {
         Stop-FriendlySelfCheck `
@@ -66,8 +66,25 @@ function Invoke-ManagedSelfCheckStep {
     }
 
     if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+        $detailLines = @(
+            $stepOutput |
+                ForEach-Object { [string]$_ } |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        )
+        $detailText = if ($detailLines.Count -gt 0) {
+            $detailLines -join '；'
+        }
+        else {
+            "子脚本退出码：$LASTEXITCODE"
+        }
+
+        Stop-FriendlySelfCheck `
+            -Summary $Summary `
+            -Detail $detailText `
+            -NextSteps $NextSteps
     }
+
+    return $stepOutput
 }
 
 if (-not (Test-Path $runtimeInstallRecordPath)) {
