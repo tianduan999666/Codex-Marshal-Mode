@@ -1,6 +1,6 @@
 ﻿{
   "name": "chancellor-mode-home-export",
-  "version": "CX-202604052351",
+  "version": "CX-202604060048",
   "stage": "bridge-ready",
   "source_codex_home": "C:/Users/tianduan999/.codex",
   "included": [
@@ -15,6 +15,7 @@
     "invoke-panel-command.ps1",
     "invoke-panel-command.test.ps1",
     "new-task.ps1",
+    "quote-candidates.json",
     "render-panel-response.ps1",
     "render-panel-response.test.ps1",
     "rollback.cmd",

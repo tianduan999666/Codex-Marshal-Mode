@@ -1,12 +1,13 @@
 ﻿{
-  "cx_version": "CX-202604052351",
-  "released_at": "2026-04-05 23:51",
+  "cx_version": "CX-202604060048",
+  "released_at": "2026-04-06 00:48",
   "mode": "panel-only",
   "display_name": "丞相",
   "task_entry_prefix": "传令：",
   "opening_line": "🪶 军令入帐。亮，即刻接管全局。",
   "new_chat_hint": "例如：传令：计算1+1=?",
   "quote_system_version": "2.0",
+  "optional_quote_library_path": "quote-candidates.json",
   "source_of_truth": "codex-home-export",
   "panel_commands": [
     "传令：状态",
