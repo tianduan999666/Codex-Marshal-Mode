@@ -42,6 +42,20 @@ function Stop-FriendlyUpgrade {
     exit 1
 }
 
+function Get-FriendlyUpgradeFailureDetail([object[]]$ChildOutput, [int]$ExitCode) {
+    $detailLines = @(
+        $ChildOutput |
+            ForEach-Object { [string]$_ } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+
+    if ($detailLines.Count -gt 0) {
+        return ($detailLines -join '；')
+    }
+
+    return ("子脚本退出码：{0}" -f $ExitCode)
+}
+
 function Invoke-ManagedUpgradeStep {
     param(
         [string]$ScriptPath,
@@ -52,7 +66,7 @@ function Invoke-ManagedUpgradeStep {
 
     $global:LASTEXITCODE = 0
     try {
-        & $ScriptPath @Arguments
+        $stepOutput = @(& $ScriptPath @Arguments)
     }
     catch {
         Stop-FriendlyUpgrade `
@@ -62,7 +76,16 @@ function Invoke-ManagedUpgradeStep {
     }
 
     if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+        Stop-FriendlyUpgrade `
+            -Summary $Summary `
+            -Detail (Get-FriendlyUpgradeFailureDetail -ChildOutput $stepOutput -ExitCode $LASTEXITCODE) `
+            -NextSteps $NextSteps
+    }
+
+    foreach ($line in $stepOutput) {
+        if (-not [string]::IsNullOrWhiteSpace([string]$line)) {
+            Write-Output $line
+        }
     }
 }
 
