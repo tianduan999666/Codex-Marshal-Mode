@@ -200,7 +200,7 @@ foreach ($requiredPath in @($versionSourcePath, $manifestSourcePath, $runtimeVer
     if (-not (Test-Path $requiredPath)) {
         Stop-FriendlyCutoverCheck `
             -Summary '验真缺少必要文件，说明当前安装还没完整落地。' `
-            -Detail ("缺少必需文件：{0}" -f $requiredPath) `
+            -Detail ("当前机器上少了验真必需文件（文件：{0}）。" -f $requiredPath) `
             -NextStep '先执行 install.cmd 或 upgrade.cmd，把丞相文件重新同步到本机。'
     }
 }
@@ -221,7 +221,7 @@ foreach ($requiredPath in $requiredSourcePaths + $requiredRuntimePaths) {
     if (-not (Test-Path $requiredPath)) {
         Stop-FriendlyCutoverCheck `
             -Summary '验真缺少必要文件，说明源仓或运行态文件不完整。' `
-            -Detail ("缺少必需文件：{0}" -f $requiredPath) `
+            -Detail ("源仓或运行态里少了验真必需文件（文件：{0}）。" -f $requiredPath) `
             -NextStep '先补齐仓库文件或重跑 install.cmd / upgrade.cmd，再重新验真。'
     }
 }
@@ -359,7 +359,7 @@ if ($RequireBackupRoot) {
 if (-not (Test-Path $authPath)) {
     Stop-FriendlyCutoverCheck `
         -Summary '当前还没完成 Codex 登录，所以这次不能算验真通过。' `
-        -Detail ("auth.json 不存在：{0}" -f $authPath) `
+        -Detail ("当前登录凭证文件还没落地（auth.json：{0}）。" -f $authPath) `
         -NextStep '先完成登录，再重跑 self-check.cmd 或 verify-cutover.ps1。'
 }
 
