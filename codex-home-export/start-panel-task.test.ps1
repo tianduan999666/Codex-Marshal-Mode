@@ -50,11 +50,27 @@ function Write-TestUtf8BomJson([string]$Path, [object]$Payload) {
 function Invoke-TestScript([string]$ScriptPath, [hashtable]$Arguments) {
     $argumentList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $ScriptPath)
     foreach ($key in $Arguments.Keys) {
+        $value = $Arguments[$key]
+        if ($value -is [bool]) {
+            if ($value) {
+                $argumentList += ('-{0}' -f $key)
+            }
+            continue
+        }
+
         $argumentList += ('-{0}' -f $key)
-        $argumentList += [string]$Arguments[$key]
+        $argumentList += [string]$value
     }
 
-    $lines = @(& powershell.exe @argumentList 2>&1 | ForEach-Object { [string]$_ })
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $lines = @(& powershell.exe @argumentList 2>&1 | ForEach-Object { [string]$_ })
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
     return [pscustomobject]@{
         ExitCode = $LASTEXITCODE
         Lines = $lines
@@ -287,6 +303,28 @@ try {
     Assert-TestTrue -Condition ($missingAuthResult.Text -notlike '*BOUNDARY*') -Message '未实际执行自检时不应提前输出边界提示'
     Assert-TestTrue -Condition ((Get-Content -Path $missingAuthWorkspace.RenderLogPath | Select-Object -First 1) -like '*TaskEntryMode=unchecked*') -Message '缺少 auth.json 时 task-entry 应保持 unchecked'
     Assert-TestTrue -Condition (-not (Test-Path $missingAuthWorkspace.VerifyLogPath)) -Message '缺少 auth.json 时不应调用 verify-cutover.ps1'
+    Assert-TestTrue -Condition ($missingAuthResult.Text -like '*此局可破，但还缺一份关键信报。*') -Message '缺少 auth.json 时应先给出丞相式补信息提示'
+
+    $skipRepairWorkspace = New-TestWorkspace
+    $testWorkspaces += $skipRepairWorkspace
+    Set-Content -Path $skipRepairWorkspace.AuthPath -Value '{"token":"ok"}' -Encoding UTF8
+    Set-Content -Path (Join-Path $skipRepairWorkspace.SourceRootPath 'verify-cutover.ps1') -Value @'
+param(
+    [string]$TargetCodexHome = ''
+)
+exit 1
+'@ -Encoding UTF8
+    $skipRepairResult = Invoke-TestScript -ScriptPath $skipRepairWorkspace.StartScriptPath -Arguments @{
+        Title = '失败后不自动修整'
+        RepoRootPath = $skipRepairWorkspace.RepoRootPath
+        TargetCodexHome = $skipRepairWorkspace.HomePath
+        SkipAutoRepair = $true
+    }
+
+    Assert-TestEqual -Actual $skipRepairResult.ExitCode -Expected 1 -Message 'SkipAutoRepair 且自检失败时 start-panel-task 应停止'
+    Assert-TestTrue -Condition ($skipRepairResult.Text -like '*自动验真未通过，本次已按要求停止，不做自动修整。*') -Message 'SkipAutoRepair 且自检失败时应明确停止自动修整'
+    Assert-TestTrue -Condition ($skipRepairResult.Text -notlike '*自动验真未通过，开始尝试一次安全修复。*') -Message 'SkipAutoRepair 且自检失败时不应继续进入自动修复'
+    Assert-TestTrue -Condition (-not (Test-Path $skipRepairWorkspace.InstallLogPath)) -Message 'SkipAutoRepair 且自检失败时不应调用 install-to-home.ps1'
 }
 finally {
     foreach ($workspace in $testWorkspaces) {

@@ -48,18 +48,22 @@ function Write-WarnLine([string]$Message) {
 function Stop-FriendlyTaskStart {
     param(
         [string]$Summary,
+        [string]$LeadLine = '',
         [string]$Detail = '',
         [string[]]$NextSteps = @()
     )
 
-    Write-Host ''
-    Write-Host "[ERROR] $Summary" -ForegroundColor Red
+    Write-Output ''
+    if (-not [string]::IsNullOrWhiteSpace($LeadLine)) {
+        Write-Output $LeadLine
+    }
+    Write-Output "[ERROR] $Summary"
     if (-not [string]::IsNullOrWhiteSpace($Detail)) {
-        Write-WarnLine ("原始错误：{0}" -f $Detail)
+        Write-Output ("[WARN] 原始错误：{0}" -f $Detail)
     }
 
     foreach ($nextStep in $NextSteps) {
-        Write-Info $nextStep
+        Write-Output ("[INFO] {0}" -f $nextStep)
     }
 
     exit 1
@@ -105,6 +109,49 @@ function Write-RenderedPanelLinesSafe {
             -Detail $_.Exception.Message.Trim() `
             -NextSteps $NextSteps
     }
+}
+
+function Get-PanelSupportQuoteLine([string]$QuoteKey) {
+    if ([string]::IsNullOrWhiteSpace($QuoteKey)) {
+        return ''
+    }
+
+    $fallbackMap = @{
+        missing_info = '此局可破，但还缺一份关键信报。'
+        need_scope = '亮已看见主线，还需主公补一段范围。'
+        need_decision = '此处有两路都能走，请主公拍板哪一路更重。'
+        high_risk = '若强行动手，快是快，未必稳；请主公补一项关键前提。'
+    }
+
+    $global:LASTEXITCODE = 0
+    try {
+        $quoteLines = @(
+            & $renderPanelResponseScriptPath `
+                -Kind 'support-quote' `
+                -QuoteKey $QuoteKey `
+                -VersionPath $versionSourcePath `
+                -RepoRootPath $resolvedRepoRootPath `
+                -TargetCodexHome $resolvedTargetCodexHome
+        )
+    }
+    catch {
+        return $fallbackMap[$QuoteKey]
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        return $fallbackMap[$QuoteKey]
+    }
+
+    $matchedLine = @(
+        $quoteLines |
+            Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
+            Select-Object -First 1
+    )
+    if ($matchedLine.Count -gt 0) {
+        return [string]$matchedLine[0]
+    }
+
+    return $fallbackMap[$QuoteKey]
 }
 
 function Invoke-ManagedTaskStep {
@@ -365,6 +412,7 @@ if ($canSkipVerify) {
 else {
     if (-not $authExists) {
         Stop-FriendlyTaskStart `
+            -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'missing_info') `
             -Summary '当前还没登录官方 Codex，不能自动开工。' `
             -NextSteps @(
                 '先完成 Codex 登录。',
@@ -385,6 +433,7 @@ else {
     if ($verifyExitCode -ne 0) {
         if ($SkipAutoRepair) {
             Stop-FriendlyTaskStart `
+                -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'high_risk') `
                 -Summary '自动验真未通过，本次已按要求停止，不做自动修整。' `
                 -NextSteps @(
                     '先执行 `self-check.cmd` 看详细原因。',
