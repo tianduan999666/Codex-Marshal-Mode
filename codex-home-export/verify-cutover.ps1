@@ -288,7 +288,7 @@ foreach ($fileMapping in $managedFileMappings) {
         else {
             Stop-FriendlyCutoverCheck `
                 -Summary '运行态文件和源仓不同步。' `
-                -Detail ("不同步文件：{0}" -f $hashPath) `
+                -Detail ("运行态文件内容没对齐（文件：{0}）。" -f $hashPath) `
                 -NextStep '先重跑 install.cmd 或 upgrade.cmd；如果仍不通过，再执行 rollback.cmd。'
         }
     }
@@ -315,7 +315,7 @@ foreach ($fileMapping in $managedFileMappings) {
             else {
                 Stop-FriendlyCutoverCheck `
                     -Summary '安装记录里的哈希和当前真源不一致。' `
-                    -Detail ("哈希不匹配文件：{0}" -f $hashPath) `
+                    -Detail ("安装记录里的同步哈希值不对（字段：synced_hashes，文件：{0}）。" -f $hashPath) `
                     -NextStep '先重跑 install.cmd 或 upgrade.cmd，再重新验真。'
             }
         }
@@ -325,13 +325,13 @@ foreach ($fileMapping in $managedFileMappings) {
 if ($MaintainerMode -and (($runtimeDriftPaths.Count -gt 0) -or ($missingSyncedHashPaths.Count -gt 0) -or ($recordHashDriftPaths.Count -gt 0))) {
     $detailParts = New-Object System.Collections.Generic.List[string]
     if ($runtimeDriftPaths.Count -gt 0) {
-        [void]$detailParts.Add(("运行态不同步文件：{0}" -f (Format-FriendlyList -Items $runtimeDriftPaths)))
+        [void]$detailParts.Add(("运行态文件内容没对齐：{0}" -f (Format-FriendlyList -Items $runtimeDriftPaths)))
     }
     if ($missingSyncedHashPaths.Count -gt 0) {
         [void]$detailParts.Add(("安装记录缺少同步哈希记录（字段：synced_hashes）：{0}" -f (Format-FriendlyList -Items $missingSyncedHashPaths)))
     }
     if ($recordHashDriftPaths.Count -gt 0) {
-        [void]$detailParts.Add(("安装记录哈希不匹配文件：{0}" -f (Format-FriendlyList -Items $recordHashDriftPaths)))
+        [void]$detailParts.Add(("安装记录里的同步哈希值不对（字段：synced_hashes）：{0}" -f (Format-FriendlyList -Items $recordHashDriftPaths)))
     }
 
     Stop-FriendlyCutoverCheck `
