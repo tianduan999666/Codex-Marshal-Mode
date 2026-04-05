@@ -46,6 +46,20 @@ function Stop-FriendlyAcceptance {
     exit 1
 }
 
+function Get-FriendlyAcceptanceFailureDetail([object[]]$ChildOutput, [int]$ExitCode) {
+    $detailLines = @(
+        $ChildOutput |
+            ForEach-Object { [string]$_ } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+
+    if ($detailLines.Count -gt 0) {
+        return ($detailLines -join '；')
+    }
+
+    return ("子脚本退出码：{0}" -f $ExitCode)
+}
+
 function Invoke-AcceptanceStep {
     param(
         [string]$ScriptPath,
@@ -67,14 +81,17 @@ function Invoke-AcceptanceStep {
     }
 
     if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
+        Stop-FriendlyAcceptance `
+            -Summary $Summary `
+            -Detail (Get-FriendlyAcceptanceFailureDetail -ChildOutput $stepOutput -ExitCode $LASTEXITCODE) `
+            -NextSteps $NextSteps
     }
 
     if ($ReturnOutput) {
         return $stepOutput
     }
 
-    return @()
+    return $stepOutput
 }
 
 function Read-JsonFile([string]$Path) {
