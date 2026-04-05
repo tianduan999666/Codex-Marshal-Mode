@@ -323,6 +323,7 @@ foreach ($requiredManagedFile in $managedRelativeNames + @('config/chancellor-mo
     if (-not ($runtimeInstallRecord.managed_files -contains $requiredManagedFile)) {
         Stop-FriendlyCutoverCheck `
             -Summary '安装记录不完整，当前没法确认受管文件都已落地。' `
+            -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'missing_info') `
             -Detail ("安装记录里少了受管文件落地记录（字段：managed_files，缺少：{0}）。" -f $requiredManagedFile) `
             -NextStep '先重跑 install.cmd，让安装记录重新生成。'
     }
@@ -346,6 +347,7 @@ foreach ($fileMapping in $managedFileMappings) {
         else {
             Stop-FriendlyCutoverCheck `
                 -Summary '运行态文件和源仓不同步。' `
+                -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'high_risk') `
                 -Detail ("运行态文件内容没对齐（文件：{0}）。" -f $hashPath) `
                 -NextStep '先重跑 install.cmd 或 upgrade.cmd；如果仍不通过，再执行 rollback.cmd。'
         }
@@ -361,6 +363,7 @@ foreach ($fileMapping in $managedFileMappings) {
             else {
                 Stop-FriendlyCutoverCheck `
                     -Summary '安装记录不完整，当前没法确认同步结果。' `
+                    -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'missing_info') `
                     -Detail ("安装记录里少了同步哈希记录（字段：synced_hashes，缺少：{0}）。" -f $hashPath) `
                     -NextStep '先重跑 install.cmd，让安装记录重新生成。'
             }
@@ -373,6 +376,7 @@ foreach ($fileMapping in $managedFileMappings) {
             else {
                 Stop-FriendlyCutoverCheck `
                     -Summary '安装记录里的哈希和当前真源不一致。' `
+                    -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'high_risk') `
                     -Detail ("安装记录里的同步哈希值不对（字段：synced_hashes，文件：{0}）。" -f $hashPath) `
                     -NextStep '先重跑 install.cmd 或 upgrade.cmd，再重新验真。'
             }
@@ -394,6 +398,7 @@ if ($MaintainerMode -and (($runtimeDriftPaths.Count -gt 0) -or ($missingSyncedHa
 
     Stop-FriendlyCutoverCheck `
         -Summary '运行态受管文件存在漂移。' `
+        -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'high_risk') `
         -Detail ($detailParts -join '；') `
         -NextStep '先重跑 install.cmd 或 upgrade.cmd；如果仍不通过，再执行 rollback.cmd。'
 }
@@ -402,6 +407,7 @@ if ($RequireBackupRoot) {
     if ([string]::IsNullOrWhiteSpace($runtimeInstallRecord.backup_root)) {
         Stop-FriendlyCutoverCheck `
             -Summary '当前没有可回滚备份，所以这次不能算完整验真通过。' `
+            -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'missing_info') `
             -Detail '安装记录里少了备份目录路径（字段：backup_root）。' `
             -NextStep '先重新执行 install.cmd，让系统补一份新备份。'
     }
@@ -409,6 +415,7 @@ if ($RequireBackupRoot) {
     if (-not (Test-Path $runtimeInstallRecord.backup_root)) {
         Stop-FriendlyCutoverCheck `
             -Summary '安装记录里写了备份目录，但这份备份已经找不到了。' `
+            -LeadLine (Get-PanelSupportQuoteLine -QuoteKey 'high_risk') `
             -Detail ("备份目录路径不存在（backup_root={0}）。" -f $runtimeInstallRecord.backup_root) `
             -NextStep '先重新执行 install.cmd，生成新的可回滚备份。'
     }
