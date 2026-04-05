@@ -1,6 +1,6 @@
 ﻿{
-  "cx_version": "CX-202604051417",
-  "released_at": "2026-04-05 14:17",
+  "cx_version": "CX-202604051503",
+  "released_at": "2026-04-05 15:03",
   "mode": "panel-only",
   "display_name": "丞相",
   "task_entry_prefix": "传令：",
@@ -101,5 +101,5 @@
     "closeout": "此事已交卷，现呈结果。"
   },
   "boundary_prompt": "提示：丞相在检查阶段只检查自己，不会查看你的项目；执行阶段只按你的传令办事，不会擅自审查项目。",
-  "notes": "当前默认日常入口统一为 `传令：XXXX`；默认开场白固定为“🪶 军令入帐。亮，即刻接管全局。”；对外主称固定为“丞相”，工程英文名统一为 `Chancellor Mode`；用户可选查询命令只保留 `传令：状态 / 传令：版本 / 传令：升级`；新对话优先展示示例“例如：传令：计算1+1=?”；状态查看固定六行：版本 / 上次检查 / 自动修复 / 关键文件一致性 / 当前模式 / 当前任务；默认开工骨架固定为“开场白 + 接令句”，只有真的进入检查阶段时才显示固定边界提示；表达真源当前固定为“开工骨架 + 版本 3 行 + 升级 3 行 + 状态 6 行 + 收口 3 段 + 最小过程金句 6 句”，并统一由 `render-panel-response.ps1` 渲染；传令入口当前统一由 `invoke-panel-command.ps1` 路由；普通用户维护层对外只保留 `install.cmd / upgrade.cmd / self-check.cmd / rollback.cmd` 四个动作；安装与升级后默认补跑面板传令冒烟验证；`verify-cutover.ps1` 验真通过后会主动回写 `task-start-state.json`，用于同版本轻量复核与状态栏稳定显示；维护层如需一次看全漂移，优先执行 `%USERPROFILE%\\.codex\\self-check.cmd -MaintainerMode`；`verify-cutover.ps1 -MaintainerMode` 也会一次列出全部受管文件漂移，便于维护；运行态主目录已统一切到 `config/chancellor-mode`；仓内 `config.toml` 现已降级为可选模板，只同步到 `config/chancellor-mode/config.template.toml` 供参考，默认不覆盖用户现有 `~/.codex/config.toml`；`codex-home-export` 下可执行 `.ps1/.json` 已统一按 Windows PowerShell 5.1 兼容口径治理，并固定显式按 UTF-8 读取 JSON；同版本轻量复核固定对象为“版本镜像 / AGENTS.md / invoke-panel-command.ps1 / start-panel-task.ps1 / render-panel-response.ps1”；受管文件变更必须同步 bump `VERSION.json` 并重新验真；`.codex/chancellor/.rate-limit-state.json` 视为本地噪音，不进入公开提交；升级必须由用户主动提出，不自动升级。"
+  "notes": "当前默认日常入口统一为 `传令：XXXX`；默认开场白固定为“🪶 军令入帐。亮，即刻接管全局。”；对外主称固定为“丞相”，工程英文名统一为 `Chancellor Mode`；对外涉及未公开闭源项目时，统一代称默认写 `业务项目`，只有在必须强调保密属性时才写 `闭源项目`；未经明确授权，公开文档、示例、任务标题、提交信息、推送说明中禁止出现真实闭源项目名或内部代号；用户可选查询命令只保留 `传令：状态 / 传令：版本 / 传令：升级`；新对话优先展示示例“例如：传令：计算1+1=?”；状态查看固定六行：版本 / 上次检查 / 自动修复 / 关键文件一致性 / 当前模式 / 当前任务；默认开工骨架固定为“开场白 + 接令句”，只有真的进入检查阶段时才显示固定边界提示；表达真源当前固定为“开工骨架 + 版本 3 行 + 升级 3 行 + 状态 6 行 + 收口 3 段 + 最小过程金句 6 句”，并统一由 `render-panel-response.ps1` 渲染；传令入口当前统一由 `invoke-panel-command.ps1` 路由；普通用户维护层对外只保留 `install.cmd / upgrade.cmd / self-check.cmd / rollback.cmd` 四个动作；安装与升级后默认补跑面板传令冒烟验证；`verify-cutover.ps1` 验真通过后会主动回写 `task-start-state.json`，用于同版本轻量复核与状态栏稳定显示；维护层如需一次看全漂移，优先执行 `%USERPROFILE%\\.codex\\self-check.cmd -MaintainerMode`；`verify-cutover.ps1 -MaintainerMode` 也会一次列出全部受管文件漂移，便于维护；运行态主目录已统一切到 `config/chancellor-mode`；仓内 `config.toml` 现已降级为可选模板，只同步到 `config/chancellor-mode/config.template.toml` 供参考，默认不覆盖用户现有 `~/.codex/config.toml`；`codex-home-export` 下可执行 `.ps1/.json` 已统一按 Windows PowerShell 5.1 兼容口径治理，并固定显式按 UTF-8 读取 JSON；同版本轻量复核固定对象为“版本镜像 / AGENTS.md / invoke-panel-command.ps1 / start-panel-task.ps1 / render-panel-response.ps1”；受管文件变更必须同步 bump `VERSION.json` 并重新验真；`.codex/chancellor/.rate-limit-state.json` 视为本地噪音，不进入公开提交；升级必须由用户主动提出，不自动升级。"
 }
