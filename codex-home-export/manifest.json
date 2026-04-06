@@ -1,6 +1,6 @@
 ﻿{
   "name": "chancellor-mode-home-export",
-  "version": "CX-202604060163",
+  "version": "CX-202604060164",
   "stage": "bridge-ready",
   "source_codex_home": "C:/Users/tianduan999/.codex",
   "included": [
@@ -42,6 +42,7 @@
     "start-panel-acceptance.ps1",
     "start-panel-acceptance.test.ps1",
     "new-panel-acceptance-result.ps1",
+    "new-panel-acceptance-result.test.ps1",
     "verify-panel-acceptance-result.ps1",
     "panel-acceptance-checklist.md",
     "panel-acceptance-three-step-card.md",
