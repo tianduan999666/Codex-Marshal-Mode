@@ -18,8 +18,31 @@ function Assert-PanelCommandLineCount([string[]]$ActualLines, [int]$ExpectedCoun
     }
 }
 
+function Assert-PanelCommandExitCode([int]$Actual, [int]$Expected, [string]$Message) {
+    if ($Actual -ne $Expected) {
+        throw ('{0}；期望退出码：{1}；实际退出码：{2}' -f $Message, $Expected, $Actual)
+    }
+}
+
+function Write-TestUtf8BomFile([string]$Path, [string]$Content) {
+    $parentPath = Split-Path -Parent $Path
+    if (-not [string]::IsNullOrWhiteSpace($parentPath)) {
+        New-Item -ItemType Directory -Force -Path $parentPath | Out-Null
+    }
+
+    $utf8Bom = New-Object System.Text.UTF8Encoding($true)
+    [System.IO.File]::WriteAllText($Path, $Content, $utf8Bom)
+}
+
 function Invoke-PanelCommandExternal([hashtable]$Arguments) {
+    return Invoke-PanelCommandExternalAtPath -ScriptPath $invokeScriptPath -Arguments $Arguments
+}
+
+function Invoke-PanelCommandExternalAtPath([string]$ScriptPath, [hashtable]$Arguments) {
     $argumentList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $invokeScriptPath)
+    if (-not [string]::IsNullOrWhiteSpace($ScriptPath)) {
+        $argumentList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $ScriptPath)
+    }
     foreach ($key in $Arguments.Keys) {
         $argumentList += ('-{0}' -f $key)
         $argumentList += [string]$Arguments[$key]
@@ -30,6 +53,67 @@ function Invoke-PanelCommandExternal([hashtable]$Arguments) {
         ExitCode = $LASTEXITCODE
         Lines = $lines
         Text = ($lines -join "`n")
+    }
+}
+
+function New-InvokePanelFailureWorkspace {
+    param(
+        [string]$RootPath
+    )
+
+    $sourceRootPath = Join-Path $RootPath 'source'
+    $repoRootPath = Join-Path $RootPath 'repo'
+    $homePath = Join-Path $RootPath 'home'
+
+    foreach ($path in @($sourceRootPath, $repoRootPath, (Join-Path $homePath 'config\chancellor-mode'))) {
+        New-Item -ItemType Directory -Force -Path $path | Out-Null
+    }
+
+    Copy-Item -Path $invokeScriptPath -Destination (Join-Path $sourceRootPath 'invoke-panel-command.ps1') -Force
+    Copy-Item -Path $versionPath -Destination (Join-Path $sourceRootPath 'VERSION.json') -Force
+
+    Write-TestUtf8BomFile -Path (Join-Path $sourceRootPath 'render-panel-response.ps1') -Content @'
+param(
+    [string]$Kind = '',
+    [string]$TaskEntryMode = 'unchecked',
+    [string]$CurrentTask = '',
+    [string]$CompletedText = '',
+    [string]$ResultText = '',
+    [string]$NextStepText = ''
+)
+
+switch ($Kind) {
+    'task-entry' {
+        Write-Output '🪶 军令入帐。亮，即刻接管全局。'
+        Write-Output '军令已明，亮先接手。'
+    }
+    'status' {
+        Write-Output '版本：VX'
+        Write-Output '上次检查：LC'
+        Write-Output '自动修复：AR'
+        Write-Output '关键文件一致性：KC'
+        Write-Output '当前模式：CM'
+        Write-Output ('当前任务：{0}' -f $CurrentTask)
+    }
+    'closeout' {
+        Write-Output '此事已交卷，现呈结果。'
+        Write-Output ('已完成：{0}' -f $CompletedText)
+        Write-Output ('结果：{0}' -f $ResultText)
+        Write-Output ('下一步：{0}' -f $NextStepText)
+    }
+    'support-quote' {
+        Write-Output '亮已看见主线，还需主公补一段范围。'
+    }
+}
+exit 0
+'@
+    Write-TestUtf8BomFile -Path (Join-Path $sourceRootPath 'start-panel-task.ps1') -Content "param(); Write-Output 'STUB: start ok'; exit 0"
+    Write-TestUtf8BomFile -Path (Join-Path $sourceRootPath 'sync-task-context.ps1') -Content "param(); Write-Output 'STUB: sync ok'; exit 0"
+
+    return [pscustomobject]@{
+        SourceRootPath = $sourceRootPath
+        RepoRootPath = $repoRootPath
+        HomePath = $homePath
     }
 }
 
@@ -264,6 +348,84 @@ try {
 finally {
     if (Test-Path $handoffTestRoot) {
         Remove-Item -Recurse -Force -LiteralPath $handoffTestRoot
+    }
+}
+
+$taskFailureRoot = Join-Path $env:TEMP ('cx-task-failure-' + [guid]::NewGuid().ToString('N'))
+try {
+    $taskFailureWorkspace = New-InvokePanelFailureWorkspace -RootPath $taskFailureRoot
+    Write-TestUtf8BomFile -Path (Join-Path $taskFailureWorkspace.SourceRootPath 'start-panel-task.ps1') -Content @'
+param()
+Write-Output 'STUB: task-start failed detail'
+exit 1
+'@
+
+    $taskFailureResult = Invoke-PanelCommandExternalAtPath -ScriptPath (Join-Path $taskFailureWorkspace.SourceRootPath 'invoke-panel-command.ps1') -Arguments @{
+        CommandText = '传令：修一下登录页'
+        RepoRootPath = $taskFailureWorkspace.RepoRootPath
+        TargetCodexHome = $taskFailureWorkspace.HomePath
+    }
+
+    Assert-PanelCommandExitCode -Actual $taskFailureResult.ExitCode -Expected 1 -Message '任务开工子脚本失败时入口应停止'
+    if ($taskFailureResult.Text -notlike '*丞相已接到任务，但真正开工这一步没走完。*') {
+        throw ('任务开工子脚本失败时应返回人话总结；实际：{0}' -f $taskFailureResult.Text)
+    }
+    if ($taskFailureResult.Text -notlike '*STUB: task-start failed detail*') {
+        throw ('任务开工子脚本失败时应保留子脚本明细；实际：{0}' -f $taskFailureResult.Text)
+    }
+    if ($taskFailureResult.Text -notlike '*self-check.cmd*') {
+        throw ('任务开工子脚本失败时应提示后续动作；实际：{0}' -f $taskFailureResult.Text)
+    }
+}
+finally {
+    if (Test-Path $taskFailureRoot) {
+        Remove-Item -Recurse -Force -LiteralPath $taskFailureRoot
+    }
+}
+
+$handoffFailureRoot = Join-Path $env:TEMP ('cx-handoff-failure-' + [guid]::NewGuid().ToString('N'))
+try {
+    $handoffFailureWorkspace = New-InvokePanelFailureWorkspace -RootPath $handoffFailureRoot
+    $handoffTaskId = 'v4-target-996-handoff-failure'
+    $handoffTaskRoot = Join-Path $handoffFailureWorkspace.RepoRootPath ('.codex\chancellor\tasks\' + $handoffTaskId)
+    New-Item -ItemType Directory -Force -Path $handoffTaskRoot | Out-Null
+    Set-Content -Path (Join-Path $handoffFailureWorkspace.RepoRootPath '.codex\chancellor\active-task.txt') -Value $handoffTaskId -Encoding UTF8
+    Set-Content -Path (Join-Path $handoffTaskRoot 'contract.yaml') -Value @(
+        ('task_id: {0}' -f $handoffTaskId)
+        'title: 交班失败分流'
+    ) -Encoding UTF8
+
+    Write-TestUtf8BomFile -Path (Join-Path $handoffFailureWorkspace.SourceRootPath 'sync-task-context.ps1') -Content @'
+param(
+    [string]$Mode = ''
+)
+Write-Output ("STUB: sync failed mode={0}" -f $Mode)
+exit 1
+'@
+
+    $handoffFailureResult = Invoke-PanelCommandExternalAtPath -ScriptPath (Join-Path $handoffFailureWorkspace.SourceRootPath 'invoke-panel-command.ps1') -Arguments @{
+        CommandText = '传令：交班'
+        RepoRootPath = $handoffFailureWorkspace.RepoRootPath
+        TargetCodexHome = $handoffFailureWorkspace.HomePath
+    }
+
+    Assert-PanelCommandExitCode -Actual $handoffFailureResult.ExitCode -Expected 1 -Message '交班子脚本失败时入口应停止'
+    if ($handoffFailureResult.Text -notlike '*🪶 军令入帐。亮，即刻接管全局。*') {
+        throw ('交班子脚本失败时仍应先输出开工骨架；实际：{0}' -f $handoffFailureResult.Text)
+    }
+    if ($handoffFailureResult.Text -notlike '*丞相已经接到交班传令，但交班材料落盘失败了。*') {
+        throw ('交班子脚本失败时应返回人话总结；实际：{0}' -f $handoffFailureResult.Text)
+    }
+    if ($handoffFailureResult.Text -notlike '*STUB: sync failed mode=write*') {
+        throw ('交班子脚本失败时应保留子脚本明细；实际：{0}' -f $handoffFailureResult.Text)
+    }
+    if ($handoffFailureResult.Text -notlike '*任务包 5 件套*') {
+        throw ('交班子脚本失败时应提示核对任务包；实际：{0}' -f $handoffFailureResult.Text)
+    }
+}
+finally {
+    if (Test-Path $handoffFailureRoot) {
+        Remove-Item -Recurse -Force -LiteralPath $handoffFailureRoot
     }
 }
 

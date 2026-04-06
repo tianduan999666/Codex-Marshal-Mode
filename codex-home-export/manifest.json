@@ -1,6 +1,6 @@
 ﻿{
   "name": "chancellor-mode-home-export",
-  "version": "CX-202604060157",
+  "version": "CX-202604060163",
   "stage": "bridge-ready",
   "source_codex_home": "C:/Users/tianduan999/.codex",
   "included": [
@@ -15,6 +15,7 @@
     "invoke-panel-command.ps1",
     "invoke-panel-command.test.ps1",
     "new-task.ps1",
+    "new-task.test.ps1",
     "quote-candidates.json",
     "render-panel-response.ps1",
     "render-panel-response.test.ps1",
@@ -39,6 +40,7 @@
     "verify-provider-auth.ps1",
     "verify-provider-auth.test.ps1",
     "start-panel-acceptance.ps1",
+    "start-panel-acceptance.test.ps1",
     "new-panel-acceptance-result.ps1",
     "verify-panel-acceptance-result.ps1",
     "panel-acceptance-checklist.md",

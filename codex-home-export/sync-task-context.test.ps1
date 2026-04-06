@@ -10,9 +10,38 @@ function Assert-TextContains([string]$Actual, [string]$Expected, [string]$Messag
     }
 }
 
+function Assert-ExitCode([int]$Actual, [int]$Expected, [string]$Message) {
+    if ($Actual -ne $Expected) {
+        throw ('{0}；期望退出码：{1}；实际退出码：{2}' -f $Message, $Expected, $Actual)
+    }
+}
+
 function Assert-LineEqual([string[]]$Lines, [int]$Index, [string]$Expected, [string]$Message) {
     if ($Lines[$Index] -ne $Expected) {
         throw ('{0}；期望：{1}；实际：{2}' -f $Message, $Expected, $Lines[$Index])
+    }
+}
+
+function Invoke-SyncTaskContextExternal([hashtable]$Arguments) {
+    $argumentList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $syncScriptPath)
+    foreach ($key in $Arguments.Keys) {
+        $argumentList += ('-{0}' -f $key)
+        $argumentList += [string]$Arguments[$key]
+    }
+
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $lines = @(& powershell.exe @argumentList 2>&1 | ForEach-Object { [string]$_ })
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    return [pscustomobject]@{
+        ExitCode = $LASTEXITCODE
+        Lines = $lines
+        Text = ($lines -join "`n")
     }
 }
 
@@ -167,6 +196,45 @@ try {
 finally {
     if (Test-Path $testRootPath) {
         Remove-Item -Recurse -Force -LiteralPath $testRootPath
+    }
+}
+
+$missingActiveTaskRoot = Join-Path $env:TEMP ('cx-sync-task-context-missing-active-' + [guid]::NewGuid().ToString('N'))
+try {
+    $missingActiveTaskResult = Invoke-SyncTaskContextExternal -Arguments @{
+        Mode = 'snapshot'
+        RepoRootPath = $missingActiveTaskRoot
+        TargetCodexHome = (Join-Path $missingActiveTaskRoot 'home')
+    }
+    Assert-ExitCode -Actual $missingActiveTaskResult.ExitCode -Expected 1 -Message '无激活任务时 sync-task-context 应失败'
+    Assert-TextContains -Actual $missingActiveTaskResult.Text -Expected '当前没有激活任务，不能同步任务上下文。' -Message '无激活任务时应返回明确人话'
+}
+finally {
+    if (Test-Path $missingActiveTaskRoot) {
+        Remove-Item -Recurse -Force -LiteralPath $missingActiveTaskRoot
+    }
+}
+
+$missingRequiredFileRoot = Join-Path $env:TEMP ('cx-sync-task-context-missing-file-' + [guid]::NewGuid().ToString('N'))
+try {
+    $repoRootPath = Join-Path $missingRequiredFileRoot 'repo'
+    $targetCodexHome = Join-Path $missingRequiredFileRoot 'home'
+    $taskId = 'v4-target-002-missing-result'
+    $taskRootPath = New-TestTaskRuntime -RepoRootPath $repoRootPath -TargetCodexHome $targetCodexHome -TaskId $taskId -TaskTitle '缺件失败分流'
+    Remove-Item -LiteralPath (Join-Path $taskRootPath 'result.md') -Force
+
+    $missingRequiredFileResult = Invoke-SyncTaskContextExternal -Arguments @{
+        Mode = 'write'
+        RepoRootPath = $repoRootPath
+        TargetCodexHome = $targetCodexHome
+    }
+    Assert-ExitCode -Actual $missingRequiredFileResult.ExitCode -Expected 1 -Message '任务包缺件时 sync-task-context 应失败'
+    Assert-TextContains -Actual $missingRequiredFileResult.Text -Expected '任务上下文缺少必要文件' -Message '任务包缺件时应说明缺少必要文件'
+    Assert-TextContains -Actual $missingRequiredFileResult.Text -Expected 'result.md' -Message '任务包缺件时应指出具体缺失文件'
+}
+finally {
+    if (Test-Path $missingRequiredFileRoot) {
+        Remove-Item -Recurse -Force -LiteralPath $missingRequiredFileRoot
     }
 }
 
