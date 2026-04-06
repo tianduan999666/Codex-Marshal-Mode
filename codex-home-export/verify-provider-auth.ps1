@@ -96,6 +96,25 @@ function Get-ProviderManualValidationHint([string]$ProviderName) {
     return ''
 }
 
+function Test-ProviderBillingBlocked([int]$StatusCode, [string]$ResponseBody, [string]$MessageText) {
+    if ($StatusCode -eq 402) {
+        return $true
+    }
+
+    $combinedText = (([string]$ResponseBody) + ' ' + ([string]$MessageText)).ToLowerInvariant()
+    return (
+        $combinedText.Contains('402') -or
+        $combinedText.Contains('payment') -or
+        $combinedText.Contains('billing') -or
+        $combinedText.Contains('quota') -or
+        $combinedText.Contains('insufficient_quota') -or
+        $combinedText.Contains('credit') -or
+        $combinedText.Contains('需要付款') -or
+        $combinedText.Contains('额度') -or
+        $combinedText.Contains('欠费')
+    )
+}
+
 function Read-ResponseBodyText([object]$Response) {
     if ($null -eq $Response) {
         return ''
@@ -243,6 +262,13 @@ foreach ($candidateUrl in $candidateUrls) {
             -Summary ("当前 provider={0} 的真实鉴权没通过。" -f $providerName) `
             -Detail ("真实鉴权接口拒绝了这次请求（URL：{0}，HTTP 状态：{1}）。" -f $candidateUrl, $probeResult.status_code) `
             -NextStep '先确认 config.toml 里的 provider、base_url 和 auth.json 里的 key 是同一套；确认前先不要直接开始真实开发任务。'
+    }
+
+    if (Test-ProviderBillingBlocked -StatusCode $probeResult.status_code -ResponseBody $responseBody -MessageText $probeResult.message) {
+        Stop-FriendlyProviderAuthCheck `
+            -Summary ("当前 provider={0} 的真实鉴权被额度或账单状态拦住了。" -f $providerName) `
+            -Detail ("真实鉴权接口返回了疑似额度/账单异常（URL：{0}，HTTP 状态：{1}，原始信息：{2}）。" -f $candidateUrl, $probeResult.status_code, $probeResult.message) `
+            -NextStep '先确认当前 provider 对应账号还有可用额度、账单状态正常，再回官方 Codex 面板做一次真人验证。'
     }
 
     if ($probeResult.status_code -eq 404) {

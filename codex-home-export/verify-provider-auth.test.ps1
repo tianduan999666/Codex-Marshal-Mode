@@ -138,6 +138,19 @@ try {
                 '先确认网络、base_url 和 key，再回官方 Codex 面板做一次真人验证。'
             )
         }
+        [pscustomobject]@{
+            Name = '402 应明确归类为额度或账单阻塞'
+            Provider = 'yunyi'
+            Responses = @(
+                [pscustomobject]@{ StatusLine = '402 Payment Required'; Body = '{"error":"insufficient_quota"}' }
+            )
+            ExpectedExitCode = 1
+            ExpectedTexts = @(
+                '当前 provider=yunyi 的真实鉴权被额度或账单状态拦住了。'
+                'HTTP 状态：402'
+                '可用额度'
+            )
+        }
     )
 
     foreach ($scenario in $scenarios) {
