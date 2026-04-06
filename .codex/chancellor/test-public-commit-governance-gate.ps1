@@ -125,6 +125,43 @@ finally {
     }
 }
 
+$secretEnvProbeRelativePath = '.env.local'
+$secretEnvProbePath = Join-Path $repoRootPath $secretEnvProbeRelativePath
+try {
+    [System.IO.File]::WriteAllText($secretEnvProbePath, "OPENAI_API_KEY=test-key" + [Environment]::NewLine, $utf8NoBom)
+    Invoke-GateForTestCase -Paths @($secretEnvProbeRelativePath) -ExpectedExitCode 1 -TestName 'block-sensitive-file-name'
+}
+finally {
+    if (Test-Path $secretEnvProbePath) {
+        Remove-Item -LiteralPath $secretEnvProbePath -Force
+    }
+}
+
+$safePlaceholderProbeRelativePath = 'safe-placeholder-probe.md'
+$safePlaceholderProbePath = Join-Path $repoRootPath $safePlaceholderProbeRelativePath
+try {
+    [System.IO.File]::WriteAllText($safePlaceholderProbePath, "OPENAI_API_KEY=test-key" + [Environment]::NewLine, $utf8NoBom)
+    Invoke-GateForTestCase -Paths @($safePlaceholderProbeRelativePath) -ExpectedExitCode 0 -TestName 'allow-safe-placeholder-content'
+}
+finally {
+    if (Test-Path $safePlaceholderProbePath) {
+        Remove-Item -LiteralPath $safePlaceholderProbePath -Force
+    }
+}
+
+$secretContentProbeRelativePath = 'secret-content-probe.md'
+$secretContentProbePath = Join-Path $repoRootPath $secretContentProbeRelativePath
+try {
+    $fakeOpenAiToken = ('sk' + '-' + ('a' * 32))
+    [System.IO.File]::WriteAllText($secretContentProbePath, ("token={0}" -f $fakeOpenAiToken) + [Environment]::NewLine, $utf8NoBom)
+    Invoke-GateForTestCase -Paths @($secretContentProbeRelativePath) -ExpectedExitCode 1 -TestName 'block-sensitive-content-pattern'
+}
+finally {
+    if (Test-Path $secretContentProbePath) {
+        Remove-Item -LiteralPath $secretContentProbePath -Force
+    }
+}
+
 if ($execReadmeLines -notcontains $removedLineText) {
     throw "测试前置条件不满足：$execReadmePath 中缺少 $removedLineText"
 }

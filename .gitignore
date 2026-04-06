@@ -7,6 +7,16 @@
 __pycache__/
 *.pyc
 
+# Sensitive local files
+.env
+.env.*
+auth.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+
 # Build artifacts
 build/
 dist/

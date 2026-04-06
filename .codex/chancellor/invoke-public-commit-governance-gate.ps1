@@ -8,6 +8,7 @@
 )
 
 $ErrorActionPreference = 'Stop'
+$repoRootPath = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 
 function ConvertTo-NormalizedPath {
     param([string]$PathText)
@@ -3285,6 +3286,125 @@ function Get-BlockedPathRulesFromLocalSafeFlow {
     }
 }
 
+function Get-NamedRegexRulesFromCodeBlock {
+    param(
+        [string]$BlockContent,
+        [string]$RuleSetLabel
+    )
+
+    if ([string]::IsNullOrWhiteSpace($BlockContent)) {
+        throw "$RuleSetLabel 缺少规则内容。"
+    }
+
+    $rules = New-Object System.Collections.Generic.List[object]
+    $seenRuleLines = New-Object 'System.Collections.Generic.HashSet[string]'
+    foreach ($ruleLine in ($BlockContent -split "`r?`n")) {
+        $trimmedRuleLine = $ruleLine.Trim()
+        if ($trimmedRuleLine -eq '') {
+            continue
+        }
+
+        $ruleParts = $trimmedRuleLine -split '::', 2
+        if ($ruleParts.Count -ne 2) {
+            throw "$RuleSetLabel 存在无法解析的规则：$trimmedRuleLine"
+        }
+
+        $ruleName = $ruleParts[0].Trim()
+        $rulePattern = $ruleParts[1].Trim()
+        if ([string]::IsNullOrWhiteSpace($ruleName) -or [string]::IsNullOrWhiteSpace($rulePattern)) {
+            throw "$RuleSetLabel 存在空规则名或空规则表达式：$trimmedRuleLine"
+        }
+
+        if ($seenRuleLines.Add($trimmedRuleLine)) {
+            $rules.Add([pscustomobject]@{
+                    Name = $ruleName
+                    Pattern = $rulePattern
+                })
+        }
+    }
+
+    if ($rules.Count -eq 0) {
+        throw "$RuleSetLabel 未解析到规则。"
+    }
+
+    return $rules.ToArray()
+}
+
+function Get-SensitivePathRegexRulesFromLocalSafeFlow {
+    $localSafeFlowPath = 'docs/40-执行/10-本地安全提交流程.md'
+    $ruleBlock = Get-CodeBlockContentFromSection -FilePath $localSafeFlowPath -SectionStartMarker '## 公开提交敏感文件名真源' -SectionEndMarker '## 公开提交敏感内容真源'
+    if ([string]::IsNullOrWhiteSpace($ruleBlock)) {
+        throw "本地安全提交流程缺少公开提交敏感文件名真源区块：$localSafeFlowPath"
+    }
+
+    return @(Get-NamedRegexRulesFromCodeBlock -BlockContent $ruleBlock -RuleSetLabel '公开提交敏感文件名真源')
+}
+
+function Get-SensitiveContentRegexRulesFromLocalSafeFlow {
+    $localSafeFlowPath = 'docs/40-执行/10-本地安全提交流程.md'
+    $ruleBlock = Get-CodeBlockContentFromSection -FilePath $localSafeFlowPath -SectionStartMarker '## 公开提交敏感内容真源' -SectionEndMarker '## 公开提交硬门禁'
+    if ([string]::IsNullOrWhiteSpace($ruleBlock)) {
+        throw "本地安全提交流程缺少公开提交敏感内容真源区块：$localSafeFlowPath"
+    }
+
+    return @(Get-NamedRegexRulesFromCodeBlock -BlockContent $ruleBlock -RuleSetLabel '公开提交敏感内容真源')
+}
+
+function Get-ChangedPathLiteralPath {
+    param([string]$ChangedPath)
+
+    if ([string]::IsNullOrWhiteSpace($ChangedPath)) {
+        return $null
+    }
+
+    $candidatePath = Join-Path $repoRootPath ($ChangedPath -replace '/', '\')
+    if (Test-Path -LiteralPath $candidatePath -PathType Leaf) {
+        return $candidatePath
+    }
+
+    return $null
+}
+
+function Get-FirstMatchedNamedRegexRule {
+    param(
+        [string]$TargetText,
+        [object[]]$Rules
+    )
+
+    if ([string]::IsNullOrWhiteSpace($TargetText) -or $null -eq $Rules) {
+        return $null
+    }
+
+    foreach ($rule in $Rules) {
+        if ([regex]::IsMatch($TargetText, [string]$rule.Pattern)) {
+            return $rule
+        }
+    }
+
+    return $null
+}
+
+function Get-FirstSensitiveContentRuleMatchForChangedPath {
+    param(
+        [string]$ChangedPath,
+        [object[]]$Rules
+    )
+
+    $literalPath = Get-ChangedPathLiteralPath -ChangedPath $ChangedPath
+    if ($null -eq $literalPath) {
+        return $null
+    }
+
+    try {
+        $content = [System.IO.File]::ReadAllText($literalPath)
+    }
+    catch {
+        return $null
+    }
+
+    return Get-FirstMatchedNamedRegexRule -TargetText $content -Rules $Rules
+}
+
 function Get-OrderedUniqueValues {
     param([string[]]$Values)
 
@@ -3765,11 +3885,25 @@ catch {
 $blockedExactPaths = @()
 $blockedPrefixes = @()
 $blockedPrefixExceptions = @()
+$sensitivePathRegexRules = @()
+$sensitiveContentRegexRules = @()
 try {
     $blockedPathRules = Get-BlockedPathRulesFromLocalSafeFlow
     $blockedExactPaths = @($blockedPathRules.BlockedExactPaths)
     $blockedPrefixes = @($blockedPathRules.BlockedPrefixes)
     $blockedPrefixExceptions = @($blockedPathRules.BlockedPrefixExceptions)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    $sensitivePathRegexRules = @(Get-SensitivePathRegexRulesFromLocalSafeFlow)
+}
+catch {
+    $precomputedViolationMessages.Add($_.Exception.Message)
+}
+try {
+    $sensitiveContentRegexRules = @(Get-SensitiveContentRegexRulesFromLocalSafeFlow)
 }
 catch {
     $precomputedViolationMessages.Add($_.Exception.Message)
@@ -3994,6 +4128,18 @@ foreach ($changedPath in $changedPathList) {
 
     if ((Test-PathStartsWithAnyPrefix -TargetPath $changedPath -Prefixes $blockedPrefixes) -and ($changedPath -notin $blockedPrefixExceptions)) {
         $violationMessages.Add("禁止把运行态或本地工具状态带入公开提交：$changedPath")
+        continue
+    }
+
+    $matchedSensitivePathRule = Get-FirstMatchedNamedRegexRule -TargetText $changedPath -Rules $sensitivePathRegexRules
+    if ($null -ne $matchedSensitivePathRule) {
+        $violationMessages.Add("禁止把敏感文件带入公开提交：$changedPath（匹配：$($matchedSensitivePathRule.Name)）")
+        continue
+    }
+
+    $matchedSensitiveContentRule = Get-FirstSensitiveContentRuleMatchForChangedPath -ChangedPath $changedPath -Rules $sensitiveContentRegexRules
+    if ($null -ne $matchedSensitiveContentRule) {
+        $violationMessages.Add("禁止把疑似密钥或凭据内容带入公开提交：$changedPath（匹配：$($matchedSensitiveContentRule.Name)）")
     }
 }
 
