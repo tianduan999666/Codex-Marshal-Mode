@@ -547,6 +547,7 @@ function Get-ApprovedTopLevelEntriesFromLockList {
         'README.md'
         'AGENTS.md'
         '.gitignore'
+        'LICENSE'
         'install.cmd'
     )
     Assert-ExactOrderedValues -SourceValues $orderedApprovedEntries -ExpectedValues $expectedApprovedEntries -Label '目录锁定清单顶层批准项'

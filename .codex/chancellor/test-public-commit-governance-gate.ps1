@@ -2069,11 +2069,16 @@ $lockListPath = Join-Path $repoRootPath 'docs/30-方案/02-V4-目录锁定清单
 $originalLockListBytes = [System.IO.File]::ReadAllBytes($lockListPath)
 $lockListLines = Get-Content $lockListPath
 $approvedTopLevelReadmeLineText = 'README.md'
+$approvedTopLevelLicenseLineText = 'LICENSE'
 $approvedTopLevelExportDirectoryLineText = '└─ codex-home-export/'
 $approvedTrackedGateScriptLineText = '.codex/chancellor/invoke-public-commit-governance-gate.ps1'
 
 if ($lockListLines -notcontains $approvedTopLevelReadmeLineText) {
     throw "测试前置条件不满足：$lockListPath 中缺少 $approvedTopLevelReadmeLineText"
+}
+
+if ($lockListLines -notcontains $approvedTopLevelLicenseLineText) {
+    throw "测试前置条件不满足：$lockListPath 中缺少 $approvedTopLevelLicenseLineText"
 }
 
 if ($lockListLines -notcontains $approvedTopLevelExportDirectoryLineText) {
@@ -2092,6 +2097,19 @@ try {
     [System.IO.File]::WriteAllText($lockListPath, $driftedLockListContent, $utf8NoBom)
 
     Invoke-GateForTestCase -Paths @('docs/30-方案/02-V4-目录锁定清单.md') -ExpectedExitCode 1 -TestName 'block-lock-list-approved-root-entry-missing'
+}
+finally {
+    [System.IO.File]::WriteAllBytes($lockListPath, $originalLockListBytes)
+}
+
+try {
+    $driftedLockListLines = @(
+        $lockListLines | Where-Object { $_ -ne $approvedTopLevelLicenseLineText }
+    )
+    $driftedLockListContent = ($driftedLockListLines -join [Environment]::NewLine) + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($lockListPath, $driftedLockListContent, $utf8NoBom)
+
+    Invoke-GateForTestCase -Paths @('docs/30-方案/02-V4-目录锁定清单.md') -ExpectedExitCode 1 -TestName 'block-lock-list-approved-license-missing'
 }
 finally {
     [System.IO.File]::WriteAllBytes($lockListPath, $originalLockListBytes)
