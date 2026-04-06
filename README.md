@@ -33,7 +33,29 @@
 
 ECC 参考链接：
 
-- `Everything Claude Code (ECC)`：<https://github.com/probinger/00-everything-claude-code>
+- `Everything Claude Code (ECC)`：<https://github.com/affaan-m/everything-claude-code>
+
+## 真实功能对比表
+
+| 功能 | 丞相模式 | ECC（真实仓） |
+| --- | --- | --- |
+| 中文单入口 | 有，主入口固定为 `传令：XXXX` | 不是主打；更偏 commands / skills / agents / hooks 组合 |
+| 固定状态感知 | 有；强调版本、检查、模式、当前任务等固定口径 | 不是主打；更偏工程能力包，不强调这类固定中文状态栏 |
+| 交班 / 接班 | 有；公开命令直接可用 | 未见同等公开单命令口径；更偏通过 sessions / workflows / agents 组合解决 |
+| 本机运行态验真 | 有；安装、文件级验真、完整自检是一条链 | 有安装与同步能力，但不是围绕“单机中文面板稳态”设计 |
+| Skills 能力库 | 当前不是主打，走少量高价值补件路线 | 强；README 当前写明 `180 skills` |
+| Agents / 多 Agent | 当前不是主线能力 | 强；README 当前写明 `47 agents`，并提供 `multi-*` workflows |
+| Legacy commands | 当前公开命令刻意收紧，只保留少量固定命令 | 强；README 当前写明 `79 legacy command shims` |
+| Hooks | 当前弱，主要靠显式脚本和真源路由 | 强；README 明确有 hooks 体系 |
+| 跨平台 / 跨 harness | 当前不主打，聚焦官方 `Codex` 面板 | 强；README 明确覆盖 Claude Code、Codex、Cursor、OpenCode、Gemini 等 |
+| 插件 / 安装面 | 当前主打本机稳定安装与固定维护入口 | 强；README 同时提供 plugin 安装、脚本安装和多目标安装 |
+| 大型自动化运行时 | 当前不主打 | 有；README 明确 `multi-*` 还依赖额外 `ccg-workflow` runtime |
+| 产品定位 | 稳定开发控制面 | 大范围工程能力包 |
+
+一句话：
+
+- 丞相模式更像“把 `Codex` 日常开工这条线做稳”。
+- ECC 更像“给多种 agent/harness 提供一整套工程能力包”。
 
 ## 为什么不叫 EC（everything codex）
 
