@@ -77,6 +77,18 @@ cd Codex-Chancellor-Mode
 - `传令：状态`
 - `传令：写一个贪吃蛇小游戏`
 
+## 当前稳定版本与升级建议
+
+- 当前正式稳定版：`CX-202604070169`
+- 已安装机器优先执行：`%USERPROFILE%\.codex\upgrade.cmd` → `%USERPROFILE%\.codex\self-check.cmd`
+- 升级通过标准：
+  - `传令：版本` 显示 `CX-202604070169`
+  - `传令：状态` 显示 `关键文件一致性：一致`
+  - `self-check.cmd` 通过
+- 若机器之前已升到 `CX-202604070168`，但 `self-check.cmd` 在 `传令：交班 / 传令：接班` 冒烟时报 `sync-task-context.ps1` 乱码或语法错误，不是“没重开窗口”，而是该版本在部分 Windows PowerShell 5.1 机器上的编码兼容问题；继续升级到 `CX-202604070169` 即可。
+- 若 `upgrade.cmd` 走不通，或升级到 `CX-202604070169` 后仍失败，直接重新拉最新仓，再执行仓内 `.\\install.cmd`。
+- 不要手动修改 `C:\Users\<你的用户名>\.codex\AGENTS.md`。
+
 ## 命令怎么用
 
 | 命令 | 你怎么说 | 丞相会做什么 | 预期结果 |
@@ -95,6 +107,7 @@ cd Codex-Chancellor-Mode
 - 你不输入 `传令：` 时，仍然可以像平时一样继续提问、继续开发、继续改代码。
 - 默认安装不会静默覆盖你现有 `~/.codex/config.toml` 里的 `provider / model / auth`。
 - 当前仓会把丞相的 `AGENTS.md` 与维护脚本同步到 `~/.codex`，所以它不是“完全零侵入”的空安装。
+- 当前正式口径已经限域：这份全局 `AGENTS.md` 只约束 `丞相模式` 本体仓、`codex-home-export/`、`~/.codex` 运行态目录与维护层脚本；若你正在开发业务项目，应以业务项目自己的 `README.md`、`AGENTS.md` 与工程规范为准。
 - 更准确的说法是：**不会把你的 Codex 用坏，也不会强行接管 provider / model / auth；但这台机器会开始加载丞相的工作口径，所以它不是“完全没装过”的原始状态。**
 
 ## 哪些适合交给 Codex，哪些必须人工做
