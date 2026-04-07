@@ -1,4 +1,4 @@
-param()
+﻿param()
 
 $ErrorActionPreference = 'Stop'
 $scriptRootPath = Split-Path -Parent $MyInvocation.MyCommand.Path

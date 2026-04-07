@@ -1,4 +1,4 @@
-param(
+﻿param(
     [ValidateSet('snapshot', 'write', 'read')]
     [string]$Mode = 'snapshot',
     [string]$RepoRootPath = '',
