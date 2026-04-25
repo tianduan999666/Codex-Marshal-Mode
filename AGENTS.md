@@ -1,3 +1,8 @@
+﻿# 旧线归档说明
+- 当前仓 `Codex-Chancellor-Mode` 已转为旧线归档，不再作为现行安装母体、版本真源或公开入口。
+- 当前现行仓统一为 `https://github.com/tianduan999666/.codex.git`，受管源目录为 `config/chancellor-mode/`，版本真源为 `config/chancellor-mode/VERSION.json`。
+- 若任务针对现行丞相模式，先切到当前 `.codex` 仓，再按该仓 `README.md` 与 `AGENTS.md` 执行。
+
 # 最高优先级强制约束（仅适用于当前仓与丞相自身）
 下列约束只适用于当前 `丞相模式` 本体仓、`codex-home-export/`、`~/.codex` 运行态目录与维护层脚本，不适用于丞相代你开发的业务项目；业务项目应以该项目自己的 `README.md`、`AGENTS.md` 与工程规范为准。
 在上述限定范围内，现行执行真源固定为：`README.md` → `docs/00-导航/02-现行标准件总览.md`；涉及当前仓治理原则时，再按 `docs/reference/01-反屎山AI研发执行总纲（Codex专用浓缩对照版）.md` 执行；涉及目录冻结时，再按 `docs/30-方案/02-V4-目录锁定清单.md` 执行；涉及仓库卫生与命名时，再按 `docs/reference/02-仓库卫生与命名规范.md` 执行。旧“Codex调用固化开头”口径已废弃，不得再作为系统提示词或全局提示词来源。

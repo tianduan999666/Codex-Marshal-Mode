@@ -1,5 +1,11 @@
 # 丞相模式（Chancellor Mode）
 
+> ⚠️ 归档说明（2026-04-25）
+> 本仓 `Codex-Chancellor-Mode` 只保留为旧线归档，不再作为现行安装母体、版本真源或公开入口。
+> 当前现行仓统一为 `https://github.com/tianduan999666/.codex.git`
+> 当前现行受管源目录：`config/chancellor-mode/`
+> 当前现行版本真源：`config/chancellor-mode/VERSION.json`
+
 给官方 `Codex` 面板加一层更稳、更清楚、更适合中文用户的任务入口。
 
 ## 极简概要
@@ -56,13 +62,15 @@
 | 维护入口收口 | 安装、升级、自检、回滚入口固定，不靠临场记忆 |
 | 中文结果更像人话 | 失败提示、状态反馈、下一步动作尽量直说，不让用户自己翻脚本猜 |
 
-## 最短开始
+## 现行安装入口
 
 ```powershell
-git clone https://github.com/tianduan999666/Codex-Chancellor-Mode.git
-cd Codex-Chancellor-Mode
+git clone https://github.com/tianduan999666/.codex.git
+cd .codex
 .\install.cmd
 ```
+
+若你只是回看旧线历史材料，可以继续浏览本仓；若你要安装、升级或对照现行口径，只按上面的现行仓执行。
 
 当前最稳的适用前提：
 
@@ -77,9 +85,9 @@ cd Codex-Chancellor-Mode
 - `传令：状态`
 - `传令：写一个贪吃蛇小游戏`
 
-## 当前稳定版本与升级建议
+## 旧线最后版本（仅归档）
 
-- 当前正式稳定版：`CX-202604070169`
+- 本仓最后一版旧线版本：`CX-202604070169`（截至 `2026-04-07`）
 - 已安装机器优先执行：`%USERPROFILE%\.codex\upgrade.cmd` → `%USERPROFILE%\.codex\self-check.cmd`
 - 升级通过标准：
   - `传令：版本` 显示 `CX-202604070169`
@@ -163,8 +171,9 @@ ECC 参考链接：
 
 ## 真源与说明
 
-- 当前公开真源目录：`codex-home-export/`
-- 当前版本真源：`codex-home-export/VERSION.json`
+- 旧线历史真源目录：`codex-home-export/`
+- 旧线历史版本真源：`codex-home-export/VERSION.json`
+- 当前现行版本真源：`config/chancellor-mode/VERSION.json`（位于 `https://github.com/tianduan999666/.codex.git`）
 - 更多维护说明：`docs/README.md`
 
 ## 公开与许可说明
